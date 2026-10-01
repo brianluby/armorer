@@ -375,3 +375,53 @@ fn missing_installed_toolchain_is_an_error_without_installation() {
     );
     assert!(!root.path().join("Cargo.lock").exists());
 }
+
+#[cfg(unix)]
+#[test]
+fn preserves_rustup_multicall_executable_name() {
+    let root = fixture();
+    let tools = tempfile::tempdir().unwrap();
+    let installed = std::env::split_paths(&std::env::var_os("PATH").unwrap())
+        .map(|directory| directory.join("rustup"))
+        .find(|path| path.is_absolute() && path.is_file())
+        .unwrap();
+    fs::copy(installed, tools.path().join("rustup-init")).unwrap();
+    std::os::unix::fs::symlink("rustup-init", tools.path().join("rustup")).unwrap();
+    let result = Command::new(env!("CARGO_BIN_EXE_armorer"))
+        .env("PATH", tools.path())
+        .args(["--repository", root.path().to_str().unwrap(), "plan"])
+        .output()
+        .unwrap();
+    assert!(
+        result.status.success(),
+        "{}",
+        String::from_utf8_lossy(&result.stdout)
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn rejects_repository_local_executable_on_path() {
+    use std::os::unix::fs::PermissionsExt;
+    let root = fixture();
+    let marker = root.path().join("executed");
+    write(
+        root.path(),
+        "rustup",
+        &format!("#!/bin/sh\ntouch '{}'\nexit 1\n", marker.display()),
+    );
+    fs::set_permissions(
+        root.path().join("rustup"),
+        fs::Permissions::from_mode(0o700),
+    )
+    .unwrap();
+    let result = Command::new(env!("CARGO_BIN_EXE_armorer"))
+        .env("PATH", root.path())
+        .args(["--repository", root.path().to_str().unwrap(), "plan"])
+        .output()
+        .unwrap();
+    assert_eq!(result.status.code(), Some(1));
+    assert!(!marker.exists());
+    let value: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
+    assert_eq!(value["error"]["code"], "cargo-discovery");
+}

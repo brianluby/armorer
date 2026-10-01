@@ -26,10 +26,8 @@ pub enum Error {
     Invalid(String),
     #[error("unsafe or unsupported repository path: {0}")]
     Path(String),
-    #[error(
-        "installed Cargo could not inspect the manifest snapshot; no repository code was built"
-    )]
-    Cargo,
+    #[error("Cargo discovery failed at {0}; no repository code was built")]
+    Cargo(&'static str),
     #[error("unsupported Cargo metadata response")]
     Metadata,
     #[error("JSON serialization failed")]
@@ -43,7 +41,7 @@ impl Error {
             Self::Toml => "invalid-toml",
             Self::Invalid(_) => "invalid-config",
             Self::Path(_) => "unsafe-path",
-            Self::Cargo => "cargo-discovery",
+            Self::Cargo(_) => "cargo-discovery",
             Self::Metadata => "cargo-metadata",
             Self::Json => "json",
         }

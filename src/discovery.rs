@@ -54,7 +54,7 @@ struct MetadataPackage {
 
 // Never execute a binary selected by repository-local PATH entries.
 fn trusted_rustup(root: &Path) -> Result<PathBuf> {
-    let search = std::env::var_os("PATH").ok_or(Error::Cargo)?;
+    let search = std::env::var_os("PATH").ok_or(Error::Cargo("rustup-path"))?;
     for directory in std::env::split_paths(&search) {
         if !directory.is_absolute() {
             continue;
@@ -68,12 +68,12 @@ fn trusted_rustup(root: &Path) -> Result<PathBuf> {
             continue;
         }
         let resolved = candidate.canonicalize()?;
-        if resolved.starts_with(root) {
+        if candidate.starts_with(root) || resolved.starts_with(root) {
             continue;
         }
-        return Ok(resolved);
+        return Ok(candidate);
     }
-    Err(Error::Cargo)
+    Err(Error::Cargo("rustup-path"))
 }
 
 fn relative(root: &Path, path: &Path) -> Result<String> {
@@ -229,28 +229,33 @@ pub fn discover(root: &Path, config: &Config) -> Result<Workspace> {
         .env("RUSTUP_AUTO_INSTALL", "0")
         .stdin(Stdio::null())
         .stderr(Stdio::null());
+    if cfg!(unix) {
+        lookup.env("PATH", "/usr/bin:/bin:/usr/sbin:/sbin");
+    }
     for name in ["HOME", "RUSTUP_HOME", "SYSTEMROOT"] {
         if let Some(value) = std::env::var_os(name) {
             lookup.env(name, value);
         }
     }
-    let installed = lookup.output().map_err(|_| Error::Cargo)?;
+    let installed = lookup
+        .output()
+        .map_err(|_| Error::Cargo("toolchain-lookup"))?;
     if !installed.status.success() {
-        return Err(Error::Cargo);
+        return Err(Error::Cargo("toolchain-lookup"));
     }
     let cargo = PathBuf::from(
         std::str::from_utf8(&installed.stdout)
-            .map_err(|_| Error::Cargo)?
+            .map_err(|_| Error::Cargo("toolchain-lookup"))?
             .trim(),
     )
     .canonicalize()?;
     if cargo.starts_with(&root) {
-        return Err(Error::Cargo);
+        return Err(Error::Cargo("toolchain-path"));
     }
-    let bin = cargo.parent().ok_or(Error::Cargo)?;
+    let bin = cargo.parent().ok_or(Error::Cargo("toolchain-path"))?;
     let rustc = bin.join(if cfg!(windows) { "rustc.exe" } else { "rustc" });
     if !rustc.is_file() {
-        return Err(Error::Cargo);
+        return Err(Error::Cargo("compiler-path"));
     }
     let mut command = Command::new(&cargo);
     command
@@ -270,17 +275,30 @@ pub fn discover(root: &Path, config: &Config) -> Result<Workspace> {
         .stdout(stdout)
         .stderr(Stdio::null())
         .stdin(Stdio::null());
+    if cfg!(unix) {
+        let system_path = std::env::join_paths([
+            bin,
+            Path::new("/usr/bin"),
+            Path::new("/bin"),
+            Path::new("/usr/sbin"),
+            Path::new("/sbin"),
+        ])
+        .map_err(|_| Error::Cargo("toolchain-path"))?;
+        command.env("PATH", system_path);
+    }
     for name in ["HOME", "RUSTUP_HOME", "SYSTEMROOT"] {
         if let Some(value) = std::env::var_os(name) {
             command.env(name, value);
         }
     }
-    let mut child = command.spawn().map_err(|_| Error::Cargo)?;
+    let mut child = command
+        .spawn()
+        .map_err(|_| Error::Cargo("metadata-spawn"))?;
     let started = Instant::now();
     loop {
         if let Some(status) = child.try_wait()? {
             if !status.success() {
-                return Err(Error::Cargo);
+                return Err(Error::Cargo("metadata-exit"));
             }
             break;
         }
@@ -289,7 +307,7 @@ pub fn discover(root: &Path, config: &Config) -> Result<Workspace> {
         {
             let _ = child.kill();
             let _ = child.wait();
-            return Err(Error::Cargo);
+            return Err(Error::Cargo("metadata-limit"));
         }
         std::thread::sleep(Duration::from_millis(10));
     }
