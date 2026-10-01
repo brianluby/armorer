@@ -1,0 +1,9 @@
+schema_version = 1
+config_sha256 = "2f00db679511a241e1a5a98a8924fae6d7337ff4c142af03507034399ea460ae"
+runtime_version = "0.1.0"
+[workflows]
+repository = "fixture/workflows"
+commit = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+[tools.cargo-cyclonedx]
+version = "0.5.9"
+sha256 = "ccedb77b75f58b86e730f1918d6f152661e2911bf02b8ca8b6f84315a3e21b5e"

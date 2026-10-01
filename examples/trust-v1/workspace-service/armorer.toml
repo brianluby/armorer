@@ -1,0 +1,16 @@
+schema_version = 1
+repository = "fixture/project"
+toolchain = "1.95.0"
+[[deliverables]]
+id = "app"
+profile = "service"
+package = "app"
+binary = "app"
+targets = ["aarch64-unknown-linux-gnu"]
+feature_set = "minimal"
+[feature_sets.minimal]
+default_features = false
+features = []
+[policy]
+license_file = "LICENSE"
+attestations = "required"

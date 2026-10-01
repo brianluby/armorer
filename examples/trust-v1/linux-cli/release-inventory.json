@@ -1,0 +1,170 @@
+{
+  "schema_version": 1,
+  "inputs": {
+    "source": {
+      "repository": "fixture/project",
+      "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "git_ref": "refs/tags/v1.0.0"
+    },
+    "config_sha256": "2f00db679511a241e1a5a98a8924fae6d7337ff4c142af03507034399ea460ae",
+    "lock_sha256": "f03bd6842bab357ae7d42353c51d5471072341208f798773103220e422910d12",
+    "cargo_lock_sha256": "db5d308a33a980316833c4516fed7ce2b94b41fa2cd779ada3211ccd2670eb7d",
+    "runtime": {
+      "sha256": "d50fa1b5c9299e5f5b8ecd359ee4c479446017f0a82a02d7766d15ae225da36e",
+      "size": 17
+    },
+    "runtime_version": "0.1.0",
+    "run": {
+      "id": 12,
+      "attempt": 1,
+      "workflow": {
+        "repository": "fixture/workflows",
+        "path": ".github/workflows/release.yml",
+        "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    }
+  },
+  "assets": [
+    {
+      "name": "app--x86_64-unknown-linux-gnu--minimal.tar.gz",
+      "role": "distributable",
+      "bytes": {
+        "sha256": "15f60c0523a37b0c50c283d061452e342b204058b9a159f0da6eb00dae4f7ffb",
+        "size": 53
+      },
+      "subjects": [],
+      "predicate": null,
+      "predicate_asset": null
+    },
+    {
+      "name": "app--x86_64-unknown-linux-gnu--minimal.cdx.json",
+      "role": "cargo-sbom",
+      "bytes": {
+        "sha256": "df5101512b41c5eb979edfdc980315972854e0455f9c0171ee3859c90d71422a",
+        "size": 55
+      },
+      "subjects": [
+        "app--x86_64-unknown-linux-gnu--minimal.tar.gz"
+      ],
+      "predicate": null,
+      "predicate_asset": null
+    },
+    {
+      "name": "app--x86_64-unknown-linux-gnu--minimal.cdx.json.provenance.sigstore.json",
+      "role": "attestation-bundle",
+      "bytes": {
+        "sha256": "86cdc421e8a81086240d649fdf8e614f35c893d2ccd7c4e7af9ef0c79c42e2f5",
+        "size": 80
+      },
+      "subjects": [
+        "app--x86_64-unknown-linux-gnu--minimal.cdx.json"
+      ],
+      "predicate": "https://slsa.dev/provenance/v1",
+      "predicate_asset": null
+    },
+    {
+      "name": "app--x86_64-unknown-linux-gnu--minimal.cargo-graph.json",
+      "role": "cargo-graph",
+      "bytes": {
+        "sha256": "9cc451c98a03c12b8c9b40ea4274be4dbd1d583cea14d84f6c3431eb300c5dff",
+        "size": 63
+      },
+      "subjects": [
+        "app--x86_64-unknown-linux-gnu--minimal.tar.gz"
+      ],
+      "predicate": null,
+      "predicate_asset": null
+    },
+    {
+      "name": "app--x86_64-unknown-linux-gnu--minimal.cargo-graph.json.provenance.sigstore.json",
+      "role": "attestation-bundle",
+      "bytes": {
+        "sha256": "f5fb770145c2d73226b9a4389017234b544785e08bcbb9270fdb18a36757182f",
+        "size": 88
+      },
+      "subjects": [
+        "app--x86_64-unknown-linux-gnu--minimal.cargo-graph.json"
+      ],
+      "predicate": "https://slsa.dev/provenance/v1",
+      "predicate_asset": null
+    },
+    {
+      "name": "app--x86_64-unknown-linux-gnu--minimal.build.json",
+      "role": "build-evidence",
+      "bytes": {
+        "sha256": "e132cb951d2d891b2091dd891109432e02ace882e8ff03caac7300668c894e15",
+        "size": 57
+      },
+      "subjects": [
+        "app--x86_64-unknown-linux-gnu--minimal.tar.gz"
+      ],
+      "predicate": null,
+      "predicate_asset": null
+    },
+    {
+      "name": "app--x86_64-unknown-linux-gnu--minimal.build.json.provenance.sigstore.json",
+      "role": "attestation-bundle",
+      "bytes": {
+        "sha256": "8592182f59fd4fa185b0d42d5efb8f520cc9b67d7e9a3e1854b003e7e75058bc",
+        "size": 82
+      },
+      "subjects": [
+        "app--x86_64-unknown-linux-gnu--minimal.build.json"
+      ],
+      "predicate": "https://slsa.dev/provenance/v1",
+      "predicate_asset": null
+    },
+    {
+      "name": "app--x86_64-unknown-linux-gnu--minimal.package.json",
+      "role": "package-evidence",
+      "bytes": {
+        "sha256": "fff5eb44aa3934ad2e7586bb55b7c807e1bf04df87b32d83b3b2855d7e091890",
+        "size": 59
+      },
+      "subjects": [
+        "app--x86_64-unknown-linux-gnu--minimal.tar.gz"
+      ],
+      "predicate": null,
+      "predicate_asset": null
+    },
+    {
+      "name": "app--x86_64-unknown-linux-gnu--minimal.package.json.provenance.sigstore.json",
+      "role": "attestation-bundle",
+      "bytes": {
+        "sha256": "0fc6967bf98521c755e045c550490bdd63eae7bb5445e7dac3529b2a5f99798e",
+        "size": 84
+      },
+      "subjects": [
+        "app--x86_64-unknown-linux-gnu--minimal.package.json"
+      ],
+      "predicate": "https://slsa.dev/provenance/v1",
+      "predicate_asset": null
+    },
+    {
+      "name": "app--x86_64-unknown-linux-gnu--minimal.tar.gz.provenance.sigstore.json",
+      "role": "attestation-bundle",
+      "bytes": {
+        "sha256": "a1aedc6081d117f9ba60bf8b9944b81a63cf19b8f9c59512f8e0dee1f45070c8",
+        "size": 78
+      },
+      "subjects": [
+        "app--x86_64-unknown-linux-gnu--minimal.tar.gz"
+      ],
+      "predicate": "https://slsa.dev/provenance/v1",
+      "predicate_asset": null
+    },
+    {
+      "name": "app--x86_64-unknown-linux-gnu--minimal.tar.gz.sbom.sigstore.json",
+      "role": "attestation-bundle",
+      "bytes": {
+        "sha256": "f5fa35f622a13452d981396e39d15391643e8e54857c86dc5fede1dae0835005",
+        "size": 72
+      },
+      "subjects": [
+        "app--x86_64-unknown-linux-gnu--minimal.tar.gz"
+      ],
+      "predicate": "https://cyclonedx.org/bom",
+      "predicate_asset": "app--x86_64-unknown-linux-gnu--minimal.cdx.json"
+    }
+  ]
+}

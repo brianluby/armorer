@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "publish_set": {
+    "sha256": "72fe89e7451b7c131fc2dbebd53390317ec2f2c94fd867165d52516393fabf72",
+    "size": 1033
+  },
+  "registry": "crates-io",
+  "recorded_at": 1790870400,
+  "crates": [
+    {
+      "name": "core",
+      "version": "1.0.0",
+      "state": "prepared",
+      "registry_bytes": null,
+      "index_sha256": null,
+      "observation": null,
+      "conflict": null
+    },
+    {
+      "name": "app",
+      "version": "1.0.0",
+      "state": "prepared",
+      "registry_bytes": null,
+      "index_sha256": null,
+      "observation": null,
+      "conflict": null
+    }
+  ]
+}

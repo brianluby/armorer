@@ -1,0 +1,97 @@
+{
+  "mode": "release",
+  "schema_version": 1,
+  "repository": "fixture/project",
+  "sources": [
+    {
+      "repository": "fixture/project",
+      "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "git_ref": "refs/tags/v1.0.0"
+    }
+  ],
+  "signers": [
+    {
+      "predicate": "https://slsa.dev/provenance/v1",
+      "workflow": {
+        "repository": "fixture/workflows",
+        "path": ".github/workflows/release.yml",
+        "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "scope": "final-artifact"
+    },
+    {
+      "predicate": "https://slsa.dev/provenance/v1",
+      "workflow": {
+        "repository": "fixture/workflows",
+        "path": ".github/workflows/release.yml",
+        "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "scope": "cargo-sbom-file"
+    },
+    {
+      "predicate": "https://cyclonedx.org/bom",
+      "workflow": {
+        "repository": "fixture/workflows",
+        "path": ".github/workflows/release.yml",
+        "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "scope": "sbom-predicate"
+    },
+    {
+      "predicate": "https://slsa.dev/provenance/v1",
+      "workflow": {
+        "repository": "fixture/workflows",
+        "path": ".github/workflows/release.yml",
+        "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "scope": "evidence-file"
+    },
+    {
+      "predicate": "https://slsa.dev/provenance/v1",
+      "workflow": {
+        "repository": "fixture/workflows",
+        "path": ".github/workflows/release.yml",
+        "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "scope": "inventory"
+    }
+  ],
+  "roots": {
+    "backend": "sigstore-public-good",
+    "trusted_root": {
+      "sha256": "1805f074e54831d0a7070d3b095767c7e009ea4ece0790dd77682c66579ce553",
+      "size": 15
+    },
+    "verifier": {
+      "sha256": "d628d568ea9f5a3783e1f019792727ca1cf3d8aeb4709436bf662cff2023326f",
+      "size": 18
+    },
+    "verifier_version": "2.102.0",
+    "review": {
+      "owner": "fixture-reviewer",
+      "rationale": "Synthetic contract example only",
+      "reviewed_at": 1790870300,
+      "expires_at": 1790956800,
+      "record": {
+        "sha256": "770a16aed54d5e374d972847792f06af668bd9e28eef33b477782bfb163076f3",
+        "size": 23
+      }
+    }
+  },
+  "deny_self_hosted_runners": true,
+  "supplemental_assets": {
+    "diagnostic": false
+  },
+  "apple_team": "ABCDEFGHIJ",
+  "historical": [],
+  "review": {
+    "owner": "fixture-reviewer",
+    "rationale": "Synthetic contract example only",
+    "reviewed_at": 1790870300,
+    "expires_at": 1790956800,
+    "record": {
+      "sha256": "770a16aed54d5e374d972847792f06af668bd9e28eef33b477782bfb163076f3",
+      "size": 23
+    }
+  }
+}

@@ -43,9 +43,12 @@ jobs:
         run: cargo build --locked
       - name: Verify committed schemas
         run: |
-          target/debug/armorer schema config > /tmp/armorer-config.json
-          target/debug/armorer schema lock > /tmp/armorer-lock.json
-          target/debug/armorer schema plan > /tmp/armorer-plan.json
-          diff -u schemas/config-v1.json /tmp/armorer-config.json
-          diff -u schemas/lock-v1.json /tmp/armorer-lock.json
-          diff -u schemas/plan-v1.json /tmp/armorer-plan.json
+          for kind in config lock plan release-inventory verification-policy artifact-evidence evidence-requirements capability-config catalog capability-observation lifecycle-record github-receipt publish-set registry-receipt; do
+            target/debug/armorer schema "$kind" > "/tmp/armorer-$kind.json"
+            diff -u "schemas/$kind-v1.json" "/tmp/armorer-$kind.json"
+          done
+      - name: Independently validate example schemas
+        run: |
+          python3 -m venv /tmp/armorer-schema-venv
+          /tmp/armorer-schema-venv/bin/python -m pip install --require-hashes --only-binary=:all: -r requirements-schema.txt
+          /tmp/armorer-schema-venv/bin/python scripts/validate-contract-examples.py

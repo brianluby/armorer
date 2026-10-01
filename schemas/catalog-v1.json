@@ -1,0 +1,223 @@
+{
+  "$defs": {
+    "Adapter": {
+      "additionalProperties": false,
+      "properties": {
+        "capability": {
+          "$ref": "#/$defs/CapabilityId"
+        },
+        "config_versions": {
+          "items": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "id": {
+          "$ref": "#/$defs/AdapterId"
+        },
+        "pins": {
+          "items": {
+            "$ref": "#/$defs/CatalogPin"
+          },
+          "type": "array"
+        },
+        "review": {
+          "$ref": "#/$defs/Review"
+        },
+        "runtime_versions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "workflow": {
+          "$ref": "#/$defs/WorkflowIdentity"
+        }
+      },
+      "required": [
+        "id",
+        "capability",
+        "config_versions",
+        "runtime_versions",
+        "workflow",
+        "pins",
+        "review"
+      ],
+      "type": "object"
+    },
+    "AdapterId": {
+      "enum": [
+        "rust-native",
+        "apple-native",
+        "cargo-cyclonedx",
+        "github-sigstore",
+        "codeql",
+        "cargo-vet",
+        "cargo-auditable",
+        "syft",
+        "harden-runner",
+        "independent-rebuild",
+        "scorecard",
+        "dist-build-only",
+        "crates-io"
+      ],
+      "type": "string"
+    },
+    "ByteIdentity": {
+      "additionalProperties": false,
+      "description": "An exact byte identity, independent of a filename or producer claim.",
+      "properties": {
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size": {
+          "format": "uint64",
+          "maximum": 1073741824,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sha256",
+        "size"
+      ],
+      "type": "object"
+    },
+    "CapabilityId": {
+      "enum": [
+        "platform-attestations",
+        "immutable-releases",
+        "protected-tags",
+        "protected-publish-environment",
+        "protected-signing-environment",
+        "apple-signing",
+        "cargo-sbom",
+        "dependency-policy",
+        "codeql",
+        "cargo-vet",
+        "embedded-metadata",
+        "native-sbom",
+        "linux-egress",
+        "independent-rebuild",
+        "scorecard",
+        "dist-build",
+        "registry-publish"
+      ],
+      "type": "string"
+    },
+    "CatalogPin": {
+      "additionalProperties": false,
+      "description": "Catalog pins include tools/actions/helpers/databases/query packs/schemas/policies.\nLocations are fixed by the reviewed adapter implementation, never caller URLs.",
+      "properties": {
+        "authentication_record": {
+          "$ref": "#/$defs/ByteIdentity"
+        },
+        "distribution": {
+          "$ref": "#/$defs/ByteIdentity"
+        },
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "distribution",
+        "authentication_record"
+      ],
+      "type": "object"
+    },
+    "Review": {
+      "additionalProperties": false,
+      "description": "Review records bind a policy decision; their contents do not prove review occurred.",
+      "properties": {
+        "expires_at": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "owner": {
+          "type": "string"
+        },
+        "rationale": {
+          "type": "string"
+        },
+        "record": {
+          "$ref": "#/$defs/ByteIdentity"
+        },
+        "reviewed_at": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "owner",
+        "rationale",
+        "reviewed_at",
+        "expires_at",
+        "record"
+      ],
+      "type": "object"
+    },
+    "WorkflowIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "commit": {
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "repository": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "repository",
+        "path",
+        "commit"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "adapters": {
+      "items": {
+        "$ref": "#/$defs/Adapter"
+      },
+      "type": "array"
+    },
+    "previous_catalog": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ByteIdentity"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "schema_version": {
+      "format": "uint32",
+      "maximum": 1,
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schema_version",
+    "adapters"
+  ],
+  "title": "Catalog",
+  "type": "object"
+}

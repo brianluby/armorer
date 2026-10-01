@@ -1,0 +1,145 @@
+{
+  "schema_version": 1,
+  "inputs": {
+    "source": {
+      "repository": "fixture/project",
+      "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "git_ref": "refs/tags/v1.0.0"
+    },
+    "config_sha256": "2f00db679511a241e1a5a98a8924fae6d7337ff4c142af03507034399ea460ae",
+    "lock_sha256": "f03bd6842bab357ae7d42353c51d5471072341208f798773103220e422910d12",
+    "cargo_lock_sha256": "db5d308a33a980316833c4516fed7ce2b94b41fa2cd779ada3211ccd2670eb7d",
+    "runtime": {
+      "sha256": "d50fa1b5c9299e5f5b8ecd359ee4c479446017f0a82a02d7766d15ae225da36e",
+      "size": 17
+    },
+    "runtime_version": "0.1.0",
+    "run": {
+      "id": 12,
+      "attempt": 1,
+      "workflow": {
+        "repository": "fixture/workflows",
+        "path": ".github/workflows/release.yml",
+        "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    }
+  },
+  "selection": {
+    "deliverable_id": "app",
+    "profile": "cli",
+    "package": "app",
+    "package_version": "1.0.0",
+    "binary": "app",
+    "target": "x86_64-unknown-linux-gnu",
+    "feature_set": "minimal",
+    "default_features": false,
+    "features": [],
+    "toolchain": "1.95.0"
+  },
+  "catalog": {
+    "sha256": "7a5439c86ab71fe88826be99cff78bd22545bbde22a2a1c9554a458717edaccd",
+    "size": 1188
+  },
+  "runner_label": "ubuntu-24.04",
+  "runner_image": "synthetic-hosted-image",
+  "recorded_at": 1790870400,
+  "tools": [
+    {
+      "name": "cargo-cyclonedx",
+      "kind": "tool",
+      "version": "0.5.9",
+      "bytes": {
+        "sha256": "ccedb77b75f58b86e730f1918d6f152661e2911bf02b8ca8b6f84315a3e21b5e",
+        "size": 24
+      },
+      "authentication_record": {
+        "sha256": "ebe75d7f2013f4ec5f5efa29945cf7f36aa4a12ec039ff10aca38a1d7c40bd25",
+        "size": 29
+      },
+      "observed_at": 1790870320,
+      "max_age_seconds": null
+    }
+  ],
+  "coverage": [
+    {
+      "capability": "cargo-sbom",
+      "scope": "compiled-cargo-target-and-host-build-dependencies",
+      "tested_subject": {
+        "sha256": "15f60c0523a37b0c50c283d061452e342b204058b9a159f0da6eb00dae4f7ffb",
+        "size": 53
+      },
+      "omissions": [
+        "native/system/downloaded dependencies are not fully inventoried"
+      ],
+      "outcome": "passed",
+      "enforcement": "enforced",
+      "exception_ids": []
+    }
+  ],
+  "exceptions": [],
+  "steps": [
+    {
+      "kind": "build",
+      "inputs": [
+        {
+          "sha256": "ba8df55a7d5c3de90cea83d89ad4612cce846e63ca23bcebce761ba2b97598ba",
+          "size": 25
+        }
+      ],
+      "output": {
+        "sha256": "ca5c52a3031cb73a4f317471e7e83169d10a97b13785841e62aa8d51e9c0f196",
+        "size": 15
+      },
+      "run": {
+        "id": 12,
+        "attempt": 1,
+        "workflow": {
+          "repository": "fixture/workflows",
+          "path": ".github/workflows/release.yml",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      },
+      "started_at": 1790870340,
+      "finished_at": 1790870345,
+      "outcome": "passed",
+      "platform_evidence": [
+        {
+          "sha256": "1b4a84a4afe0a69ff967584aeae211e36e6ec0c2c0fb975df0744eb67661917c",
+          "size": 35
+        }
+      ]
+    },
+    {
+      "kind": "package",
+      "inputs": [
+        {
+          "sha256": "ca5c52a3031cb73a4f317471e7e83169d10a97b13785841e62aa8d51e9c0f196",
+          "size": 15
+        }
+      ],
+      "output": {
+        "sha256": "15f60c0523a37b0c50c283d061452e342b204058b9a159f0da6eb00dae4f7ffb",
+        "size": 53
+      },
+      "run": {
+        "id": 12,
+        "attempt": 1,
+        "workflow": {
+          "repository": "fixture/workflows",
+          "path": ".github/workflows/release.yml",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      },
+      "started_at": 1790870350,
+      "finished_at": 1790870355,
+      "outcome": "passed",
+      "platform_evidence": [
+        {
+          "sha256": "1471629f1c30cc0b2923bacf8a5a88b1292810e98e0b15a087ad306b6c19253e",
+          "size": 37
+        }
+      ]
+    }
+  ],
+  "apple_assertions": null
+}

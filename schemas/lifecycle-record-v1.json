@@ -1,0 +1,187 @@
+{
+  "$defs": {
+    "ByteIdentity": {
+      "additionalProperties": false,
+      "description": "An exact byte identity, independent of a filename or producer claim.",
+      "properties": {
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size": {
+          "format": "uint64",
+          "maximum": 1073741824,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sha256",
+        "size"
+      ],
+      "type": "object"
+    },
+    "InputIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "cargo_lock_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "config_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "lock_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "run": {
+          "$ref": "#/$defs/RunIdentity"
+        },
+        "runtime": {
+          "$ref": "#/$defs/ByteIdentity"
+        },
+        "runtime_version": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/Source"
+        }
+      },
+      "required": [
+        "source",
+        "config_sha256",
+        "lock_sha256",
+        "cargo_lock_sha256",
+        "runtime",
+        "runtime_version",
+        "run"
+      ],
+      "type": "object"
+    },
+    "LifecycleStage": {
+      "enum": [
+        "configured",
+        "ci-verified",
+        "release-rehearsed",
+        "published",
+        "provenance-verified"
+      ],
+      "type": "string"
+    },
+    "RunIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "attempt": {
+          "format": "uint64",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "id": {
+          "format": "uint64",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "workflow": {
+          "$ref": "#/$defs/WorkflowIdentity"
+        }
+      },
+      "required": [
+        "id",
+        "attempt",
+        "workflow"
+      ],
+      "type": "object"
+    },
+    "Source": {
+      "additionalProperties": false,
+      "properties": {
+        "commit": {
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
+        "git_ref": {
+          "type": "string"
+        },
+        "repository": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "repository",
+        "commit",
+        "git_ref"
+      ],
+      "type": "object"
+    },
+    "WorkflowIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "commit": {
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "repository": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "repository",
+        "path",
+        "commit"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "evidence": {
+      "items": {
+        "$ref": "#/$defs/ByteIdentity"
+      },
+      "type": "array"
+    },
+    "inputs": {
+      "$ref": "#/$defs/InputIdentity"
+    },
+    "limitations": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "policy": {
+      "$ref": "#/$defs/ByteIdentity"
+    },
+    "recorded_at": {
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema_version": {
+      "format": "uint32",
+      "maximum": 1,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "stage": {
+      "$ref": "#/$defs/LifecycleStage"
+    }
+  },
+  "required": [
+    "schema_version",
+    "inputs",
+    "stage",
+    "policy",
+    "recorded_at",
+    "evidence",
+    "limitations"
+  ],
+  "title": "LifecycleRecord",
+  "type": "object"
+}

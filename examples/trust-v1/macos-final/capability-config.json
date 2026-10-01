@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "config_sha256": "c360e8da9372ed4473d153d0513127ddf8cfdb57af10bf54a0a962ea7fc7f5f0",
+  "catalog": {
+    "sha256": "7a5439c86ab71fe88826be99cff78bd22545bbde22a2a1c9554a458717edaccd",
+    "size": 1188
+  },
+  "decisions": {
+    "platform-attestations": "required",
+    "immutable-releases": "required",
+    "protected-tags": "required",
+    "protected-publish-environment": "required",
+    "cargo-sbom": "required",
+    "dependency-policy": "required",
+    "apple-signing": "required",
+    "protected-signing-environment": "required"
+  },
+  "review": {
+    "owner": "fixture-reviewer",
+    "rationale": "Synthetic contract example only",
+    "reviewed_at": 1790870300,
+    "expires_at": 1790956800,
+    "record": {
+      "sha256": "770a16aed54d5e374d972847792f06af668bd9e28eef33b477782bfb163076f3",
+      "size": 23
+    }
+  }
+}

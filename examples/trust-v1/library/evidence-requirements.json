@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "inputs": {
+    "source": {
+      "repository": "fixture/project",
+      "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "git_ref": "refs/tags/v1.0.0"
+    },
+    "config_sha256": "5c98224d7cef972a6547c9bef3043d399104b8fdda5cc953730c83fd345e6796",
+    "lock_sha256": "9fa4b825c39715d8613937f9a010fcd860fe8a0186bfcc1060c3b795dbbff247",
+    "cargo_lock_sha256": "db5d308a33a980316833c4516fed7ce2b94b41fa2cd779ada3211ccd2670eb7d",
+    "runtime": {
+      "sha256": "d50fa1b5c9299e5f5b8ecd359ee4c479446017f0a82a02d7766d15ae225da36e",
+      "size": 17
+    },
+    "runtime_version": "0.1.0",
+    "run": {
+      "id": 12,
+      "attempt": 1,
+      "workflow": {
+        "repository": "fixture/workflows",
+        "path": ".github/workflows/release.yml",
+        "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    }
+  },
+  "selection": {
+    "deliverable_id": "app",
+    "profile": "library",
+    "package": "app",
+    "package_version": "1.0.0",
+    "binary": null,
+    "target": "x86_64-unknown-linux-gnu",
+    "feature_set": "minimal",
+    "default_features": false,
+    "features": [],
+    "toolchain": "1.95.0"
+  },
+  "catalog": {
+    "sha256": "7a5439c86ab71fe88826be99cff78bd22545bbde22a2a1c9554a458717edaccd",
+    "size": 1188
+  },
+  "max_age_seconds": 3600,
+  "steps": {
+    "build": {
+      "repository": "fixture/workflows",
+      "path": ".github/workflows/release.yml",
+      "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "package": {
+      "repository": "fixture/workflows",
+      "path": ".github/workflows/release.yml",
+      "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  },
+  "tools": [
+    {
+      "name": "cargo-cyclonedx",
+      "kind": "tool",
+      "version": "0.5.9",
+      "bytes": {
+        "sha256": "ccedb77b75f58b86e730f1918d6f152661e2911bf02b8ca8b6f84315a3e21b5e",
+        "size": 24
+      },
+      "authentication_record": {
+        "sha256": "ebe75d7f2013f4ec5f5efa29945cf7f36aa4a12ec039ff10aca38a1d7c40bd25",
+        "size": 29
+      },
+      "observed_at": 1790870320,
+      "max_age_seconds": null
+    }
+  ],
+  "required_coverage": [
+    {
+      "capability": "cargo-sbom",
+      "scope": "compiled-cargo-target-and-host-build-dependencies",
+      "tested_subject": {
+        "sha256": "ea1f6066b6ca4cdb1b064550eb6682403f2ad2bd484633505d21090fea727439",
+        "size": 52
+      },
+      "omissions": [
+        "native/system/downloaded dependencies are not fully inventoried"
+      ],
+      "outcome": "passed",
+      "enforcement": "enforced",
+      "exception_ids": []
+    }
+  ],
+  "allowed_exceptions": [],
+  "apple_team": null,
+  "review": {
+    "owner": "fixture-reviewer",
+    "rationale": "Synthetic contract example only",
+    "reviewed_at": 1790870300,
+    "expires_at": 1790956800,
+    "record": {
+      "sha256": "770a16aed54d5e374d972847792f06af668bd9e28eef33b477782bfb163076f3",
+      "size": 23
+    }
+  }
+}

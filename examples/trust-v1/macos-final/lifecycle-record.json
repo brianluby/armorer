@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "inputs": {
+    "source": {
+      "repository": "fixture/project",
+      "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "git_ref": "refs/tags/v1.0.0"
+    },
+    "config_sha256": "c360e8da9372ed4473d153d0513127ddf8cfdb57af10bf54a0a962ea7fc7f5f0",
+    "lock_sha256": "d2b6264ec98416cf7bf3fcfcf1df7a2d1e9b06bb37c67109f02dca55ff90895e",
+    "cargo_lock_sha256": "db5d308a33a980316833c4516fed7ce2b94b41fa2cd779ada3211ccd2670eb7d",
+    "runtime": {
+      "sha256": "d50fa1b5c9299e5f5b8ecd359ee4c479446017f0a82a02d7766d15ae225da36e",
+      "size": 17
+    },
+    "runtime_version": "0.1.0",
+    "run": {
+      "id": 12,
+      "attempt": 1,
+      "workflow": {
+        "repository": "fixture/workflows",
+        "path": ".github/workflows/release.yml",
+        "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    }
+  },
+  "stage": "configured",
+  "policy": {
+    "sha256": "4519f8e4cb3132c277c75f79dd82463c8924100abce540025c4d3680fc1b6bd4",
+    "size": 2743
+  },
+  "recorded_at": 1790870400,
+  "evidence": [
+    {
+      "sha256": "f9e52c058efb1e2d3f3fd09f3286901725204c007170da4f103c1c70e8f13f33",
+      "size": 31
+    }
+  ],
+  "limitations": [
+    "No hosted or authenticated evidence"
+  ]
+}
