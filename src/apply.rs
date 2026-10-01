@@ -395,7 +395,19 @@ fn apply_inner(
     root: &Path,
     plan: &Plan,
     expected: &str,
+    after_write: impl FnMut(usize) -> Result<()>,
+) -> Result<Receipt> {
+    apply_transaction(root, plan, expected, after_write, |root, bytes| {
+        replace(root, JOURNAL, bytes, false)
+    })
+}
+
+fn apply_transaction(
+    root: &Path,
+    plan: &Plan,
+    expected: &str,
     mut after_write: impl FnMut(usize) -> Result<()>,
+    commit_marker: impl FnOnce(&Path, &[u8]) -> Result<()>,
 ) -> Result<Receipt> {
     validate_plan(plan, expected)?;
     if plan
@@ -514,8 +526,6 @@ fn apply_inner(
             )?;
             after_write(index)?;
         }
-        journal.committed = true;
-        replace(&root, JOURNAL, &json(&journal)?, false)?;
         Ok(())
     })();
     if let Err(error) = result {
@@ -525,6 +535,17 @@ fn apply_inner(
             ));
         }
         return Err(error);
+    }
+    journal.committed = true;
+    if json(&journal)
+        .and_then(|bytes| commit_marker(&root, &bytes))
+        .is_err()
+    {
+        // The marker may have persisted before directory sync failed. Both
+        // journal states remain recoverable while every target holds after bytes.
+        return Err(Error::Transaction(
+            "commit marker write failed and recovery is required; journal preserved",
+        ));
     }
     remove_journal(&root)?;
     Ok(receipt(plan, "applied", true))
@@ -787,6 +808,68 @@ mod tests {
                 .unwrap()
                 .outcome,
             "unchanged"
+        );
+    }
+
+    #[test]
+    fn commit_marker_failure_before_persist_is_recoverable() {
+        assert_commit_marker_failure_is_recoverable(false);
+    }
+
+    #[test]
+    fn commit_marker_failure_after_persist_is_recoverable() {
+        assert_commit_marker_failure_is_recoverable(true);
+    }
+
+    fn assert_commit_marker_failure_is_recoverable(persisted: bool) {
+        let root = fixture();
+        let plan = inspect(root.path(), "plan").unwrap();
+        let error = apply_transaction(
+            root.path(),
+            &plan,
+            &plan.plan_sha256,
+            |_| Ok(()),
+            |root, bytes| {
+                if persisted {
+                    replace(root, JOURNAL, bytes, false)?;
+                }
+                Err(std::io::Error::other("injected commit marker I/O failure").into())
+            },
+        )
+        .unwrap_err();
+        assert_eq!(
+            optional_bytes(root.path(), TOOLCHAIN).unwrap().as_deref(),
+            Some(plan.changes[0].proposed_content.as_bytes()),
+            "persisted={persisted}: commit marker failure must not roll back"
+        );
+        assert!(error.to_string().contains("recovery is required"));
+        let journal: Journal = decode(&fs::read(root.path().join(JOURNAL)).unwrap()).unwrap();
+        assert_eq!(journal.committed, persisted);
+        for operation in &journal.operations {
+            assert_eq!(
+                fs::read(root.path().join(&operation.path)).unwrap(),
+                operation.after.as_bytes()
+            );
+        }
+        assert!(apply(root.path(), &plan, &plan.plan_sha256).is_err());
+        let receipt = recover(root.path(), &plan.plan_sha256).unwrap();
+        assert_eq!(
+            receipt.outcome,
+            if persisted {
+                "commit-recovered"
+            } else {
+                "rolled-back"
+            }
+        );
+        assert_eq!(receipt.toolchain_configured, persisted);
+        assert!(!root.path().join(JOURNAL).exists());
+        assert_eq!(root.path().join(TOOLCHAIN).exists(), persisted);
+        assert_eq!(root.path().join(STATE).exists(), persisted);
+        assert_eq!(
+            apply(root.path(), &plan, &plan.plan_sha256)
+                .unwrap()
+                .outcome,
+            if persisted { "unchanged" } else { "applied" }
         );
     }
 
