@@ -21,8 +21,9 @@ See [onboarding and boundaries](docs/onboarding.md), [reviewed apply and recover
 - [Architecture](ARCHITECTURE.md): Rust CLI, separately versioned trusted workflows, TOML configuration, preservation of customization, final-byte evidence and independent verification.
 - [Implementation plan](IMPLEMENTATION_PLAN.md): reviewable slices, owners, estimates, failure tests, pilot adoption and decisions.
 - [Research](RESEARCH.md): primary-source capabilities and additional supply-chain tooling.
+- [Supply-chain assessment](docs/supply-chain-assessment.md): prioritized optional defenses, eligibility/maintenance policy, bounded dist and crates.io adapters, and inputs to the release contracts ([ADR 0005](docs/adr/0005-additional-defenses-and-adapters.md), proposed for review).
 - [Accepted design ADRs](docs/adr/0001-repositories-language-and-configuration.md): repository/language/configuration, [attestations and claims](docs/adr/0002-platform-attestations-and-level-claims.md), and [publication/migration](docs/adr/0003-fail-closed-publication-and-migration.md).
-- [Veans epic #1](https://kanban.luby.us/tasks/1304): fifteen scoped child tickets on [project 16](https://kanban.luby.us/projects/16/61).
+- [Veans epic #1](https://kanban.luby.us/tasks/1304): scoped baseline and optional follow-up tickets on [project 16](https://kanban.luby.us/projects/16/61).
 
 Confirmed: MIT license, fail-closed secure releases, and Momus/Rusty Brain pilots. v0.1 targets SLSA Build L2. Linux release assets will be authenticated through signed GitHub/Sigstore attestations; macOS additionally requires Developer ID signing and notarization before final-byte attestation. L3 assessment and gap closure are deferred to an unscheduled future backlog item. Additional security controls complement provenance.
 

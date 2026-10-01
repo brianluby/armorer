@@ -1,6 +1,6 @@
 # Upstream and pilot research
 
-Read-only discovery on 2026-09-30. These capabilities inform a proposed design; candidate versions are not yet reviewed implementation pins. Recheck release provenance, full commits, distribution digests and compatibility in the contract/tool-catalog slice. Current Armorer scope targets L2 for v0.1; L3 research is retained as reference for an unscheduled future-version backlog item, not an initial delivery requirement.
+Original read-only discovery on 2026-09-30. The historical observations below are dated snapshots. [Ticket #16 assessment](docs/supply-chain-assessment.md) rechecks additional defenses and adapters on 2026-10-01 and records decisions for the remaining trust contracts. These capabilities inform a proposed design; candidate versions are not yet reviewed implementation pins. Recheck release provenance, full commits, distribution digests and compatibility in the contract/tool-catalog slice. Current Armorer scope targets L2 for v0.1; L3 research is retained as reference for an unscheduled future-version backlog item, not an initial delivery requirement.
 
 ## Momus reference
 
@@ -38,7 +38,7 @@ The SHA-pinned [Apple workflow](https://github.com/brianluby/apple-signing/blob/
 | [cargo-deny](https://embarkstudios.github.io/cargo-deny/checks/index.html) | License, advisory, source and dependency-ban policy | Default project-owned policy; license allowlist is not inferred from Armorer's MIT license |
 | [actionlint](https://github.com/rhysd/actionlint) + [zizmor](https://zizmor.sh/) | Workflow correctness plus security anti-patterns | Default cheap gates; pin maintained safe versions and reviewed suppressions |
 | [Gitleaks](https://github.com/gitleaks/gitleaks/blob/master/README.md) | Detect committed secret material | Redacted pinned standalone scanner avoids action licensing assumptions. Current upstream says feature-complete/security fixes only and points to Betterleaks; evaluate successor before committing long-term default |
-| [CodeQL Rust/Actions](https://docs.github.com/en/code-security/concepts/code-scanning/codeql/codeql-code-scanning) | Source/workflow security analysis; Rust is currently supported | Enable when eligible; explicit capability/coverage reporting. Rust supports [no-build analysis](https://docs.github.com/en/code-security/reference/code-scanning/codeql/build-options-for-compiled-languages) |
+| [CodeQL Rust/Actions](https://docs.github.com/en/code-security/concepts/code-scanning/codeql/codeql-code-scanning) | Source/workflow security analysis; Rust is currently supported | Enable when eligible; explicit capability/coverage reporting. Rust supports [no-build analysis](https://docs.github.com/en/code-security/reference/code-scanning/codeql/build-options-for-compiled-languages), which still runs build scripts/macros; unprivileged analysis only, never check/plan |
 | [cargo-hack](https://github.com/taiki-e/cargo-hack) | Bounded feature-set testing | Library/profile capability; avoid unbounded powerset execution and invalid combinations |
 | [cargo-semver-checks](https://github.com/obi1kenobi/cargo-semver-checks) | Detect supported API compatibility violations | Library gate where a meaningful published baseline exists |
 | [cargo-vet](https://mozilla.github.io/cargo-vet/) | Human audit/exemption-backed dependency trust | Recommended opt-in; imports/exemptions require maintainer review and do not mean every dependency was locally audited |
@@ -52,7 +52,7 @@ The SHA-pinned [Apple workflow](https://github.com/brianluby/apple-signing/blob/
 
 Tools are chosen for distinct threats and maintenance costs. No tool availability, passing scan, checksum, provenance file or score implies absence of vulnerabilities. Maintain separate SBOM scope, vulnerability results, dependency review, source review, code-signing, provenance and reproducibility evidence.
 
-## Live discovery limits
+## Original discovery limits (2026-09-30)
 
 Both proposed Armorer upstreams returned 404 and were not created. Armorer workspace contained only local Veans/agent configuration before these planning documents; it is not initialized as Git. Existing credential values were never read or printed. Veans initially failed inside the sandbox; approved access to the credential store resolved ticket reading and project-16 task creation. Project identity, ticket indexes, parent/dependency relations and writes are verified through readback.
 
