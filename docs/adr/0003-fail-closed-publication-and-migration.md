@@ -1,6 +1,6 @@
 # ADR 0003: fail-closed publication and preservation of customization
 
-Status: proposed; fail-closed secure releases confirmed 2026-09-30.
+Status: accepted design, 2026-09-30. Apply, capability checks and release publication gates remain future slices.
 
 Context: partial draft uploads, unavailable settings APIs and upgrade drift can create false assurance or erase existing behavior.
 

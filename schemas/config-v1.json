@@ -1,0 +1,134 @@
+{
+  "$defs": {
+    "Attestations": {
+      "enum": [
+        "required"
+      ],
+      "type": "string"
+    },
+    "Deliverable": {
+      "additionalProperties": false,
+      "properties": {
+        "binary": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "feature_set": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "package": {
+          "type": "string"
+        },
+        "profile": {
+          "$ref": "#/$defs/Profile"
+        },
+        "targets": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "profile",
+        "package",
+        "targets",
+        "feature_set"
+      ],
+      "type": "object"
+    },
+    "FeatureSet": {
+      "additionalProperties": false,
+      "properties": {
+        "default_features": {
+          "type": "boolean"
+        },
+        "features": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "default_features"
+      ],
+      "type": "object"
+    },
+    "Policy": {
+      "additionalProperties": false,
+      "properties": {
+        "attestations": {
+          "$ref": "#/$defs/Attestations"
+        },
+        "license_file": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "license_file",
+        "attestations"
+      ],
+      "type": "object"
+    },
+    "Profile": {
+      "enum": [
+        "library",
+        "cli",
+        "service"
+      ],
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "deliverables": {
+      "items": {
+        "$ref": "#/$defs/Deliverable"
+      },
+      "type": "array"
+    },
+    "feature_sets": {
+      "additionalProperties": {
+        "$ref": "#/$defs/FeatureSet"
+      },
+      "type": "object"
+    },
+    "manifest": {
+      "default": "Cargo.toml",
+      "type": "string"
+    },
+    "policy": {
+      "$ref": "#/$defs/Policy"
+    },
+    "repository": {
+      "type": "string"
+    },
+    "schema_version": {
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "toolchain": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "repository",
+    "toolchain",
+    "deliverables",
+    "feature_sets",
+    "policy"
+  ],
+  "title": "Config",
+  "type": "object"
+}

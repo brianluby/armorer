@@ -1,0 +1,26 @@
+[package]
+name = "armorer"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+license = "MIT"
+description = "Repeatable secure CI and verifiable releases for Rust repositories"
+repository = "https://github.com/brianluby/armorer"
+readme = "README.md"
+
+[dependencies]
+clap = { version = "=4.6.7", features = ["derive"] }
+schemars = "=1.2.1"
+semver = "=1.0.28"
+serde = { version = "=1.0.228", features = ["derive"] }
+serde_json = "=1.0.151"
+sha2 = "=0.10.9"
+tempfile = "=3.27.0"
+thiserror = "=2.0.21"
+toml = "=1.1.6"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = "warn"
