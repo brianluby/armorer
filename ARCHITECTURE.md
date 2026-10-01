@@ -85,6 +85,8 @@ Default gates: Rust tests/doc tests, fmt, Clippy, RustSec checks and project-spe
 
 Additional profile capabilities: cargo-hack for bounded feature testing, cargo-semver-checks for public library compatibility, CodeQL for Rust and Actions where available, and cargo-vet when maintainers can support audit/exemption review. Native dependency inventory and installed-binary auditing need supplementary tools; see RESEARCH.md. Expensive scans belong in scoped/scheduled/manual jobs with honest coverage reports. Scorecard is a diagnostic, not a release-security score or proof.
 
+The [#16 assessment](docs/supply-chain-assessment.md) and proposed [ADR 0005](docs/adr/0005-additional-defenses-and-adapters.md) define optional defense priorities, explicit capability/coverage/exception boundaries, and bounded dist/crates.io adapter requirements for #2. CodeQL Rust no-build analysis still executes build scripts/macros and stays outside check/plan and credentialed release jobs. These optional implementations do not block the v0.1 L2 baseline; registry publication remains a future adapter.
+
 Branch protection/rulesets, workflow CODEOWNERS, required CI checks, review of dependency/tool updates, secret scanning/push protection, SECURITY.md and a vulnerability disclosure process complement artifact integrity. A signed vulnerable binary is still vulnerable.
 
 ## Trusted release controller and credentials

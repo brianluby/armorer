@@ -1,6 +1,6 @@
 # Armorer implementation plan
 
-Status: proposed for review, 2026-09-30. Architecture/discovery only; no implementation, GitHub repository creation, pilot edits, merges or releases have occurred.
+Status: original plan 2026-09-30; dependency and optional-defense assessment updated 2026-10-01. Configuration/discovery, transactional toolchain apply, reusable CI and unsigned builders are merged. Remaining acceptance for #2/#4 and release integration stays open; no release has been published. See the [#16 assessment](docs/supply-chain-assessment.md) and proposed [ADR 0005](docs/adr/0005-additional-defenses-and-adapters.md).
 
 Epic: [Armorer #1](https://kanban.luby.us/tasks/1304), project 16. All child tasks have explicit acceptance criteria and parent/dependency relations. Momus reference: [#48, task ID 1303](https://kanban.luby.us/tasks/1303), project 15. Project-local indexes and database IDs are distinct.
 
@@ -18,7 +18,7 @@ The recommended initial targets are native Linux x86_64/ARM64 and macOS ARM64. W
 
 | Ticket | Scope | Owner boundary | Depends on | Estimate |
 | --- | --- | --- | --- | --- |
-| [#2](https://kanban.luby.us/tasks/1305) | Architecture and versioned trust contracts | Contract owner | — | 1–2 days |
+| [#2](https://kanban.luby.us/tasks/1305) | Architecture and versioned trust contracts | Contract owner | #16 assessment | 1–2 days |
 | [#3](https://kanban.luby.us/tasks/1306) | Typed configuration and Cargo workspace discovery | Contract owner | #2 | 2–3 days |
 | [#4](https://kanban.luby.us/tasks/1307) | Idempotent check, plan and transactional apply | Bootstrap owner | #3 | 3–4 days |
 | [#5](https://kanban.luby.us/tasks/1308) | Reviewed upgrades and migration of existing customizations | Bootstrap owner | #4 | 2–3 days |
@@ -32,9 +32,11 @@ The recommended initial targets are native Linux x86_64/ARM64 and macOS ARM64. W
 | [#13](https://kanban.luby.us/tasks/1316) | Rusty Brain workspace adoption and release rehearsal | Adoption owner | #5, #11 | 2–3 days |
 | [#14](https://kanban.luby.us/tasks/1317) | Open-source onboarding, upgrades and recovery runbooks | Documentation owner | #4, #10 | 2 days |
 | [#15](https://kanban.luby.us/tasks/1318) | [Future version] SLSA Build L3 assessment and gap closure | Security reviewer | #12, #13; future scope selection | Deferred; re-estimate later |
-| [#16](https://kanban.luby.us/tasks/1319) | Assess additional supply-chain defenses and adapters | Security reviewer | #2 | separate scoped follow-ups |
+| [#16](https://kanban.luby.us/tasks/1319) | Assess additional supply-chain defenses and adapters | Security reviewer | —; assessment before remaining #2 freeze | assessment now; optional implementations separately |
 
 These are component ownership boundaries, not authorization to start parallel agents. One coordinating maintainer controls shared schemas/catalog, Git staging/commit/rebase/push and cross-repository integration. Future parallel implementation requires explicit delegation and frozen interfaces.
+
+[Ticket #16 assessment](docs/supply-chain-assessment.md) precedes the remaining #2 release-contract freeze. Its optional implementation follow-ups depend on the reviewed contracts and remain unscheduled outside v0.1 unless separately selected. This corrects the original table and tracker relation, which had the dependency direction reversed. The tracker now records #16 blocking #2, with the reciprocal #2 blocked-by-#16 relation verified. Optional follow-ups [#17–#24](docs/supply-chain-assessment.md#reviewable-follow-ups) depend on reviewed contracts and baseline capabilities; they do not block v0.1.
 
 1. **Contracts before code (#2–3):** finalize proposed ADRs and versioned config/lock/plan/inventory/policy/evidence schemas. Define compatibility/error codes and sample library/CLI/service workspace configurations. Provision empty public MIT repositories only after architecture acceptance; initialize isolated branches and protect workflow/runtime ownership.
 2. **Bootstrap (#4):** deterministic discovery/planning, ownership/preimage checks, transactional local apply. Fixture-driven mutation testing; no GitHub writes. Ship a reviewable CLI that can propose an existing-repository migration.
