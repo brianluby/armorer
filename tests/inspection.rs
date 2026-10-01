@@ -404,19 +404,29 @@ fn preserves_rustup_multicall_executable_name() {
 fn rejects_repository_local_executable_on_path() {
     use std::os::unix::fs::PermissionsExt;
     let root = fixture();
+    let tools = tempfile::tempdir().unwrap();
     let marker = root.path().join("executed");
     write(
-        root.path(),
+        tools.path(),
         "rustup",
-        &format!("#!/bin/sh\ntouch '{}'\nexit 1\n", marker.display()),
+        &format!(
+            "#!/bin/sh\nprintf executed > '{}'\nexit 1\n",
+            marker.display()
+        ),
     );
     fs::set_permissions(
-        root.path().join("rustup"),
+        tools.path().join("rustup"),
         fs::Permissions::from_mode(0o700),
     )
     .unwrap();
+    fs::create_dir(root.path().join(".cargo")).unwrap();
+    std::os::unix::fs::symlink(
+        tools.path().join("rustup"),
+        root.path().join(".cargo/rustup"),
+    )
+    .unwrap();
     let result = Command::new(env!("CARGO_BIN_EXE_armorer"))
-        .env("PATH", root.path())
+        .env("PATH", root.path().join(".cargo"))
         .args(["--repository", root.path().to_str().unwrap(), "plan"])
         .output()
         .unwrap();
@@ -424,4 +434,10 @@ fn rejects_repository_local_executable_on_path() {
     assert!(!marker.exists());
     let value: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
     assert_eq!(value["error"]["code"], "cargo-discovery");
+    assert!(
+        value["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("rustup-path")
+    );
 }

@@ -59,6 +59,12 @@ fn trusted_rustup(root: &Path) -> Result<PathBuf> {
         if !directory.is_absolute() {
             continue;
         }
+        let Ok(directory) = directory.canonicalize() else {
+            continue;
+        };
+        if directory.starts_with(root) {
+            continue;
+        }
         let candidate = directory.join(if cfg!(windows) {
             "rustup.exe"
         } else {
