@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "inputs": {
+    "source": {
+      "repository": "fixture/project",
+      "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "git_ref": "refs/tags/v1.0.0"
+    },
+    "config_sha256": "5c98224d7cef972a6547c9bef3043d399104b8fdda5cc953730c83fd345e6796",
+    "lock_sha256": "9fa4b825c39715d8613937f9a010fcd860fe8a0186bfcc1060c3b795dbbff247",
+    "cargo_lock_sha256": "db5d308a33a980316833c4516fed7ce2b94b41fa2cd779ada3211ccd2670eb7d",
+    "runtime": {
+      "sha256": "d50fa1b5c9299e5f5b8ecd359ee4c479446017f0a82a02d7766d15ae225da36e",
+      "size": 17
+    },
+    "runtime_version": "0.1.0",
+    "run": {
+      "id": 12,
+      "attempt": 1,
+      "workflow": {
+        "repository": "fixture/workflows",
+        "path": ".github/workflows/release.yml",
+        "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    }
+  },
+  "tag": "v1.0.0",
+  "release_id": 123,
+  "inventory": {
+    "sha256": "3ec188e124a6ab93dd7085b1b02c1a03c01fdd30f286c94dc6515fde1d4f5d51",
+    "size": 5416
+  },
+  "policy": {
+    "sha256": "e04c92fd2787014601b119c34c9acb6e03d12105056e5e89be14dbe3266f3a55",
+    "size": 2735
+  },
+  "state": "owned-draft",
+  "draft_download_receipt": null,
+  "approval": null,
+  "immutable_setting": null,
+  "published_at": null,
+  "release_attestation": null,
+  "provenance_verification": null,
+  "conflict": null
+}

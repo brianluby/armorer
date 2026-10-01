@@ -1,0 +1,219 @@
+{
+  "schema_version": 1,
+  "inputs": {
+    "source": {
+      "repository": "fixture/project",
+      "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "git_ref": "refs/tags/v1.0.0"
+    },
+    "config_sha256": "c360e8da9372ed4473d153d0513127ddf8cfdb57af10bf54a0a962ea7fc7f5f0",
+    "lock_sha256": "d2b6264ec98416cf7bf3fcfcf1df7a2d1e9b06bb37c67109f02dca55ff90895e",
+    "cargo_lock_sha256": "db5d308a33a980316833c4516fed7ce2b94b41fa2cd779ada3211ccd2670eb7d",
+    "runtime": {
+      "sha256": "d50fa1b5c9299e5f5b8ecd359ee4c479446017f0a82a02d7766d15ae225da36e",
+      "size": 17
+    },
+    "runtime_version": "0.1.0",
+    "run": {
+      "id": 12,
+      "attempt": 1,
+      "workflow": {
+        "repository": "fixture/workflows",
+        "path": ".github/workflows/release.yml",
+        "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    }
+  },
+  "selection": {
+    "deliverable_id": "app",
+    "profile": "cli",
+    "package": "app",
+    "package_version": "1.0.0",
+    "binary": "app",
+    "target": "aarch64-apple-darwin",
+    "feature_set": "minimal",
+    "default_features": false,
+    "features": [],
+    "toolchain": "1.95.0"
+  },
+  "catalog": {
+    "sha256": "7a5439c86ab71fe88826be99cff78bd22545bbde22a2a1c9554a458717edaccd",
+    "size": 1188
+  },
+  "runner_label": "macos-15",
+  "runner_image": "synthetic-hosted-image",
+  "recorded_at": 1790870400,
+  "tools": [
+    {
+      "name": "cargo-cyclonedx",
+      "kind": "tool",
+      "version": "0.5.9",
+      "bytes": {
+        "sha256": "ccedb77b75f58b86e730f1918d6f152661e2911bf02b8ca8b6f84315a3e21b5e",
+        "size": 24
+      },
+      "authentication_record": {
+        "sha256": "ebe75d7f2013f4ec5f5efa29945cf7f36aa4a12ec039ff10aca38a1d7c40bd25",
+        "size": 29
+      },
+      "observed_at": 1790870320,
+      "max_age_seconds": null
+    }
+  ],
+  "coverage": [
+    {
+      "capability": "cargo-sbom",
+      "scope": "compiled-cargo-target-and-host-build-dependencies",
+      "tested_subject": {
+        "sha256": "93945ae6c49bc95177b9b946d7718ff4b200ea40a412723d48904e8fbf6e2d5c",
+        "size": 49
+      },
+      "omissions": [
+        "native/system/downloaded dependencies are not fully inventoried"
+      ],
+      "outcome": "passed",
+      "enforcement": "enforced",
+      "exception_ids": []
+    }
+  ],
+  "exceptions": [],
+  "steps": [
+    {
+      "kind": "build",
+      "inputs": [
+        {
+          "sha256": "ba8df55a7d5c3de90cea83d89ad4612cce846e63ca23bcebce761ba2b97598ba",
+          "size": 25
+        }
+      ],
+      "output": {
+        "sha256": "ca5c52a3031cb73a4f317471e7e83169d10a97b13785841e62aa8d51e9c0f196",
+        "size": 15
+      },
+      "run": {
+        "id": 12,
+        "attempt": 1,
+        "workflow": {
+          "repository": "fixture/workflows",
+          "path": ".github/workflows/release.yml",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      },
+      "started_at": 1790870340,
+      "finished_at": 1790870345,
+      "outcome": "passed",
+      "platform_evidence": [
+        {
+          "sha256": "1b4a84a4afe0a69ff967584aeae211e36e6ec0c2c0fb975df0744eb67661917c",
+          "size": 35
+        }
+      ]
+    },
+    {
+      "kind": "sign",
+      "inputs": [
+        {
+          "sha256": "ca5c52a3031cb73a4f317471e7e83169d10a97b13785841e62aa8d51e9c0f196",
+          "size": 15
+        }
+      ],
+      "output": {
+        "sha256": "54413acdb29be419c9abbb580908033d5b957941e5d1ae7666de57a0e10c841e",
+        "size": 14
+      },
+      "run": {
+        "id": 12,
+        "attempt": 1,
+        "workflow": {
+          "repository": "fixture/workflows",
+          "path": ".github/workflows/release.yml",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      },
+      "started_at": 1790870350,
+      "finished_at": 1790870355,
+      "outcome": "passed",
+      "platform_evidence": [
+        {
+          "sha256": "dae00ecb686d30a49a55851994cd563a425ab8b6ef30bda5c9632c2b6da59cc6",
+          "size": 34
+        }
+      ]
+    },
+    {
+      "kind": "notarize",
+      "inputs": [
+        {
+          "sha256": "54413acdb29be419c9abbb580908033d5b957941e5d1ae7666de57a0e10c841e",
+          "size": 14
+        }
+      ],
+      "output": {
+        "sha256": "54413acdb29be419c9abbb580908033d5b957941e5d1ae7666de57a0e10c841e",
+        "size": 14
+      },
+      "run": {
+        "id": 12,
+        "attempt": 1,
+        "workflow": {
+          "repository": "fixture/workflows",
+          "path": ".github/workflows/release.yml",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      },
+      "started_at": 1790870360,
+      "finished_at": 1790870365,
+      "outcome": "passed",
+      "platform_evidence": [
+        {
+          "sha256": "0df9b5a4d458e276bbd7a6089abee3a3f35a7e5fa2d45d2353b44c64a67e83f6",
+          "size": 38
+        }
+      ]
+    },
+    {
+      "kind": "package",
+      "inputs": [
+        {
+          "sha256": "54413acdb29be419c9abbb580908033d5b957941e5d1ae7666de57a0e10c841e",
+          "size": 14
+        }
+      ],
+      "output": {
+        "sha256": "93945ae6c49bc95177b9b946d7718ff4b200ea40a412723d48904e8fbf6e2d5c",
+        "size": 49
+      },
+      "run": {
+        "id": 12,
+        "attempt": 1,
+        "workflow": {
+          "repository": "fixture/workflows",
+          "path": ".github/workflows/release.yml",
+          "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      },
+      "started_at": 1790870370,
+      "finished_at": 1790870375,
+      "outcome": "passed",
+      "platform_evidence": [
+        {
+          "sha256": "1471629f1c30cc0b2923bacf8a5a88b1292810e98e0b15a087ad306b6c19253e",
+          "size": 37
+        }
+      ]
+    }
+  ],
+  "apple_assertions": {
+    "team_id": "ABCDEFGHIJ",
+    "certificate_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "hardened_runtime": true,
+    "secure_timestamp": true,
+    "notarization_submission_id": "fixture-notary-id",
+    "notarization_outcome": "passed",
+    "notarization_log": {
+      "sha256": "d6eb7f78bf03cc395b505b0ed2a1c4e909d874187482c3a67049373da391f249",
+      "size": 20
+    },
+    "ticket_mode": "online-standalone-mach-o"
+  }
+}

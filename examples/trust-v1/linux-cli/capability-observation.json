@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "capability": "immutable-releases",
+  "availability": "available",
+  "enforcement": "enforced",
+  "observed_at": 1790870400,
+  "evidence": {
+    "sha256": "7cbfc59407a29f447bc95065dcc241008408d3e1ef7f525c3f0e774e83d24f81",
+    "size": 29
+  },
+  "limitations": []
+}

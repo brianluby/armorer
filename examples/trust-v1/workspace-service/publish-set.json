@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "inputs": {
+    "source": {
+      "repository": "fixture/project",
+      "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "git_ref": "refs/tags/v1.0.0"
+    },
+    "config_sha256": "4c0a2b77ba93235247b2e2d16f4d5c3538bc83493dc59bc84539eefdcb0bd6a0",
+    "lock_sha256": "714869ad755968861731133c487ed67f8d1cdd61777797f66d29932d4d584c87",
+    "cargo_lock_sha256": "db5d308a33a980316833c4516fed7ce2b94b41fa2cd779ada3211ccd2670eb7d",
+    "runtime": {
+      "sha256": "d50fa1b5c9299e5f5b8ecd359ee4c479446017f0a82a02d7766d15ae225da36e",
+      "size": 17
+    },
+    "runtime_version": "0.1.0",
+    "run": {
+      "id": 12,
+      "attempt": 1,
+      "workflow": {
+        "repository": "fixture/workflows",
+        "path": ".github/workflows/release.yml",
+        "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    }
+  },
+  "registry": "crates-io",
+  "crates": [
+    {
+      "name": "core",
+      "version": "1.0.0",
+      "archive": {
+        "sha256": "1539e3a058cfd8afcd78eb20e80a159eb22ee9423fddf038a14907c8a6352e93",
+        "size": 20
+      },
+      "dependencies": []
+    },
+    {
+      "name": "app",
+      "version": "1.0.0",
+      "archive": {
+        "sha256": "25662a7014f3631f0802a9f12cbf27057b8fd8d9260ef1bfd93f21e0e778f7cb",
+        "size": 19
+      },
+      "dependencies": [
+        "core"
+      ]
+    }
+  ]
+}

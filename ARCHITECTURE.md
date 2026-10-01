@@ -38,7 +38,7 @@ flowchart TD
 
 ## Configuration and bootstrap contract
 
-Use root **`armorer.toml`** for intent, **`armorer.lock`** for resolved compatible versions and SHA/digest pins, and **`.armorer/state.json`** for generated-file bases and ownership. All are versioned in Git; the state file contains no secrets and is never a source of cryptographic trust. Put consumer trust policy in an explicitly reviewed `armorer-policy.toml`, distributable separately from artifacts.
+Use root **`armorer.toml`** for intent, **`armorer.lock`** for resolved compatible versions and SHA/digest pins, and **`.armorer/state.json`** for generated-file bases and ownership. All are versioned in Git; the state file contains no secrets and is never a source of cryptographic trust. Put consumer trust policy in an explicitly reviewed independent document, distributable separately from artifacts. [Proposed ADR 0006](docs/adr/0006-release-trust-contract-versioning.md) freezes the new document as JSON (`armorer-policy.json`) while preserving existing TOML config/lock contracts.
 
 The schema includes:
 
@@ -196,3 +196,5 @@ Initial risk register:
 | Misleading claims | Per-artifact requirement/evidence/gap record and separate lifecycle states |
 
 No initial L3 claim. Record L2 evidence and limitations per artifact for v0.1; undertake L3 assessment only when the future backlog item is selected. See IMPLEMENTATION_PLAN.md for scoped ownership and test gates, RESEARCH.md for verified upstream findings and tradeoffs.
+
+The proposed [ticket #2 trust-contract freeze](docs/trust-contracts-v1.md) and ADRs 0006–0008 define additive versioned release interfaces and exact handoffs to #8/#9/#10; those runtime gates remain unimplemented.

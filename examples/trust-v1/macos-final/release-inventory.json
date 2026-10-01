@@ -1,0 +1,196 @@
+{
+  "schema_version": 1,
+  "inputs": {
+    "source": {
+      "repository": "fixture/project",
+      "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "git_ref": "refs/tags/v1.0.0"
+    },
+    "config_sha256": "c360e8da9372ed4473d153d0513127ddf8cfdb57af10bf54a0a962ea7fc7f5f0",
+    "lock_sha256": "d2b6264ec98416cf7bf3fcfcf1df7a2d1e9b06bb37c67109f02dca55ff90895e",
+    "cargo_lock_sha256": "db5d308a33a980316833c4516fed7ce2b94b41fa2cd779ada3211ccd2670eb7d",
+    "runtime": {
+      "sha256": "d50fa1b5c9299e5f5b8ecd359ee4c479446017f0a82a02d7766d15ae225da36e",
+      "size": 17
+    },
+    "runtime_version": "0.1.0",
+    "run": {
+      "id": 12,
+      "attempt": 1,
+      "workflow": {
+        "repository": "fixture/workflows",
+        "path": ".github/workflows/release.yml",
+        "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    }
+  },
+  "assets": [
+    {
+      "name": "app--aarch64-apple-darwin--minimal.tar.gz",
+      "role": "distributable",
+      "bytes": {
+        "sha256": "93945ae6c49bc95177b9b946d7718ff4b200ea40a412723d48904e8fbf6e2d5c",
+        "size": 49
+      },
+      "subjects": [],
+      "predicate": null,
+      "predicate_asset": null
+    },
+    {
+      "name": "app--aarch64-apple-darwin--minimal.cdx.json",
+      "role": "cargo-sbom",
+      "bytes": {
+        "sha256": "fa206a18ea9d217a26b1b8ba9c74164ae845ac338ece1ea645105453514542ae",
+        "size": 51
+      },
+      "subjects": [
+        "app--aarch64-apple-darwin--minimal.tar.gz"
+      ],
+      "predicate": null,
+      "predicate_asset": null
+    },
+    {
+      "name": "app--aarch64-apple-darwin--minimal.cdx.json.provenance.sigstore.json",
+      "role": "attestation-bundle",
+      "bytes": {
+        "sha256": "611693d5c3e5b914db55c1a03dab6675803308fe639f4131546c170a4300a236",
+        "size": 76
+      },
+      "subjects": [
+        "app--aarch64-apple-darwin--minimal.cdx.json"
+      ],
+      "predicate": "https://slsa.dev/provenance/v1",
+      "predicate_asset": null
+    },
+    {
+      "name": "app--aarch64-apple-darwin--minimal.cargo-graph.json",
+      "role": "cargo-graph",
+      "bytes": {
+        "sha256": "c386ef50474b840c6f827d5127658cae3deb74f36d04a9231a4e409b249c9d07",
+        "size": 59
+      },
+      "subjects": [
+        "app--aarch64-apple-darwin--minimal.tar.gz"
+      ],
+      "predicate": null,
+      "predicate_asset": null
+    },
+    {
+      "name": "app--aarch64-apple-darwin--minimal.cargo-graph.json.provenance.sigstore.json",
+      "role": "attestation-bundle",
+      "bytes": {
+        "sha256": "eea7538d6f418020b791377ab123a985e58b7eb66566b387030939ec41b61748",
+        "size": 84
+      },
+      "subjects": [
+        "app--aarch64-apple-darwin--minimal.cargo-graph.json"
+      ],
+      "predicate": "https://slsa.dev/provenance/v1",
+      "predicate_asset": null
+    },
+    {
+      "name": "app--aarch64-apple-darwin--minimal.build.json",
+      "role": "build-evidence",
+      "bytes": {
+        "sha256": "dda34884239de60effe74c05e8bf3140f075c2aa55e07c8661915105c52401d1",
+        "size": 53
+      },
+      "subjects": [
+        "app--aarch64-apple-darwin--minimal.tar.gz"
+      ],
+      "predicate": null,
+      "predicate_asset": null
+    },
+    {
+      "name": "app--aarch64-apple-darwin--minimal.build.json.provenance.sigstore.json",
+      "role": "attestation-bundle",
+      "bytes": {
+        "sha256": "e5687a09e81770b05403581ef97fa13868e91dc7cc3e2631e32b56cea694a6d7",
+        "size": 78
+      },
+      "subjects": [
+        "app--aarch64-apple-darwin--minimal.build.json"
+      ],
+      "predicate": "https://slsa.dev/provenance/v1",
+      "predicate_asset": null
+    },
+    {
+      "name": "app--aarch64-apple-darwin--minimal.package.json",
+      "role": "package-evidence",
+      "bytes": {
+        "sha256": "c7eabc9b799c092a7042aa4b5ce3f65b83e8976b7ada6b719667b233ba85a2a1",
+        "size": 55
+      },
+      "subjects": [
+        "app--aarch64-apple-darwin--minimal.tar.gz"
+      ],
+      "predicate": null,
+      "predicate_asset": null
+    },
+    {
+      "name": "app--aarch64-apple-darwin--minimal.package.json.provenance.sigstore.json",
+      "role": "attestation-bundle",
+      "bytes": {
+        "sha256": "16e1201ab867f12d11c87637be7c6cd439a2c509bd9c84d1e38753949de5d9e0",
+        "size": 80
+      },
+      "subjects": [
+        "app--aarch64-apple-darwin--minimal.package.json"
+      ],
+      "predicate": "https://slsa.dev/provenance/v1",
+      "predicate_asset": null
+    },
+    {
+      "name": "app--aarch64-apple-darwin--minimal.apple.json",
+      "role": "transformation-evidence",
+      "bytes": {
+        "sha256": "a75d64ae8ba066a4eb3bfb2fb5916108bba32993d09368facdf8cb979e2a3963",
+        "size": 53
+      },
+      "subjects": [
+        "app--aarch64-apple-darwin--minimal.tar.gz"
+      ],
+      "predicate": null,
+      "predicate_asset": null
+    },
+    {
+      "name": "app--aarch64-apple-darwin--minimal.apple.json.provenance.sigstore.json",
+      "role": "attestation-bundle",
+      "bytes": {
+        "sha256": "6372b7fb41c30600b3f353c9aaffd76fcaf677b4164ff0c848431e681f6cf858",
+        "size": 78
+      },
+      "subjects": [
+        "app--aarch64-apple-darwin--minimal.apple.json"
+      ],
+      "predicate": "https://slsa.dev/provenance/v1",
+      "predicate_asset": null
+    },
+    {
+      "name": "app--aarch64-apple-darwin--minimal.tar.gz.provenance.sigstore.json",
+      "role": "attestation-bundle",
+      "bytes": {
+        "sha256": "8a3a615b48b0f1f6539032518338912986935af21bf03b4c43ff1060321e60d4",
+        "size": 74
+      },
+      "subjects": [
+        "app--aarch64-apple-darwin--minimal.tar.gz"
+      ],
+      "predicate": "https://slsa.dev/provenance/v1",
+      "predicate_asset": null
+    },
+    {
+      "name": "app--aarch64-apple-darwin--minimal.tar.gz.sbom.sigstore.json",
+      "role": "attestation-bundle",
+      "bytes": {
+        "sha256": "bba7e853f3239a9151c34029ec8897ea2e9ffb4beeae666fa36bed75732602fd",
+        "size": 68
+      },
+      "subjects": [
+        "app--aarch64-apple-darwin--minimal.tar.gz"
+      ],
+      "predicate": "https://cyclonedx.org/bom",
+      "predicate_asset": "app--aarch64-apple-darwin--minimal.cdx.json"
+    }
+  ]
+}

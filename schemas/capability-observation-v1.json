@@ -1,0 +1,116 @@
+{
+  "$defs": {
+    "Availability": {
+      "enum": [
+        "unknown",
+        "unsupported",
+        "error",
+        "available"
+      ],
+      "type": "string"
+    },
+    "ByteIdentity": {
+      "additionalProperties": false,
+      "description": "An exact byte identity, independent of a filename or producer claim.",
+      "properties": {
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size": {
+          "format": "uint64",
+          "maximum": 1073741824,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sha256",
+        "size"
+      ],
+      "type": "object"
+    },
+    "CapabilityId": {
+      "enum": [
+        "platform-attestations",
+        "immutable-releases",
+        "protected-tags",
+        "protected-publish-environment",
+        "protected-signing-environment",
+        "apple-signing",
+        "cargo-sbom",
+        "dependency-policy",
+        "codeql",
+        "cargo-vet",
+        "embedded-metadata",
+        "native-sbom",
+        "linux-egress",
+        "independent-rebuild",
+        "scorecard",
+        "dist-build",
+        "registry-publish"
+      ],
+      "type": "string"
+    },
+    "Enforcement": {
+      "enum": [
+        "disabled",
+        "not-tested",
+        "skipped",
+        "reporting",
+        "enforced"
+      ],
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "availability": {
+      "$ref": "#/$defs/Availability"
+    },
+    "capability": {
+      "$ref": "#/$defs/CapabilityId"
+    },
+    "enforcement": {
+      "$ref": "#/$defs/Enforcement"
+    },
+    "evidence": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ByteIdentity"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "limitations": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "observed_at": {
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema_version": {
+      "format": "uint32",
+      "maximum": 1,
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schema_version",
+    "capability",
+    "availability",
+    "enforcement",
+    "observed_at",
+    "limitations"
+  ],
+  "title": "CapabilityObservation",
+  "type": "object"
+}

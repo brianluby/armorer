@@ -1,0 +1,142 @@
+{
+  "$defs": {
+    "ByteIdentity": {
+      "additionalProperties": false,
+      "description": "An exact byte identity, independent of a filename or producer claim.",
+      "properties": {
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size": {
+          "format": "uint64",
+          "maximum": 1073741824,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sha256",
+        "size"
+      ],
+      "type": "object"
+    },
+    "ConflictRecovery": {
+      "enum": [
+        "investigate-owned-draft",
+        "review-new-version",
+        "incident-for-published-release"
+      ],
+      "type": "string"
+    },
+    "CrateReceipt": {
+      "additionalProperties": false,
+      "properties": {
+        "conflict": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ConflictRecovery"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "index_sha256": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "observation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ByteIdentity"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "registry_bytes": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ByteIdentity"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "state": {
+          "$ref": "#/$defs/RegistryState"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "state"
+      ],
+      "type": "object"
+    },
+    "Registry": {
+      "enum": [
+        "crates-io"
+      ],
+      "type": "string"
+    },
+    "RegistryState": {
+      "enum": [
+        "prepared",
+        "uploaded",
+        "upload-result-unknown",
+        "registry-observed",
+        "registry-bytes-verified",
+        "conflict"
+      ],
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "crates": {
+      "items": {
+        "$ref": "#/$defs/CrateReceipt"
+      },
+      "type": "array"
+    },
+    "publish_set": {
+      "$ref": "#/$defs/ByteIdentity"
+    },
+    "recorded_at": {
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "registry": {
+      "$ref": "#/$defs/Registry"
+    },
+    "schema_version": {
+      "format": "uint32",
+      "maximum": 1,
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schema_version",
+    "publish_set",
+    "registry",
+    "crates",
+    "recorded_at"
+  ],
+  "title": "RegistryReceipt",
+  "type": "object"
+}

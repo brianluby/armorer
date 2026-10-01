@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "previous_catalog": null,
+  "adapters": [
+    {
+      "id": "cargo-cyclonedx",
+      "capability": "cargo-sbom",
+      "config_versions": [
+        1
+      ],
+      "runtime_versions": [
+        "0.1.0"
+      ],
+      "workflow": {
+        "repository": "fixture/workflows",
+        "path": ".github/workflows/release.yml",
+        "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "pins": [
+        {
+          "name": "cargo-cyclonedx",
+          "version": "0.5.9",
+          "distribution": {
+            "sha256": "ccedb77b75f58b86e730f1918d6f152661e2911bf02b8ca8b6f84315a3e21b5e",
+            "size": 24
+          },
+          "authentication_record": {
+            "sha256": "ebe75d7f2013f4ec5f5efa29945cf7f36aa4a12ec039ff10aca38a1d7c40bd25",
+            "size": 29
+          }
+        }
+      ],
+      "review": {
+        "owner": "fixture-reviewer",
+        "rationale": "Synthetic contract example only",
+        "reviewed_at": 1790870300,
+        "expires_at": 1790956800,
+        "record": {
+          "sha256": "770a16aed54d5e374d972847792f06af668bd9e28eef33b477782bfb163076f3",
+          "size": 23
+        }
+      }
+    }
+  ]
+}

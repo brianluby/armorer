@@ -49,6 +49,17 @@ enum SchemaKind {
     Config,
     Lock,
     Plan,
+    ReleaseInventory,
+    VerificationPolicy,
+    ArtifactEvidence,
+    EvidenceRequirements,
+    CapabilityConfig,
+    Catalog,
+    CapabilityObservation,
+    LifecycleRecord,
+    GithubReceipt,
+    PublishSet,
+    RegistryReceipt,
 }
 
 /// Produce JSON and an exit status for the selected operation.
@@ -63,6 +74,37 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
                 SchemaKind::Config => schemars::schema_for!(Config),
                 SchemaKind::Lock => schemars::schema_for!(Lock),
                 SchemaKind::Plan => schemars::schema_for!(Plan),
+                SchemaKind::ReleaseInventory => {
+                    schemars::schema_for!(armorer::trust::inventory::ReleaseInventory)
+                }
+                SchemaKind::VerificationPolicy => {
+                    schemars::schema_for!(armorer::trust::policy::VerificationPolicy)
+                }
+                SchemaKind::ArtifactEvidence => {
+                    schemars::schema_for!(armorer::trust::evidence::ArtifactEvidence)
+                }
+                SchemaKind::EvidenceRequirements => {
+                    schemars::schema_for!(armorer::trust::evidence::EvidenceRequirements)
+                }
+                SchemaKind::CapabilityConfig => {
+                    schemars::schema_for!(armorer::trust::capability::CapabilityConfig)
+                }
+                SchemaKind::Catalog => schemars::schema_for!(armorer::trust::capability::Catalog),
+                SchemaKind::CapabilityObservation => {
+                    schemars::schema_for!(armorer::trust::capability::CapabilityObservation)
+                }
+                SchemaKind::LifecycleRecord => {
+                    schemars::schema_for!(armorer::trust::publication::LifecycleRecord)
+                }
+                SchemaKind::GithubReceipt => {
+                    schemars::schema_for!(armorer::trust::publication::GithubReceipt)
+                }
+                SchemaKind::PublishSet => {
+                    schemars::schema_for!(armorer::trust::publication::PublishSet)
+                }
+                SchemaKind::RegistryReceipt => {
+                    schemars::schema_for!(armorer::trust::publication::RegistryReceipt)
+                }
             };
             Ok((serde_json::to_value(schema).map_err(|_| Error::Json)?, 0))
         }

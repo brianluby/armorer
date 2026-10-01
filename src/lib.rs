@@ -13,6 +13,7 @@ pub mod apply;
 pub mod config;
 pub mod discovery;
 pub mod plan;
+pub mod trust;
 
 use std::path::{Component, Path, PathBuf};
 

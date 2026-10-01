@@ -1,0 +1,151 @@
+{
+  "$defs": {
+    "ByteIdentity": {
+      "additionalProperties": false,
+      "description": "An exact byte identity, independent of a filename or producer claim.",
+      "properties": {
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size": {
+          "format": "uint64",
+          "maximum": 1073741824,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sha256",
+        "size"
+      ],
+      "type": "object"
+    },
+    "CapabilityPolicy": {
+      "enum": [
+        "disabled",
+        "reporting",
+        "required"
+      ],
+      "type": "string"
+    },
+    "Review": {
+      "additionalProperties": false,
+      "description": "Review records bind a policy decision; their contents do not prove review occurred.",
+      "properties": {
+        "expires_at": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "owner": {
+          "type": "string"
+        },
+        "rationale": {
+          "type": "string"
+        },
+        "record": {
+          "$ref": "#/$defs/ByteIdentity"
+        },
+        "reviewed_at": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "owner",
+        "rationale",
+        "reviewed_at",
+        "expires_at",
+        "record"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "catalog": {
+      "$ref": "#/$defs/ByteIdentity"
+    },
+    "config_sha256": {
+      "type": "string"
+    },
+    "decisions": {
+      "additionalProperties": false,
+      "properties": {
+        "apple-signing": {
+          "$ref": "#/$defs/CapabilityPolicy"
+        },
+        "cargo-sbom": {
+          "$ref": "#/$defs/CapabilityPolicy"
+        },
+        "cargo-vet": {
+          "$ref": "#/$defs/CapabilityPolicy"
+        },
+        "codeql": {
+          "$ref": "#/$defs/CapabilityPolicy"
+        },
+        "dependency-policy": {
+          "$ref": "#/$defs/CapabilityPolicy"
+        },
+        "dist-build": {
+          "$ref": "#/$defs/CapabilityPolicy"
+        },
+        "embedded-metadata": {
+          "$ref": "#/$defs/CapabilityPolicy"
+        },
+        "immutable-releases": {
+          "$ref": "#/$defs/CapabilityPolicy"
+        },
+        "independent-rebuild": {
+          "$ref": "#/$defs/CapabilityPolicy"
+        },
+        "linux-egress": {
+          "$ref": "#/$defs/CapabilityPolicy"
+        },
+        "native-sbom": {
+          "$ref": "#/$defs/CapabilityPolicy"
+        },
+        "platform-attestations": {
+          "$ref": "#/$defs/CapabilityPolicy"
+        },
+        "protected-publish-environment": {
+          "$ref": "#/$defs/CapabilityPolicy"
+        },
+        "protected-signing-environment": {
+          "$ref": "#/$defs/CapabilityPolicy"
+        },
+        "protected-tags": {
+          "$ref": "#/$defs/CapabilityPolicy"
+        },
+        "registry-publish": {
+          "$ref": "#/$defs/CapabilityPolicy"
+        },
+        "scorecard": {
+          "$ref": "#/$defs/CapabilityPolicy"
+        }
+      },
+      "type": "object"
+    },
+    "review": {
+      "$ref": "#/$defs/Review"
+    },
+    "schema_version": {
+      "format": "uint32",
+      "maximum": 1,
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schema_version",
+    "config_sha256",
+    "catalog",
+    "decisions",
+    "review"
+  ],
+  "title": "CapabilityConfig",
+  "type": "object"
+}

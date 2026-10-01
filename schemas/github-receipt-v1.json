@@ -1,0 +1,384 @@
+{
+  "$defs": {
+    "Availability": {
+      "enum": [
+        "unknown",
+        "unsupported",
+        "error",
+        "available"
+      ],
+      "type": "string"
+    },
+    "ByteIdentity": {
+      "additionalProperties": false,
+      "description": "An exact byte identity, independent of a filename or producer claim.",
+      "properties": {
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size": {
+          "format": "uint64",
+          "maximum": 1073741824,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sha256",
+        "size"
+      ],
+      "type": "object"
+    },
+    "CapabilityId": {
+      "enum": [
+        "platform-attestations",
+        "immutable-releases",
+        "protected-tags",
+        "protected-publish-environment",
+        "protected-signing-environment",
+        "apple-signing",
+        "cargo-sbom",
+        "dependency-policy",
+        "codeql",
+        "cargo-vet",
+        "embedded-metadata",
+        "native-sbom",
+        "linux-egress",
+        "independent-rebuild",
+        "scorecard",
+        "dist-build",
+        "registry-publish"
+      ],
+      "type": "string"
+    },
+    "CapabilityObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "availability": {
+          "$ref": "#/$defs/Availability"
+        },
+        "capability": {
+          "$ref": "#/$defs/CapabilityId"
+        },
+        "enforcement": {
+          "$ref": "#/$defs/Enforcement"
+        },
+        "evidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ByteIdentity"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "observed_at": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "schema_version": {
+          "format": "uint32",
+          "maximum": 1,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "schema_version",
+        "capability",
+        "availability",
+        "enforcement",
+        "observed_at",
+        "limitations"
+      ],
+      "type": "object"
+    },
+    "ConflictRecovery": {
+      "enum": [
+        "investigate-owned-draft",
+        "review-new-version",
+        "incident-for-published-release"
+      ],
+      "type": "string"
+    },
+    "Enforcement": {
+      "enum": [
+        "disabled",
+        "not-tested",
+        "skipped",
+        "reporting",
+        "enforced"
+      ],
+      "type": "string"
+    },
+    "GithubState": {
+      "enum": [
+        "owned-draft",
+        "uploaded",
+        "draft-bytes-verified",
+        "approved",
+        "published",
+        "release-attestation-verified",
+        "provenance-verified",
+        "conflict"
+      ],
+      "type": "string"
+    },
+    "InputIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "cargo_lock_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "config_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "lock_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "run": {
+          "$ref": "#/$defs/RunIdentity"
+        },
+        "runtime": {
+          "$ref": "#/$defs/ByteIdentity"
+        },
+        "runtime_version": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/Source"
+        }
+      },
+      "required": [
+        "source",
+        "config_sha256",
+        "lock_sha256",
+        "cargo_lock_sha256",
+        "runtime",
+        "runtime_version",
+        "run"
+      ],
+      "type": "object"
+    },
+    "Review": {
+      "additionalProperties": false,
+      "description": "Review records bind a policy decision; their contents do not prove review occurred.",
+      "properties": {
+        "expires_at": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "owner": {
+          "type": "string"
+        },
+        "rationale": {
+          "type": "string"
+        },
+        "record": {
+          "$ref": "#/$defs/ByteIdentity"
+        },
+        "reviewed_at": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "owner",
+        "rationale",
+        "reviewed_at",
+        "expires_at",
+        "record"
+      ],
+      "type": "object"
+    },
+    "RunIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "attempt": {
+          "format": "uint64",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "id": {
+          "format": "uint64",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "workflow": {
+          "$ref": "#/$defs/WorkflowIdentity"
+        }
+      },
+      "required": [
+        "id",
+        "attempt",
+        "workflow"
+      ],
+      "type": "object"
+    },
+    "Source": {
+      "additionalProperties": false,
+      "properties": {
+        "commit": {
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
+        "git_ref": {
+          "type": "string"
+        },
+        "repository": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "repository",
+        "commit",
+        "git_ref"
+      ],
+      "type": "object"
+    },
+    "WorkflowIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "commit": {
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "repository": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "repository",
+        "path",
+        "commit"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "approval": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Review"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "conflict": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ConflictRecovery"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "draft_download_receipt": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ByteIdentity"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "immutable_setting": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CapabilityObservation"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "inputs": {
+      "$ref": "#/$defs/InputIdentity"
+    },
+    "inventory": {
+      "$ref": "#/$defs/ByteIdentity"
+    },
+    "policy": {
+      "$ref": "#/$defs/ByteIdentity"
+    },
+    "provenance_verification": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ByteIdentity"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "published_at": {
+      "format": "uint64",
+      "minimum": 0,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "release_attestation": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ByteIdentity"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "release_id": {
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema_version": {
+      "format": "uint32",
+      "maximum": 1,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "state": {
+      "$ref": "#/$defs/GithubState"
+    },
+    "tag": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "inputs",
+    "tag",
+    "release_id",
+    "inventory",
+    "policy",
+    "state"
+  ],
+  "title": "GithubReceipt",
+  "type": "object"
+}

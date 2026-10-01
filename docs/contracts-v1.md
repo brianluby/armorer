@@ -1,6 +1,6 @@
 # Experimental version-one contracts
 
-This slice establishes typed config, pin-lock and preview shapes for review. They remain experimental until v0.1 ships. Release inventory, verification policy and build/sign/package evidence contracts belong to later slices; architecture requirements are not an already supported protocol.
+This slice establishes typed config, pin-lock and preview shapes for review. They remain experimental until v0.1 ships. The proposed [release trust freeze](trust-contracts-v1.md) adds separate inventory, verification policy, per-artifact evidence, capability/catalog and receipt contracts. Signing, cryptographic verification and publication remain later implementations; schemas are not trust verification.
 
 ## Intent: armorer.toml
 
