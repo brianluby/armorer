@@ -10,7 +10,8 @@ use std::{
     time::{Duration, Instant},
 };
 
-#[derive(Debug, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct Workspace {
     pub packages: Vec<Package>,
     pub inputs: BTreeMap<String, String>,
@@ -18,7 +19,7 @@ pub struct Workspace {
     pub cargo_lock_present: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Package {
     pub name: String,
     pub version: String,
@@ -29,7 +30,7 @@ pub struct Package {
     pub targets: Vec<Target>,
 }
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Target {
     pub name: String,
     pub kind: Vec<String>,

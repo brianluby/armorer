@@ -8,7 +8,10 @@ use serde_json::json;
 use std::{io::Write, path::PathBuf};
 
 #[derive(Parser)]
-#[command(version, about = "Inspect Rust repositories and preview secure setup")]
+#[command(
+    version,
+    about = "Inspect Rust repositories and apply reviewed local setup"
+)]
 struct Cli {
     #[arg(long, default_value = ".", global = true)]
     repository: PathBuf,
@@ -22,6 +25,18 @@ enum Operation {
     Check,
     /// Preview changes without writing repository files (JSON).
     Plan,
+    /// Apply a reviewed plan; the digest must be supplied independently.
+    Apply {
+        #[arg(long)]
+        plan: PathBuf,
+        #[arg(long)]
+        expect_plan_sha256: String,
+    },
+    /// Explicitly roll back or finalize a matching interrupted transaction.
+    Recover {
+        #[arg(long)]
+        expect_plan_sha256: String,
+    },
     /// Print a structural JSON schema. Semantic rules are also checked at runtime.
     Schema {
         #[arg(value_enum)]
@@ -38,7 +53,7 @@ enum SchemaKind {
 
 /// Produce JSON and an exit status for the selected operation.
 ///
-/// Schema and plan operations return status 0; check returns 2 because release
+/// Schema, plan, apply and recovery return status 0; check returns 2 because release
 /// readiness remains blocked. Propagates inspection errors and maps JSON value
 /// conversion failures to `Error::Json`; output is left to the caller.
 fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
@@ -51,6 +66,29 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
             };
             Ok((serde_json::to_value(schema).map_err(|_| Error::Json)?, 0))
         }
+        Operation::Apply {
+            plan,
+            expect_plan_sha256,
+        } => {
+            let plan = armorer::apply::load_plan(&plan, &expect_plan_sha256)?;
+            Ok((
+                serde_json::to_value(armorer::apply::apply(
+                    &cli.repository,
+                    &plan,
+                    &expect_plan_sha256,
+                )?)
+                .map_err(|_| Error::Json)?,
+                0,
+            ))
+        }
+        Operation::Recover { expect_plan_sha256 } => Ok((
+            serde_json::to_value(armorer::apply::recover(
+                &cli.repository,
+                &expect_plan_sha256,
+            )?)
+            .map_err(|_| Error::Json)?,
+            0,
+        )),
         Operation::Plan => Ok((
             serde_json::to_value(inspect(&cli.repository, "plan")?).map_err(|_| Error::Json)?,
             0,

@@ -2,7 +2,7 @@
 
 Repeatable secure CI and verifiable releases for Rust repositories.
 
-**Early development:** the first implementation provides read-only `check`, `plan`, and structural JSON schemas. It validates explicit Cargo workspace selections and previews a pinned toolchain file. Apply, upgrades, reusable workflows, SBOMs, attestations and publication are planned; they are not implemented yet. No SLSA level is claimed by this slice.
+**Early development:** read-only `check`/`plan` validate explicit Cargo workspace selections. Digest-approved `apply` configures the pinned toolchain transactionally, with explicit `recover` for interrupted writes. Workflow/pin upgrades, reusable workflows, SBOMs, attestations and publication require later integration. No SLSA level is claimed by this slice.
 
 The public MIT repositories are [armorer](https://github.com/brianluby/armorer) for the Rust CLI and [armorer-workflows](https://github.com/brianluby/armorer-workflows) for separately versioned trusted reusable workflows.
 
@@ -16,7 +16,7 @@ armorer schema config
 
 From this checkout use `cargo run --locked -- --repository /path/to/workspace plan`. JSON goes to stdout. `plan` exits 0 for a valid preview, even with unmet requirements. `check` exits 2 when setup requirements remain; this development slice always reports missing release runtime and unverified capabilities. Invalid input/discovery exits 1 with a JSON error. Neither command writes consuming files or contacts GitHub. CLI argument errors follow Clap's conventional stderr output.
 
-See [onboarding and boundaries](docs/onboarding.md), [version-one contracts](docs/contracts-v1.md), and [contributing](CONTRIBUTING.md).
+See [onboarding and boundaries](docs/onboarding.md), [reviewed apply and recovery](docs/apply.md), [version-one contracts](docs/contracts-v1.md), and [contributing](CONTRIBUTING.md).
 
 - [Architecture](ARCHITECTURE.md): Rust CLI, separately versioned trusted workflows, TOML configuration, preservation of customization, final-byte evidence and independent verification.
 - [Implementation plan](IMPLEMENTATION_PLAN.md): reviewable slices, owners, estimates, failure tests, pilot adoption and decisions.

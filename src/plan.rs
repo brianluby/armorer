@@ -8,41 +8,52 @@ use crate::{
     read_small, safe_path,
 };
 use schemars::JsonSchema;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::path::Path;
 
-#[derive(Debug, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct Plan {
+    pub runtime_version: String,
+    pub plan_sha256: String,
+    pub state_sha256: Option<String>,
+    pub input_preimages: BTreeMap<String, Option<String>>,
     pub schema_version: u32,
-    pub mode: &'static str,
+    pub mode: String,
     pub repository: String,
     pub intent: Config,
-    pub state: &'static str,
+    pub state: String,
     pub config_sha256: String,
     pub lock_sha256: Option<String>,
-    pub capability_state: &'static str,
+    pub capability_state: String,
     pub workspace: Workspace,
     pub changes: Vec<Change>,
     pub findings: Vec<Finding>,
 }
 
-#[derive(Debug, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct Change {
-    pub path: &'static str,
-    pub disposition: &'static str,
+    pub path: String,
+    pub disposition: String,
     pub before_sha256: Option<String>,
     pub after_sha256: String,
     pub proposed_content: String,
 }
 
-#[derive(Debug, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct Finding {
-    pub code: &'static str,
-    pub detail: &'static str,
+    pub code: String,
+    pub detail: String,
 }
 
-fn finding(code: &'static str, detail: &'static str) -> Finding {
-    Finding { code, detail }
+fn finding(code: &str, detail: &str) -> Finding {
+    Finding {
+        code: code.into(),
+        detail: detail.into(),
+    }
 }
 
 /// Preview the pinned toolchain file without writing it.
@@ -69,8 +80,8 @@ fn toolchain_change(root: &Path, config: &Config) -> Result<Change> {
         Some(_) => "conflict",
     };
     Ok(Change {
-        path: "rust-toolchain.toml",
-        disposition,
+        path: "rust-toolchain.toml".into(),
+        disposition: disposition.into(),
         before_sha256: current.as_deref().map(digest),
         after_sha256: digest(proposed_content.as_bytes()),
         proposed_content,
@@ -88,13 +99,36 @@ fn toolchain_change(root: &Path, config: &Config) -> Result<Change> {
 /// # Errors
 /// Propagates configuration and lock validation, discovery, path, I/O, and
 /// size-limit errors. An absent lock is a finding, but an invalid lock is an error.
-pub fn inspect(root: &Path, mode: &'static str) -> Result<Plan> {
+pub fn inspect(root: &Path, mode: &str) -> Result<Plan> {
     let (config, bytes) = load_config(root)?;
     let config_sha256 = digest(&bytes);
     let lock = load_lock(root, &config_sha256)?;
     let lock_sha256 = lock.as_ref().map(|(_, bytes)| digest(bytes));
     let workspace = discover(root, &config)?;
-    let change = toolchain_change(root, &config)?;
+    let ownership = crate::apply::load_state(root)?;
+    let state_sha256 = ownership.as_ref().map(|(_, bytes)| digest(bytes));
+    let mut change = toolchain_change(root, &config)?;
+    if change.disposition == "conflict"
+        && !safe_path(root, "rust-toolchain")?.try_exists()?
+        && ownership
+            .as_ref()
+            .and_then(|(state, _)| state.managed.get(&change.path))
+            .is_some_and(|base| Some(base.sha256.clone()) == change.before_sha256)
+    {
+        change.disposition = "update".into();
+    }
+    let mut input_preimages = BTreeMap::new();
+    for relative in [&config.policy.license_file, &"rust-toolchain".to_owned()] {
+        let path = safe_path(root, relative)?;
+        input_preimages.insert(
+            relative.clone(),
+            if path.try_exists()? {
+                Some(digest(&read_small(&path)?))
+            } else {
+                None
+            },
+        );
+    }
     let mut findings = vec![
         finding(
             "github-capabilities-unchecked",
@@ -141,20 +175,55 @@ pub fn inspect(root: &Path, mode: &'static str) -> Result<Plan> {
         findings.push(finding("native-build-review", "Declared native links/build scripts require target-specific tool and system dependency review."));
     }
     if change.disposition == "conflict" {
-        findings.push(finding("toolchain-conflict", "Existing toolchain customization is preserved; resolve the conflict before future apply."));
+        findings.push(finding(
+            "toolchain-conflict",
+            "Existing toolchain customization is preserved; resolve the conflict before apply.",
+        ));
     }
-    findings.sort_by_key(|f| f.code);
-    Ok(Plan {
+    if safe_path(root, ".armorer/journal.json")?.try_exists()? {
+        findings.push(finding(
+            "transaction-recovery-required",
+            "An unfinished transaction must be explicitly recovered before applying another plan.",
+        ));
+    }
+    findings.sort_by(|a, b| a.code.cmp(&b.code));
+    let mut plan = Plan {
+        runtime_version: env!("CARGO_PKG_VERSION").into(),
+        plan_sha256: String::new(),
+        state_sha256,
+        input_preimages,
         schema_version: VERSION,
-        mode,
+        mode: mode.into(),
         repository: config.repository.clone(),
         intent: config,
-        state: "configuration-valid",
+        state: "configuration-valid".into(),
         config_sha256,
         lock_sha256,
-        capability_state: "unknown",
+        capability_state: "unknown".into(),
         workspace,
         changes: vec![change],
         findings,
-    })
+    };
+    plan.plan_sha256 = plan.digest()?;
+    if serde_json::to_vec_pretty(&plan)
+        .map_err(|_| crate::Error::Json)?
+        .len()
+        > 1_048_576
+    {
+        return Err(crate::Error::Transaction("plan exceeds 1 MiB"));
+    }
+    Ok(plan)
+}
+
+impl Plan {
+    /// Hash compact typed JSON with the digest field blank. Formatting is irrelevant.
+    pub fn digest(&self) -> Result<String> {
+        let mut canonical = self.clone();
+        canonical.plan_sha256.clear();
+        let bytes = serde_json::to_vec(&canonical).map_err(|_| crate::Error::Json)?;
+        if bytes.len() > 1_048_576 {
+            return Err(crate::Error::Transaction("plan exceeds 1 MiB"));
+        }
+        Ok(digest(&bytes))
+    }
 }
