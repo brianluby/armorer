@@ -4,7 +4,7 @@ Status: proposed for review; discovery and planning only. Verified 2026-09-30.
 
 Armorer makes secure Rust CI and independently verifiable releases a repeatable repository capability. It configures a project, checks what is actually enforced, and records what has been demonstrated. Installing workflow files alone never means a project has achieved a SLSA level.
 
-Confirmed decisions: public repositories under `brianluby`, MIT license, secure releases fail closed when required capabilities are unavailable, and Momus plus Rusty Brain as pilots. **v0.1 targets Build L2; L3 assessment and gap closure are deferred to the backlog for an unscheduled future version.** Momus implementation continues independently. Nothing in this phase modifies either pilot or publishes a repository/release.
+Confirmed decisions: public repositories under `brianluby`, MIT license, secure releases fail closed when required capabilities are unavailable, and Momus plus Rusty Brain as pilots. **v0.1 targets Build L2; L3 assessment and gap closure are deferred to the backlog for an unscheduled future version.** Momus implementation continues independently. Architecture discovery did not modify either pilot. The repositories are now provisioned; current implementation status is documented in the README. Release publication requires separate authorization.
 
 ## Repository and language boundaries
 

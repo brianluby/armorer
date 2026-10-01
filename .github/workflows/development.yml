@@ -1,0 +1,51 @@
+name: Development
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: development-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Rust / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+    env:
+      RUSTC_WRAPPER: ""
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install exact toolchain
+        run: |
+          rustup toolchain install 1.95.0 --profile minimal --component clippy --component rustfmt
+          toolchain_bin="$(dirname "$(rustup which --toolchain 1.95.0 cargo)")"
+          echo "$toolchain_bin" >> "$GITHUB_PATH"
+      - name: Check formatting
+        run: cargo fmt --check
+      - name: Lint
+        run: cargo clippy --locked --all-targets --all-features -- -D warnings
+      - name: Test
+        run: cargo test --locked
+      - name: Build
+        run: cargo build --locked
+      - name: Verify committed schemas
+        run: |
+          target/debug/armorer schema config > /tmp/armorer-config.json
+          target/debug/armorer schema lock > /tmp/armorer-lock.json
+          target/debug/armorer schema plan > /tmp/armorer-plan.json
+          diff -u schemas/config-v1.json /tmp/armorer-config.json
+          diff -u schemas/lock-v1.json /tmp/armorer-lock.json
+          diff -u schemas/plan-v1.json /tmp/armorer-plan.json

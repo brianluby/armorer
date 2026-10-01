@@ -1,6 +1,6 @@
 # ADR 0002: platform attestations and evidence-based level claims
 
-Status: proposed.
+Status: accepted design, 2026-09-30. v0.1 targets L2; implementation and hosted evidence remain pending. L3 is deferred.
 
 Context: artifact subjects must cover published final bytes, while compiler code, Apple credentials and provenance signing have distinct trust boundaries. Current generic SLSA generator upstream is no longer actively maintained.
 

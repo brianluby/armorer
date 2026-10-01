@@ -1,0 +1,20 @@
+schema_version = 1
+repository = "example/my-cli"
+toolchain = "1.95.0"
+manifest = "Cargo.toml"
+
+[[deliverables]]
+id = "application"
+profile = "cli"
+package = "my-cli"
+binary = "my-cli"
+targets = ["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu", "aarch64-apple-darwin"]
+feature_set = "release"
+
+[feature_sets.release]
+default_features = true
+features = []
+
+[policy]
+license_file = "LICENSE"
+attestations = "required"

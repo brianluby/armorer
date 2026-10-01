@@ -2,14 +2,28 @@
 
 Repeatable secure CI and verifiable releases for Rust repositories.
 
-This workspace currently contains an architecture proposal and scoped implementation plan. There is no implemented CLI or provisioned upstream repository yet.
+**Early development:** the first implementation provides read-only `check`, `plan`, and structural JSON schemas. It validates explicit Cargo workspace selections and previews a pinned toolchain file. Apply, upgrades, reusable workflows, SBOMs, attestations and publication are planned; they are not implemented yet. No SLSA level is claimed by this slice.
+
+The public MIT repositories are [armorer](https://github.com/brianluby/armorer) for the Rust CLI and [armorer-workflows](https://github.com/brianluby/armorer-workflows) for separately versioned trusted reusable workflows.
+
+Install Rust 1.95.0 through rustup and build with `cargo build --locked`. Author `armorer.toml` in the consuming repository using [the CLI example](examples/armorer.toml), replacing repository, package and binary identities. Library deliverables omit `binary`; CLI/service deliverables require it. Targets and feature sets are explicit.
+
+```sh
+armorer --repository /path/to/workspace plan
+armorer --repository /path/to/workspace check
+armorer schema config
+```
+
+From this checkout use `cargo run --locked -- --repository /path/to/workspace plan`. JSON goes to stdout. `plan` exits 0 for a valid preview, even with unmet requirements. `check` exits 2 when setup requirements remain; this development slice always reports missing release runtime and unverified capabilities. Invalid input/discovery exits 1 with a JSON error. Neither command writes consuming files or contacts GitHub. CLI argument errors follow Clap's conventional stderr output.
+
+See [onboarding and boundaries](docs/onboarding.md), [version-one contracts](docs/contracts-v1.md), and [contributing](CONTRIBUTING.md).
 
 - [Architecture](ARCHITECTURE.md): Rust CLI, separately versioned trusted workflows, TOML configuration, preservation of customization, final-byte evidence and independent verification.
 - [Implementation plan](IMPLEMENTATION_PLAN.md): reviewable slices, owners, estimates, failure tests, pilot adoption and decisions.
 - [Research](RESEARCH.md): primary-source capabilities and additional supply-chain tooling.
-- [Proposed ADRs](docs/adr/0001-repositories-language-and-configuration.md): repository/language/configuration, [attestations and claims](docs/adr/0002-platform-attestations-and-level-claims.md), and [publication/migration](docs/adr/0003-fail-closed-publication-and-migration.md).
+- [Accepted design ADRs](docs/adr/0001-repositories-language-and-configuration.md): repository/language/configuration, [attestations and claims](docs/adr/0002-platform-attestations-and-level-claims.md), and [publication/migration](docs/adr/0003-fail-closed-publication-and-migration.md).
 - [Veans epic #1](https://kanban.luby.us/tasks/1304): fifteen scoped child tickets on [project 16](https://kanban.luby.us/projects/16/61).
 
-Confirmed: brianluby/armorer and brianluby/armorer-workflows are the proposed public upstreams; MIT license; fail-closed secure releases; Momus and Rusty Brain pilots. v0.1 targets SLSA Build L2. L3 assessment and gap closure are deferred to the backlog for an unscheduled future version and do not block initial delivery. Additional security controls complement provenance.
+Confirmed: MIT license, fail-closed secure releases, and Momus/Rusty Brain pilots. v0.1 targets SLSA Build L2. Linux release assets will be authenticated through signed GitHub/Sigstore attestations; macOS additionally requires Developer ID signing and notarization before final-byte attestation. L3 assessment and gap closure are deferred to an unscheduled future backlog item. Additional security controls complement provenance.
 
 Inspired by the Armorer's craft: forge protection into the tools projects begin with.

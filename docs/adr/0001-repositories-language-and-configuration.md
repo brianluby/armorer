@@ -1,6 +1,6 @@
 # ADR 0001: repositories, language and configuration
 
-Status: proposed. Owner/repository naming and MIT license confirmed 2026-09-30.
+Status: accepted design, 2026-09-30. Implementation is staged; current contracts remain experimental before v0.1.
 
 Context: adopters need stable trusted workflows and safe local migrations without maintaining a large copied release pipeline. The two components evolve at different rates and have different trust boundaries.
 
