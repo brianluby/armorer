@@ -64,12 +64,12 @@ pub struct Receipt {
     pub provenance_verified: bool,
 }
 
-fn receipt(plan: &Plan, outcome: &'static str, configured: bool) -> Receipt {
+fn receipt(plan: &Plan, outcome: &'static str, toolchain_configured: bool) -> Receipt {
     Receipt {
         plan_sha256: plan.plan_sha256.clone(),
         outcome,
         configured: false,
-        toolchain_configured: configured,
+        toolchain_configured,
         ci_verified: false,
         release_rehearsed: false,
         published: false,
