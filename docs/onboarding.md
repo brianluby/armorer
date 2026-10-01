@@ -1,9 +1,9 @@
-# Read-only onboarding
+# Onboarding and discovery
 
 1. Install rustup and the exact toolchain declared in `armorer.toml`. Armorer never installs consuming tools during check/plan. The CLI builds with Rust 1.95.0.
 2. Author configuration using [the example](../examples/armorer.toml) and [contracts](contracts-v1.md). Select packages, binaries, targets and features explicitly; omit binary for libraries.
 3. Run `armorer --repository /path/to/workspace plan` and review findings and proposed content. Run `check` for a failing setup gate; it exits 2 while requirements remain.
-4. Track missing settings, credentials and reviewed pins as setup work. This slice does not contact GitHub, request secrets, configure settings or write consumer files.
+4. Optionally review and retain a plan digest, then use [transactional apply](apply.md) to configure the toolchain. Check/plan stay read-only. Track missing settings, credentials and reviewed pins as setup work; this slice does not contact GitHub, request secrets or configure GitHub settings.
 
 ## Discovery boundary
 
@@ -15,8 +15,8 @@ The local rustup installation and OS are trusted. This is not an OS sandbox agai
 
 ## Recovery and next gates
 
-Commands leave no consumer changes to recover. Review JSON error codes; TOML errors omit input values. The operating-system temporary directory must resolve outside the consuming workspace and have no ancestor `.cargo/config` or `.cargo/config.toml`; unsafe placement is rejected before snapshot creation. Use an external temporary directory with no inherited Cargo configuration when rerunning. Ancestor configuration is checked for presence without opening its contents. For other discovery failures, inspect manifests using trusted installed Cargo in a context you control, correct unsupported selections/paths/toolchains and rerun. Armorer prints no credentials or arbitrary Cargo stderr.
+Check/plan leave no consumer changes to recover. Apply uses a durable journal and explicit recovery; follow [the recovery procedure](apply.md) after interrupted writes. Review JSON error codes; TOML errors omit input values. The operating-system temporary directory must resolve outside the consuming workspace and have no ancestor `.cargo/config` or `.cargo/config.toml`; unsafe placement is rejected before snapshot creation. Use an external temporary directory with no inherited Cargo configuration when rerunning. Ancestor configuration is checked for presence without opening its contents. For other discovery failures, inspect manifests using trusted installed Cargo in a context you control, correct unsupported selections/paths/toolchains and rerun. Armorer prints no credentials or arbitrary Cargo stderr.
 
-Apply/upgrade, authenticated GitHub checks, signing credential-name setup, hosted rehearsals, release verification and failed-draft recovery belong to later slices and require operational documentation before publication. Current previews cannot authorize releases or claim SLSA compliance.
+Workflow/tool upgrades, authenticated GitHub checks, signing credential-name setup, hosted rehearsals, release verification and failed-draft recovery belong to later slices and require operational documentation before publication. Toolchain apply cannot authorize releases or claim SLSA compliance.
 
 Primary sources: [cargo metadata](https://doc.rust-lang.org/cargo/commands/cargo-metadata.html), [Cargo configuration](https://doc.rust-lang.org/cargo/reference/config.html), [features](https://doc.rust-lang.org/cargo/reference/features.html).

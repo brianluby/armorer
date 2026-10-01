@@ -1,4 +1,4 @@
-//! Read-only configuration validation and Cargo workspace planning.
+//! Rust configuration validation, read-only planning and approved local transactions.
 //!
 //! Discovery inspects a temporary manifest snapshot using installed Cargo;
 //! it does not compile repository code, resolve the dependency graph, or install tools.
@@ -9,6 +9,7 @@
 //! assert!(!repository_name("https://example.invalid/project"));
 //! ```
 
+pub mod apply;
 pub mod config;
 pub mod discovery;
 pub mod plan;
@@ -32,6 +33,8 @@ pub enum Error {
     Metadata,
     #[error("JSON serialization failed")]
     Json,
+    #[error("transaction blocked: {0}")]
+    Transaction(&'static str),
 }
 
 impl Error {
@@ -45,6 +48,7 @@ impl Error {
             Self::Cargo(_) => "cargo-discovery",
             Self::Metadata => "cargo-metadata",
             Self::Json => "json",
+            Self::Transaction(_) => "transaction",
         }
     }
 }

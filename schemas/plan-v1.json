@@ -7,6 +7,7 @@
       "type": "string"
     },
     "Change": {
+      "additionalProperties": false,
       "properties": {
         "after_sha256": {
           "type": "string"
@@ -136,6 +137,7 @@
       "type": "object"
     },
     "Finding": {
+      "additionalProperties": false,
       "properties": {
         "code": {
           "type": "string"
@@ -250,6 +252,7 @@
       "type": "object"
     },
     "Workspace": {
+      "additionalProperties": false,
       "properties": {
         "cargo_config_present": {
           "type": "boolean"
@@ -280,6 +283,7 @@
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
   "properties": {
     "capability_state": {
       "type": "string"
@@ -299,6 +303,15 @@
       },
       "type": "array"
     },
+    "input_preimages": {
+      "additionalProperties": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "type": "object"
+    },
     "intent": {
       "$ref": "#/$defs/Config"
     },
@@ -311,7 +324,13 @@
     "mode": {
       "type": "string"
     },
+    "plan_sha256": {
+      "type": "string"
+    },
     "repository": {
+      "type": "string"
+    },
+    "runtime_version": {
       "type": "string"
     },
     "schema_version": {
@@ -322,11 +341,20 @@
     "state": {
       "type": "string"
     },
+    "state_sha256": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "workspace": {
       "$ref": "#/$defs/Workspace"
     }
   },
   "required": [
+    "runtime_version",
+    "plan_sha256",
+    "input_preimages",
     "schema_version",
     "mode",
     "repository",
