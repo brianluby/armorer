@@ -45,6 +45,11 @@ fn finding(code: &'static str, detail: &'static str) -> Finding {
     Finding { code, detail }
 }
 
+/// Preview the pinned toolchain file without writing it.
+///
+/// A missing file is `create`, identical bytes are `unchanged`, and differing
+/// bytes are `conflict`. A legacy `rust-toolchain` file always causes a conflict.
+/// Returns proposed content and digests, propagating path, I/O, and size errors.
 fn toolchain_change(root: &Path, config: &Config) -> Result<Change> {
     let path = safe_path(root, "rust-toolchain.toml")?;
     let proposed_content = format!(
@@ -73,6 +78,16 @@ fn toolchain_change(root: &Path, config: &Config) -> Result<Change> {
 }
 
 /// Inspect configuration and preview the first managed file. Missing capabilities fail closed.
+///
+/// `mode` is copied into the plan without changing inspection behavior. Returns
+/// input digests, discovered workspace selections, a toolchain-file preview,
+/// and findings sorted by code. Missing prerequisites and toolchain conflicts
+/// become findings; a successful return does not indicate release readiness.
+/// Repository files are preserved; discovery uses temporary files and subprocesses.
+///
+/// # Errors
+/// Propagates configuration and lock validation, discovery, path, I/O, and
+/// size-limit errors. An absent lock is a finding, but an invalid lock is an error.
 pub fn inspect(root: &Path, mode: &'static str) -> Result<Plan> {
     let (config, bytes) = load_config(root)?;
     let config_sha256 = digest(&bytes);

@@ -28,6 +28,7 @@ pub struct Config {
     pub policy: Policy,
 }
 
+/// Use the workspace-root manifest when configuration omits `manifest`.
 fn manifest_default() -> String {
     "Cargo.toml".into()
 }
@@ -96,6 +97,8 @@ pub struct ToolPin {
     pub sha256: String,
 }
 
+/// Accept 1–100 ASCII bytes, starting with an alphanumeric character and
+/// continuing with alphanumeric characters, hyphens, or underscores.
 pub fn identifier(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 100
@@ -105,6 +108,8 @@ pub fn identifier(value: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')
 }
 
+/// Accept 1–100 ASCII bytes, starting with an alphanumeric character and
+/// continuing with alphanumeric characters or `_`, `-`, `+`, and `.`.
 fn feature_name(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 100
@@ -114,6 +119,11 @@ fn feature_name(value: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || b"_-+.".contains(&c))
 }
 
+/// Check `owner/name` syntax without verifying that the repository exists.
+///
+/// Each part must contain 1–100 ASCII bytes, start with an alphanumeric
+/// character, and contain only alphanumeric characters, hyphens, underscores,
+/// or periods.
 pub fn repository_name(value: &str) -> bool {
     let parts: Vec<_> = value.split('/').collect();
     parts.len() == 2
@@ -128,10 +138,15 @@ pub fn repository_name(value: &str) -> bool {
         })
 }
 
+/// Accept a complete semantic version without prerelease or build metadata.
 fn exact_version(value: &str) -> bool {
     semver::Version::parse(value).is_ok_and(|v| v.pre.is_empty() && v.build.is_empty())
 }
 
+/// Check for exactly `length` lowercase hexadecimal characters.
+///
+/// `length` counts encoded characters, not decoded bytes; zero accepts only
+/// an empty string. This checks syntax without authenticating the digest.
 pub fn hex_digest(value: &str, length: usize) -> bool {
     value.len() == length
         && value
@@ -139,6 +154,7 @@ pub fn hex_digest(value: &str, length: usize) -> bool {
             .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
 }
 
+/// Return `Error::Invalid` with `message` when the condition is false.
 fn require(condition: bool, message: &str) -> Result<()> {
     if condition {
         Ok(())
@@ -147,6 +163,13 @@ fn require(condition: bool, message: &str) -> Result<()> {
     }
 }
 
+/// Read and validate `armorer.toml` under `root`, returning its exact bytes
+/// alongside the configuration for digest calculation.
+///
+/// # Errors
+/// Returns `Error::Toml` for invalid UTF-8, malformed TOML, or a schema mismatch
+/// (including unknown fields). Propagates path, I/O, size-limit, and
+/// [`Config::validate`] errors.
 pub fn load_config(root: &Path) -> Result<(Config, Vec<u8>)> {
     let bytes = read_small(&safe_path(root, "armorer.toml")?)?;
     let text = std::str::from_utf8(&bytes).map_err(|_| Error::Toml)?;
@@ -156,6 +179,15 @@ pub fn load_config(root: &Path) -> Result<(Config, Vec<u8>)> {
 }
 
 impl Config {
+    /// Check version-one configuration rules and path safety relative to `root`.
+    ///
+    /// Checks selection syntax, supported targets, uniqueness, and feature-set
+    /// references. Referenced files need not exist; package, binary, and feature
+    /// availability are checked during discovery.
+    ///
+    /// # Errors
+    /// Returns `Error::Invalid` for a contract violation and propagates path and
+    /// filesystem inspection errors from [`safe_path`].
     pub fn validate(&self, root: &Path) -> Result<()> {
         require(self.schema_version == VERSION, "unsupported schema_version")?;
         require(
@@ -237,6 +269,16 @@ impl Config {
     }
 }
 
+/// Read `armorer.lock` under `root`, returning `None` when it is absent.
+///
+/// `config_digest` is the lowercase SHA-256 of the exact configuration bytes.
+/// Checks its binding, runtime compatibility, and pin syntax; upstream pins
+/// and distribution contents are not authenticated.
+///
+/// # Errors
+/// Returns `Error::Toml` for invalid UTF-8, malformed TOML, or a schema mismatch,
+/// and `Error::Invalid` for oversized input or invalid or incompatible lock
+/// contents. Propagates path and I/O errors.
 pub fn load_lock(root: &Path, config_digest: &str) -> Result<Option<Lock>> {
     let path = safe_path(root, "armorer.lock")?;
     if !path.try_exists()? {

@@ -53,6 +53,14 @@ struct MetadataPackage {
 }
 
 // Never execute a binary selected by repository-local PATH entries.
+/// Find the first rustup file in an absolute PATH directory outside `root`.
+///
+/// `root` must be canonical. Relative or unresolvable directories and candidates
+/// resolving inside `root` are skipped. The returned path retains the rustup
+/// filename for multicall installations.
+///
+/// Returns `Error::Cargo` when PATH is absent or no candidate qualifies;
+/// canonicalizing a candidate can propagate `Error::Io`.
 fn trusted_rustup(root: &Path) -> Result<PathBuf> {
     let search = std::env::var_os("PATH").ok_or(Error::Cargo("rustup-path"))?;
     for directory in std::env::split_paths(&search) {
@@ -82,6 +90,10 @@ fn trusted_rustup(root: &Path) -> Result<PathBuf> {
     Err(Error::Cargo("rustup-path"))
 }
 
+/// Return a UTF-8 path relative to `root`, using forward slashes.
+///
+/// Returns `Error::Metadata` if the prefix does not match or the relative path
+/// is not UTF-8. Paths are not canonicalized.
 fn relative(root: &Path, path: &Path) -> Result<String> {
     path.strip_prefix(root)
         .ok()
@@ -90,6 +102,11 @@ fn relative(root: &Path, path: &Path) -> Result<String> {
         .ok_or(Error::Metadata)
 }
 
+/// Check a manifest path lexically against a workspace-relative base directory.
+///
+/// Parent components may ascend as far as the workspace root. Returns
+/// `Error::Path` for an escape, absolute path, backslash, or control character;
+/// does not inspect filesystem entries.
 fn contained_path(base: &Path, value: &str) -> Result<()> {
     if value.contains('\\') || value.chars().any(char::is_control) {
         return Err(Error::Path("unsupported manifest path".into()));
@@ -106,6 +123,11 @@ fn contained_path(base: &Path, value: &str) -> Result<()> {
     Ok(())
 }
 
+/// Recursively check recognized manifest path fields relative to `base`, the
+/// manifest's workspace-relative directory, propagating [`contained_path`] errors.
+///
+/// Only string paths and string entries in member/exclusion arrays are checked;
+/// other value types are left to Cargo.
 fn validate_paths(value: &toml::Value, base: &Path) -> Result<()> {
     if let Some(table) = value.as_table() {
         for (key, value) in table {
@@ -143,6 +165,18 @@ struct Snapshot {
 }
 
 impl Snapshot {
+    /// Populate `destination` from `directory` under `root` without changing inputs.
+    ///
+    /// Copies Cargo manifests and lockfiles, creates empty Rust source placeholders,
+    /// and records hashes or source-path presence. Skips `.cargo` entries and common
+    /// build/VCS directories, recording whether a `.cargo` entry was encountered.
+    ///
+    /// # Errors
+    /// Rejects more than 20,000 visited entries, Cargo inputs over 1 MiB, or more than
+    /// 8 MiB of manifest/lockfile bytes with `Error::Invalid`. Returns `Error::Path`
+    /// for non-UTF-8 names, unskipped symlinks, or unsafe manifest paths, and
+    /// `Error::Toml` for invalid manifest UTF-8 or TOML. Propagates I/O and relative
+    /// path errors. A failure can leave a partial snapshot and updated counters.
     fn copy(&mut self, root: &Path, directory: &Path, destination: &Path) -> Result<()> {
         let mut entries: Vec<_> = std::fs::read_dir(directory)?.collect::<std::io::Result<_>>()?;
         entries.sort_by_key(|entry| entry.file_name());
@@ -208,6 +242,19 @@ impl Snapshot {
 }
 
 /// Read metadata without dependencies, networking, installation, or repository Cargo configuration.
+///
+/// Validates the configuration and selected packages, targets, features, and
+/// minimum Rust versions. Returns workspace members sorted by name, sorted
+/// targets, input hashes/source-path markers, and lock/config presence flags.
+/// Creates a temporary snapshot and runs installed rustup and Cargo; repository
+/// source and build scripts are not executed and repository files are not written.
+///
+/// # Errors
+/// Propagates configuration, path, I/O, snapshot-size, and manifest parsing
+/// errors. Returns `Error::Cargo` for tool lookup or execution failures and
+/// metadata process limits, `Error::Metadata` for unsupported metadata, and
+/// `Error::Invalid` for incompatible selections. Oversized completed metadata
+/// output also returns `Error::Invalid`.
 pub fn discover(root: &Path, config: &Config) -> Result<Workspace> {
     let root = root.canonicalize()?;
     config.validate(&root)?;
@@ -348,6 +395,18 @@ pub fn discover(root: &Path, config: &Config) -> Result<Workspace> {
     })
 }
 
+/// Check selected packages, minimum Rust versions, and targets against metadata.
+///
+/// Requires a validated configuration. Required target features are checked
+/// against the transitive closure of declared package features, including
+/// `default` when requested; cycles terminate without an error.
+///
+/// Returns `Error::Invalid` for missing or ambiguous packages, incompatible
+/// Rust versions, unknown selected features, or unavailable targets/features.
+/// Returns `Error::Metadata` for unparseable compiler or minimum Rust versions.
+///
+/// # Panics
+/// Panics if a deliverable references an absent feature set.
 fn validate_selection(config: &Config, packages: &[Package]) -> Result<()> {
     let compiler = semver::Version::parse(&config.toolchain).map_err(|_| Error::Metadata)?;
     for deliverable in &config.deliverables {

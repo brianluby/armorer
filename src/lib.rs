@@ -35,6 +35,7 @@ pub enum Error {
 }
 
 impl Error {
+    /// Return the stable category code used in CLI JSON errors.
     pub fn code(&self) -> &'static str {
         match self {
             Self::Io(_) => "io",
@@ -51,6 +52,14 @@ impl Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Relative configuration paths never allow parent/absolute components or symlinks.
+///
+/// Returns the path joined to `root`, allowing missing components. The supplied
+/// `root` itself is not checked for symlinks.
+///
+/// # Errors
+/// Returns `Error::Path` for an empty path, backslashes, control characters,
+/// non-normal path components, or symlinks below `root`. Filesystem inspection
+/// errors other than not-found propagate as `Error::Io`.
 pub fn safe_path(root: &Path, relative: &str) -> Result<PathBuf> {
     let path = Path::new(relative);
     if relative.is_empty()
@@ -77,6 +86,10 @@ pub fn safe_path(root: &Path, relative: &str) -> Result<PathBuf> {
     Ok(joined)
 }
 
+/// Read a file containing at most 1 MiB (1,048,576 bytes).
+///
+/// Returns `Error::Invalid` if the input exceeds that limit and propagates file
+/// open and read failures as `Error::Io`.
 pub(crate) fn read_small(path: &Path) -> Result<Vec<u8>> {
     use std::io::Read;
     let mut bytes = Vec::new();
@@ -89,6 +102,7 @@ pub(crate) fn read_small(path: &Path) -> Result<Vec<u8>> {
     Ok(bytes)
 }
 
+/// Return the SHA-256 digest of the exact bytes as lowercase hexadecimal.
 pub(crate) fn digest(bytes: &[u8]) -> String {
     use sha2::{Digest, Sha256};
     format!("{:x}", Sha256::digest(bytes))

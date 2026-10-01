@@ -36,6 +36,11 @@ enum SchemaKind {
     Plan,
 }
 
+/// Produce JSON and an exit status for the selected operation.
+///
+/// Schema and plan operations return status 0; check returns 2 because release
+/// readiness remains blocked. Propagates inspection errors and maps JSON value
+/// conversion failures to `Error::Json`; output is left to the caller.
 fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
     match cli.command {
         Operation::Schema { kind } => {
@@ -57,6 +62,10 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
     }
 }
 
+/// Parse CLI arguments, write pretty JSON to stdout, and exit with the operation's status.
+///
+/// Operation errors become JSON errors with status 1. Serialization or stdout
+/// write failures also exit with status 1; argument parsing is handled by clap.
 fn main() {
     let (value, code) = match run(Cli::parse()) {
         Ok(result) => result,
