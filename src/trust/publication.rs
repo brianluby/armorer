@@ -1,6 +1,6 @@
 //! Publication identity and receipt consistency. No remote writes or state machine.
 use super::capability::{CapabilityId, CapabilityObservation, CapabilityPolicy};
-use super::{ByteIdentity, InputIdentity, Review, Source, release_tag, require};
+use super::{ByteIdentity, InputIdentity, Review, Source, release_ref, release_tag, require};
 use crate::Result;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -40,7 +40,7 @@ pub fn validate_trigger(
     )?;
     let allowed = match mode {
         Trigger::StableTagPush => {
-            expected.git_ref.starts_with("refs/tags/")
+            release_ref(&expected.git_ref)
                 && context.event == "push"
                 && context.git_ref == expected.git_ref
         }
@@ -92,7 +92,7 @@ impl LifecycleRecord {
             !matches!(
                 self.stage,
                 LifecycleStage::Published | LifecycleStage::ProvenanceVerified
-            ) || self.inputs.source.git_ref.starts_with("refs/tags/"),
+            ) || release_ref(&self.inputs.source.git_ref),
             "release-lifecycle-needs-tag",
         )?;
         self.policy.validate()?;
@@ -153,6 +153,7 @@ impl GithubReceipt {
             self.schema_version == 1
                 && self.release_id > 0
                 && release_tag(&self.tag)
+                && release_ref(&self.inputs.source.git_ref)
                 && self.inputs.source.git_ref == format!("refs/tags/{}", self.tag),
             "invalid-github-receipt",
         )?;
@@ -197,7 +198,12 @@ impl GithubReceipt {
                 setting.capability == CapabilityId::ImmutableReleases,
                 "wrong-setting-capability",
             )?;
-            setting.satisfies(CapabilityPolicy::Required, now, max_setting_age)?;
+            setting.satisfies(
+                CapabilityId::ImmutableReleases,
+                CapabilityPolicy::Required,
+                now,
+                max_setting_age,
+            )?;
         }
         require(
             !published || self.published_at.is_some_and(|t| t > 0 && t <= now),
@@ -283,7 +289,7 @@ impl PublishSet {
         self.inputs.validate()?;
         require(
             self.schema_version == 1
-                && self.inputs.source.git_ref.starts_with("refs/tags/")
+                && release_ref(&self.inputs.source.git_ref)
                 && !self.crates.is_empty()
                 && self.crates.len() <= 128,
             "invalid-publish-set",
@@ -396,6 +402,13 @@ impl RegistryReceipt {
                     "registry-byte-mismatch",
                 )?;
             }
+            require(
+                matches!(
+                    r.state,
+                    RegistryState::RegistryBytesVerified | RegistryState::Conflict
+                ) || (r.registry_bytes.is_none() && r.index_sha256.is_none()),
+                "registry-byte-evidence-state-mismatch",
+            )?;
             if let Some(b) = &r.registry_bytes {
                 b.validate()?;
             }

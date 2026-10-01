@@ -35,6 +35,9 @@ fn read<T: DeserializeOwned>(name: &str, file: &str) -> T {
 fn config(name: &str) -> Config {
     toml::from_str(&std::fs::read_to_string(root(name).join("armorer.toml")).unwrap()).unwrap()
 }
+fn catalog_bytes(name: &str) -> ByteIdentity {
+    ByteIdentity::from_bytes(&std::fs::read(root(name).join("catalog.json")).unwrap())
+}
 fn inventory() -> ReleaseInventory {
     read("linux-cli", "release-inventory")
 }
@@ -83,13 +86,18 @@ fn positive_profile_examples_bind_exact_config_lock_and_complete_chain() {
         e.validate_against_requirements(&c, &i, &r, NOW).unwrap();
         let capabilities: CapabilityConfig = read(name, "capability-config");
         capabilities
-            .validate(&c, &i.inputs.config_sha256, NOW)
+            .validate(&c, &i.inputs.config_sha256, &catalog_bytes(name), NOW)
             .unwrap();
         let catalog: Catalog = read(name, "catalog");
         catalog.validate(&lock, NOW).unwrap();
         let observation: CapabilityObservation = read(name, "capability-observation");
         observation
-            .satisfies(CapabilityPolicy::Required, NOW, 300)
+            .satisfies(
+                CapabilityId::ImmutableReleases,
+                CapabilityPolicy::Required,
+                NOW,
+                300,
+            )
             .unwrap();
         let receipt: GithubReceipt = read(name, "github-receipt");
         receipt.validate(NOW, 300).unwrap();
@@ -421,7 +429,12 @@ fn capability_unknown_unsupported_error_and_reporting_fail_required_gate() {
         observation.availability = availability;
         assert!(
             observation
-                .satisfies(CapabilityPolicy::Required, NOW, 300)
+                .satisfies(
+                    CapabilityId::ImmutableReleases,
+                    CapabilityPolicy::Required,
+                    NOW,
+                    300
+                )
                 .is_err()
         );
     }
@@ -429,15 +442,30 @@ fn capability_unknown_unsupported_error_and_reporting_fail_required_gate() {
     observation.enforcement = Enforcement::Reporting;
     assert!(
         observation
-            .satisfies(CapabilityPolicy::Required, NOW, 300)
+            .satisfies(
+                CapabilityId::ImmutableReleases,
+                CapabilityPolicy::Required,
+                NOW,
+                300
+            )
             .is_err()
     );
     observation
-        .satisfies(CapabilityPolicy::Reporting, NOW, 300)
+        .satisfies(
+            CapabilityId::ImmutableReleases,
+            CapabilityPolicy::Reporting,
+            NOW,
+            300,
+        )
         .unwrap();
     assert!(
         original
-            .satisfies(CapabilityPolicy::Required, NOW + 301, 300)
+            .satisfies(
+                CapabilityId::ImmutableReleases,
+                CapabilityPolicy::Required,
+                NOW + 301,
+                300
+            )
             .is_err()
     );
     let mut capabilities: CapabilityConfig = read("linux-cli", "capability-config");
@@ -447,7 +475,12 @@ fn capability_unknown_unsupported_error_and_reporting_fail_required_gate() {
     );
     assert!(
         capabilities
-            .validate(&config("linux-cli"), &inventory().inputs.config_sha256, NOW)
+            .validate(
+                &config("linux-cli"),
+                &inventory().inputs.config_sha256,
+                &catalog_bytes("linux-cli"),
+                NOW
+            )
             .is_err()
     );
 }
@@ -723,4 +756,114 @@ fn catalog_binding_and_unknown_schema_versions_fail_closed() {
         e.validate_against_requirements(&config("linux-cli"), &inventory(), &requirements(), NOW)
             .is_err()
     );
+}
+
+#[test]
+fn capability_observation_cannot_satisfy_a_different_capability() {
+    let observation: CapabilityObservation = read("linux-cli", "capability-observation");
+    observation
+        .satisfies(
+            CapabilityId::ImmutableReleases,
+            CapabilityPolicy::Required,
+            NOW,
+            300,
+        )
+        .unwrap();
+    for policy in [
+        CapabilityPolicy::Required,
+        CapabilityPolicy::Reporting,
+        CapabilityPolicy::Disabled,
+    ] {
+        assert!(
+            observation
+                .satisfies(CapabilityId::ProtectedTags, policy, NOW, 300)
+                .is_err()
+        );
+    }
+}
+
+#[test]
+fn capability_config_rejects_independent_catalog_digest_and_size_substitution() {
+    let c = config("linux-cli");
+    let i = inventory();
+    let original: CapabilityConfig = read("linux-cli", "capability-config");
+    let expected = catalog_bytes("linux-cli");
+    original
+        .validate(&c, &i.inputs.config_sha256, &expected, NOW)
+        .unwrap();
+    let mut forged = original.clone();
+    forged.catalog.sha256 = "f".repeat(64);
+    assert!(
+        forged
+            .validate(&c, &i.inputs.config_sha256, &expected, NOW)
+            .is_err()
+    );
+    let mut forged = original.clone();
+    forged.catalog.size += 1;
+    assert!(
+        forged
+            .validate(&c, &i.inputs.config_sha256, &expected, NOW)
+            .is_err()
+    );
+}
+
+#[test]
+fn registry_byte_evidence_requires_verified_or_conflict_state() {
+    let set: PublishSet = read("linux-cli", "publish-set");
+    let base: RegistryReceipt = read("linux-cli", "registry-receipt");
+    for state in [
+        RegistryState::Prepared,
+        RegistryState::Uploaded,
+        RegistryState::UploadResultUnknown,
+        RegistryState::RegistryObserved,
+    ] {
+        for digest_only in [false, true] {
+            let mut wrong = base.clone();
+            wrong.crates[0].state = state;
+            wrong.crates[0].observation = Some(ByteIdentity::from_bytes(b"registry observation"));
+            if digest_only {
+                wrong.crates[0].index_sha256 = Some(set.crates[0].archive.sha256.clone());
+            } else {
+                wrong.crates[0].registry_bytes = Some(set.crates[0].archive.clone());
+            }
+            assert!(wrong.validate_against(&set, NOW).is_err());
+        }
+    }
+    let mut conflict = base;
+    conflict.crates[0].state = RegistryState::Conflict;
+    conflict.crates[0].registry_bytes = Some(ByteIdentity::from_bytes(b"conflicting served bytes"));
+    conflict.crates[0].index_sha256 = Some("f".repeat(64));
+    conflict.crates[0].conflict =
+        Some(armorer::trust::publication::ConflictRecovery::ReviewNewVersion);
+    conflict.validate_against(&set, NOW).unwrap();
+}
+
+#[test]
+fn all_release_gates_reject_nonstable_tag_refs() {
+    for invalid in [
+        "refs/tags/not-semver",
+        "refs/tags/v1.0.0-rc.1",
+        "refs/tags/v1.0.0+metadata",
+        "refs/heads/v1.0.0",
+    ] {
+        let mut lifecycle: LifecycleRecord = read("linux-cli", "lifecycle-record");
+        lifecycle.stage = armorer::trust::publication::LifecycleStage::Published;
+        lifecycle.inputs.source.git_ref = invalid.into();
+        assert!(lifecycle.validate(NOW).is_err());
+        let mut set: PublishSet = read("linux-cli", "publish-set");
+        set.inputs.source.git_ref = invalid.into();
+        assert!(set.validate().is_err());
+        let source = set.inputs.source;
+        let trigger = TriggerContext {
+            event: "push".into(),
+            repository: source.repository.clone(),
+            source_commit: source.commit.clone(),
+            git_ref: source.git_ref.clone(),
+            fork: false,
+        };
+        assert!(validate_trigger(&trigger, &source, Trigger::StableTagPush, "main").is_err());
+        let mut receipt: GithubReceipt = read("linux-cli", "github-receipt");
+        receipt.inputs.source.git_ref = invalid.into();
+        assert!(receipt.validate(NOW, 300).is_err());
+    }
 }

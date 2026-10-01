@@ -58,7 +58,7 @@ armorer check [--online] [--json]
 armorer plan --profile cli --output armorer-plan.json
 armorer apply --plan armorer-plan.json
 armorer upgrade --to <reviewed-catalog-version> --output armorer-plan.json
-armorer verify --repo <owner/repo> --tag <exact-tag> --policy armorer-policy.toml
+armorer verify --repo <owner/repo> --tag <exact-tag> --policy armorer-policy.json
 ```
 
 `check` reads configuration, local state and, when requested, GitHub capabilities. `plan` produces a deterministic file/settings preview and manual-action list. Neither builds project code, installs tools, executes repository hooks, or changes remote settings. Discovery uses Cargo metadata without builds; dependency resolution/network activity is explicitly controlled and reported.

@@ -14,7 +14,7 @@ def identity(data):
 
 
 def write(path, value):
-    path.write_text(json.dumps(value, indent=2) + "\n")
+    path.write_bytes((json.dumps(value, indent=2) + "\n").encode("utf-8"))
 
 
 def review():
@@ -36,12 +36,12 @@ def build(name, profile, target):
             + ('binary = "app"\n' if binary else '') + 'targets = ["' + target + '"]\nfeature_set = "minimal"\n'
             '[feature_sets.minimal]\ndefault_features = false\nfeatures = []\n'
             '[policy]\nlicense_file = "LICENSE"\nattestations = "required"\n')
-    (directory / 'armorer.toml').write_text(toml)
+    (directory / 'armorer.toml').write_bytes(toml.encode('utf-8'))
     config_digest = identity(toml)['sha256']
     lock = ('schema_version = 1\nconfig_sha256 = "' + config_digest + '"\nruntime_version = "0.1.0"\n'
             '[workflows]\nrepository = "fixture/workflows"\ncommit = "' + 'b' * 40 + '"\n'
             '[tools.cargo-cyclonedx]\nversion = "0.5.9"\nsha256 = "' + identity('synthetic cyclonedx tool')['sha256'] + '"\n')
-    (directory / 'armorer.lock').write_text(lock)
+    (directory / 'armorer.lock').write_bytes(lock.encode('utf-8'))
     source = {"repository": "fixture/project", "commit": "a" * 40, "git_ref": "refs/tags/v1.0.0"}
     inputs = {"source": source, "config_sha256": config_digest, "lock_sha256": identity(lock)['sha256'],
               "cargo_lock_sha256": identity("synthetic Cargo.lock")['sha256'],

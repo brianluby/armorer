@@ -72,3 +72,23 @@ verified SBOM predicate/graph content, actual Apple checks, live settings,
 protected-ref/actor authorization and remote concurrency/state transitions.
 Optional adapters, registry upload implementation, release publication and L3
 assessment are outside this PR. No pilot repository was edited.
+
+## CodeRabbit remediation review — 2026-10-01
+
+The four actionable inline findings and two review-summary suggestions were
+checked against the current PR and remediated. No finding was dismissed.
+
+| Finding | Change / regression evidence |
+| --- | --- |
+| Outdated policy filename in architecture CLI example | Use `armorer-policy.json`, consistent with ADR 0006 |
+| Platform-dependent fixture encoding/newlines | Write explicit UTF-8 bytes for JSON/config/lock; regeneration remains byte-identical with `Path.write_text` disabled |
+| Observation could satisfy another capability's policy | `satisfies` accepts an independently expected CapabilityId and rejects mismatches for required/reporting/disabled decisions |
+| Capability sidecar could substitute catalog identity | `validate` accepts independently expected ByteIdentity; regression tests reject digest and size swaps against actual fixture catalog bytes |
+| Stray registry byte evidence on other receipt states | Only RegistryBytesVerified/Conflict permits archive/index byte fields; tests cover prepared/uploaded/unknown/observed rejection and conflict diagnostics |
+| Release-ref checks used separate prefix predicates | Shared exact stable `release_ref` helper used by source, policy, trigger, lifecycle, GitHub and publish-set gates; tests reject invalid/prerelease/build-metadata/branch substitutions |
+
+The four added regression tests bring the suite to **69** tests, including
+25 trust-contract tests. Public JSON schema shapes and committed fixture bytes
+remain unchanged; this fixes the still-unaccepted experimental validator API.
+Full validation and hosted head evidence are recorded in the PR replies and
+Veans readback after checks complete. No merge, release or tag operation.

@@ -34,7 +34,8 @@ own policy, tools, trusted roots or compatibility mode.
 
 Capability intent is `CapabilityConfig` (JSON sidecar, proposed path
 `.armorer/capability-policy.json`), bound to exact `armorer.toml` bytes, the
-reviewed catalog byte identity and an expiring review record. This preserves
+reviewed catalog byte identity and an expiring review record. Its validator takes
+the expected catalog identity independently and compares both digest and size. This preserves
 old Rust and Python readers. Existing check/plan do not load these sidecars or
 claim support for their execution. Catalog installation, rendering and upgrades
 remain #5/#4 integration work; no candidate pins are supplied for production.
@@ -196,7 +197,8 @@ Scorecard/dist/registry capabilities remain design inputs. `disabled`,
 `reporting`, `required` are reviewed policy decisions. Availability is separately
 `unknown`, `unsupported`, `error`, `available`; enforcement is `disabled`,
 `not-tested`, `skipped`, `reporting`, `enforced`. A required capability needs
-fresh positive evidence and enforced state. An HTTP 403 is unknown/error and
+fresh positive evidence and enforced state for the independently specified
+`CapabilityId`; one capability observation cannot satisfy another. An HTTP 403 is unknown/error and
 cannot satisfy publication prerequisites. Catalog adapters are enumerated and
 compatibility-bound; a record is not qualification or an enabled implementation.
 
@@ -241,7 +243,8 @@ identity, `publish = false`, staging/repackaging and exact transmitted objects.
 Registry selection is an enum, not a caller URL or credentials field.
 
 Per-crate states are prepared, uploaded, upload-result-unknown, registry-observed,
-registry-bytes-verified, conflict. Visibility alone is insufficient: verified
+registry-bytes-verified, conflict. Archive/index byte evidence is allowed only in byte-verified or conflict receipts;
+other states cannot carry contradictory byte-verification fields. Visibility alone is insufficient: verified
 state needs the approved archive identity, index checksum and retained independent
 observation. Dependents cannot upload before prerequisites are observed and
 byte-verified. Index/CDN lag remains pending. Retries bind the same publish-set;

@@ -75,10 +75,20 @@ pub struct CapabilityObservation {
 impl CapabilityObservation {
     /// A positive observation needs retained evidence. Authenticity/freshness
     /// must be checked against platform settings by #10 before publication.
-    pub fn satisfies(&self, policy: CapabilityPolicy, now: u64, max_age: u64) -> Result<()> {
+    pub fn satisfies(
+        &self,
+        expected: CapabilityId,
+        policy: CapabilityPolicy,
+        now: u64,
+        max_age: u64,
+    ) -> Result<()> {
         require(
             self.schema_version == 1,
             "unsupported-capability-observation-version",
+        )?;
+        require(
+            self.capability == expected,
+            "capability-observation-mismatch",
         )?;
         require(
             self.observed_at > 0 && self.observed_at <= now && now - self.observed_at <= max_age,
@@ -111,7 +121,13 @@ pub struct CapabilityConfig {
 }
 
 impl CapabilityConfig {
-    pub fn validate(&self, config: &Config, exact_config_sha256: &str, now: u64) -> Result<()> {
+    pub fn validate(
+        &self,
+        config: &Config,
+        exact_config_sha256: &str,
+        expected_catalog: &ByteIdentity,
+        now: u64,
+    ) -> Result<()> {
         require(
             self.schema_version == 1
                 && hex_digest(&self.config_sha256, 64)
@@ -119,6 +135,11 @@ impl CapabilityConfig {
             "capability-config-binding",
         )?;
         self.catalog.validate()?;
+        expected_catalog.validate()?;
+        require(
+            self.catalog == *expected_catalog,
+            "capability-catalog-binding",
+        )?;
         self.review.validate_at(now)?;
         for id in [
             CapabilityId::PlatformAttestations,

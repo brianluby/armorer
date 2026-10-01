@@ -277,9 +277,14 @@ pub(crate) fn parse_json<T: serde::de::DeserializeOwned>(bytes: &[u8]) -> Result
     serde_json::from_value(strict.0).map_err(|_| Error::Json)
 }
 
+/// Exact stable v-prefixed release tag ref, shared by every publication gate.
+pub(crate) fn release_ref(value: &str) -> bool {
+    value.strip_prefix("refs/tags/").is_some_and(release_tag)
+}
+
 pub(crate) fn valid_source_ref(value: &str) -> bool {
-    if let Some(tag) = value.strip_prefix("refs/tags/") {
-        return release_tag(tag);
+    if value.starts_with("refs/tags/") {
+        return release_ref(value);
     }
     if let Some(branch) = value.strip_prefix("refs/heads/") {
         return !branch.is_empty()

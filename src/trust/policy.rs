@@ -1,6 +1,6 @@
 //! Independent consumer expectations. Never populate this policy from downloads.
 use super::inventory::AssetRole;
-use super::{ByteIdentity, Review, Source, WorkflowIdentity, release_tag, require};
+use super::{ByteIdentity, Review, Source, WorkflowIdentity, release_ref, release_tag, require};
 use crate::Result;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -118,7 +118,7 @@ impl VerificationPolicy {
         for source in &self.sources {
             source.validate()?;
             let ref_allowed = match self.mode {
-                VerificationMode::Release => source.git_ref.starts_with("refs/tags/"),
+                VerificationMode::Release => release_ref(&source.git_ref),
                 VerificationMode::Rehearsal => source.git_ref.starts_with("refs/heads/"),
             };
             require(ref_allowed, "source-mode-mismatch")?;
@@ -182,8 +182,7 @@ impl VerificationPolicy {
         for h in &self.historical {
             h.source.validate()?;
             require(
-                self.mode == VerificationMode::Release
-                    && h.source.git_ref.starts_with("refs/tags/"),
+                self.mode == VerificationMode::Release && release_ref(&h.source.git_ref),
                 "historical-mode-mismatch",
             )?;
             h.review.validate_at(now)?;
