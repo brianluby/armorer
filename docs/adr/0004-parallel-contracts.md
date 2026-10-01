@@ -127,7 +127,9 @@ but must be replaced by accepted catalog pins before adopter release readiness.
 Required tests: stale/tampered apply plans, concurrent apply, mid-write and crash
 recovery, customization preservation; advisory outages/expiry and suppressed
 secret scans; workspace target/feature graph separation, zero-dependency library,
-wrong/missing/extra inventory bytes and unauthorized workflow triggers.
+wrong/missing/extra inventory bytes; schema-valid SBOM mutations checked against
+the selected Cargo graph; cross-run and artifact-name substitutions checked
+against source/run bindings; and unauthorized workflow triggers.
 
 ## Primary sources
 
