@@ -123,39 +123,73 @@ fn contained_path(base: &Path, value: &str) -> Result<()> {
     Ok(())
 }
 
-/// Recursively check recognized manifest path fields relative to `base`, the
-/// manifest's workspace-relative directory, propagating [`contained_path`] errors.
-///
-/// Only string paths and string entries in member/exclusion arrays are checked;
-/// other value types are left to Cargo.
+/// Check actual Cargo filesystem fields, not opaque metadata or package globs.
+/// In particular, package include/exclude patterns can be root-anchored with '/';
+/// workspace membership/exclusions remain strict contained filesystem paths.
 fn validate_paths(value: &toml::Value, base: &Path) -> Result<()> {
-    if let Some(table) = value.as_table() {
-        for (key, value) in table {
-            if matches!(
-                key.as_str(),
-                "path" | "workspace" | "build" | "license-file" | "readme"
-            ) && let Some(path) = value.as_str()
-            {
-                contained_path(base, path)?;
-            }
-            if matches!(key.as_str(), "members" | "default-members" | "exclude")
-                && let Some(paths) = value.as_array()
-            {
-                for path in paths {
-                    if let Some(path) = path.as_str() {
-                        contained_path(base, path)?;
-                    }
+    validate_fields(
+        value.get("package"),
+        base,
+        &["workspace", "build", "license-file", "readme"],
+    )?;
+    if let Some(workspace) = value.get("workspace") {
+        for key in ["members", "default-members", "exclude"] {
+            if let Some(paths) = workspace.get(key).and_then(toml::Value::as_array) {
+                for path in paths.iter().filter_map(toml::Value::as_str) {
+                    contained_path(base, path)?;
                 }
             }
-            validate_paths(value, base)?;
         }
-    } else if let Some(values) = value.as_array() {
-        for value in values {
-            validate_paths(value, base)?;
+        validate_fields(workspace.get("package"), base, &["license-file", "readme"])?;
+        validate_dependencies(workspace.get("dependencies"), base)?;
+    }
+    for key in ["dependencies", "dev-dependencies", "build-dependencies"] {
+        validate_dependencies(value.get(key), base)?;
+        if let Some(targets) = value.get("target").and_then(toml::Value::as_table) {
+            for target in targets.values() {
+                validate_dependencies(target.get(key), base)?;
+            }
+        }
+    }
+    if let Some(patches) = value.get("patch").and_then(toml::Value::as_table) {
+        for patch in patches.values() {
+            validate_dependencies(Some(patch), base)?;
+        }
+    }
+    validate_dependencies(value.get("replace"), base)?;
+    validate_fields(value.get("lib"), base, &["path"])?;
+    for key in ["bin", "example", "test", "bench"] {
+        if let Some(targets) = value.get(key).and_then(toml::Value::as_array) {
+            for target in targets {
+                validate_fields(Some(target), base, &["path"])?;
+            }
         }
     }
     Ok(())
 }
+
+fn validate_fields(value: Option<&toml::Value>, base: &Path, keys: &[&str]) -> Result<()> {
+    if let Some(value) = value {
+        for key in keys {
+            if let Some(path) = value.get(*key).and_then(toml::Value::as_str) {
+                contained_path(base, path)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn validate_dependencies(value: Option<&toml::Value>, base: &Path) -> Result<()> {
+    if let Some(dependencies) = value.and_then(toml::Value::as_table) {
+        for dependency in dependencies.values() {
+            validate_fields(Some(dependency), base, &["path"])?;
+        }
+    }
+    Ok(())
+}
+
+const MAX_ENTRIES: usize = 20_000;
+const MAX_DEPTH: usize = 128;
 
 struct Snapshot {
     inputs: BTreeMap<String, String>,
@@ -172,21 +206,36 @@ impl Snapshot {
     /// build/VCS directories, recording whether a `.cargo` entry was encountered.
     ///
     /// # Errors
-    /// Rejects more than 20,000 visited entries, Cargo inputs over 1 MiB, or more than
-    /// 8 MiB of manifest/lockfile bytes with `Error::Invalid`. Returns `Error::Path`
+    /// Rejects more than 20,000 entries during enumeration, depth above 128, Cargo
+    /// inputs over 1 MiB, or more than 8 MiB of manifest/lockfile bytes with
+    /// `Error::Invalid`. Returns `Error::Path`
     /// for non-UTF-8 names, unskipped symlinks, or unsafe manifest paths, and
     /// `Error::Toml` for invalid manifest UTF-8 or TOML. Propagates I/O and relative
     /// path errors. A failure can leave a partial snapshot and updated counters.
     fn copy(&mut self, root: &Path, directory: &Path, destination: &Path) -> Result<()> {
-        let mut entries: Vec<_> = std::fs::read_dir(directory)?.collect::<std::io::Result<_>>()?;
-        entries.sort_by_key(|entry| entry.file_name());
-        for entry in entries {
+        if directory
+            .strip_prefix(root)
+            .map_err(|_| Error::Metadata)?
+            .components()
+            .count()
+            > MAX_DEPTH
+        {
+            return Err(Error::Invalid(
+                "workspace exceeds discovery depth limit".into(),
+            ));
+        }
+        let mut entries = Vec::new();
+        for entry in std::fs::read_dir(directory)? {
             self.count += 1;
-            if self.count > 20_000 {
+            if self.count > MAX_ENTRIES {
                 return Err(Error::Invalid(
                     "workspace exceeds discovery entry limit".into(),
                 ));
             }
+            entries.push(entry?);
+        }
+        entries.sort_by_key(|entry| entry.file_name());
+        for entry in entries {
             let path = entry.path();
             let name = entry.file_name();
             let name = name
@@ -259,7 +308,29 @@ pub fn discover(root: &Path, config: &Config) -> Result<Workspace> {
     let root = root.canonicalize()?;
     config.validate(&root)?;
     let rustup = trusted_rustup(&root)?;
-    let temporary = tempfile::tempdir()?;
+    let temporary_parent = std::env::temp_dir().canonicalize()?;
+    if temporary_parent.starts_with(&root) {
+        return Err(Error::Path(
+            "temporary directory must be outside the consuming workspace".into(),
+        ));
+    }
+    // CARGO_HOME alone does not suppress Cargo's ancestor configuration lookup.
+    // Check both supported names without opening or exposing their contents.
+    for ancestor in temporary_parent.ancestors() {
+        for name in ["config", "config.toml"] {
+            match std::fs::symlink_metadata(ancestor.join(".cargo").join(name)) {
+                Ok(_) => {
+                    return Err(Error::Path(
+                        "temporary directory inherits Cargo configuration; choose an isolated temporary directory"
+                            .into(),
+                    ));
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => return Err(error.into()),
+            }
+        }
+    }
+    let temporary = tempfile::tempdir_in(temporary_parent)?;
     let snapshot_root = temporary.path().join("workspace");
     std::fs::create_dir(&snapshot_root)?;
     let snapshot_root = snapshot_root.canonicalize()?;

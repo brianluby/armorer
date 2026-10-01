@@ -92,11 +92,7 @@ pub fn inspect(root: &Path, mode: &'static str) -> Result<Plan> {
     let (config, bytes) = load_config(root)?;
     let config_sha256 = digest(&bytes);
     let lock = load_lock(root, &config_sha256)?;
-    let lock_sha256 = if lock.is_some() {
-        Some(digest(&read_small(&safe_path(root, "armorer.lock")?)?))
-    } else {
-        None
-    };
+    let lock_sha256 = lock.as_ref().map(|(_, bytes)| digest(bytes));
     let workspace = discover(root, &config)?;
     let change = toolchain_change(root, &config)?;
     let mut findings = vec![

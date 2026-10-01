@@ -86,12 +86,16 @@ pub fn safe_path(root: &Path, relative: &str) -> Result<PathBuf> {
     Ok(joined)
 }
 
-/// Read a file containing at most 1 MiB (1,048,576 bytes).
+/// Read a regular file containing at most 1 MiB (1,048,576 bytes).
 ///
 /// Returns `Error::Invalid` if the input exceeds that limit and propagates file
-/// open and read failures as `Error::Io`.
+/// open and read failures as `Error::Io`. Rejects special files and symlinks
+/// with `Error::Path` before opening; inspection assumes a stable filesystem.
 pub(crate) fn read_small(path: &Path) -> Result<Vec<u8>> {
     use std::io::Read;
+    if !std::fs::symlink_metadata(path)?.file_type().is_file() {
+        return Err(Error::Path("expected a regular input file".into()));
+    }
     let mut bytes = Vec::new();
     std::fs::File::open(path)?
         .take(1_048_577)

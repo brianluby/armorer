@@ -14,7 +14,7 @@ Feature sets contain `default_features` and package-local declared features. All
 
 The [lock schema](../schemas/lock-v1.json) contains schema version, config digest, runtime version, workflow pin and tools map. Workflow pins require a repository and full lowercase 40-character Git SHA. Tools require exact stable versions and 64-character distribution SHA-256 digests. The config digest binds **exact TOML bytes**, including comments. Runtime compatibility is exact in this slice.
 
-Parsing validates syntax and config binding only. Hash syntax does not authenticate upstream bytes or identity. Check/plan report `pins-not-authenticated`. There is no resolved catalog, lock generation or upgrade mechanism yet. Do not populate placeholder hashes to satisfy checks.
+Parsing validates syntax and config binding only. The loader returns the exact bytes it validated, and the plan hashes those bytes without reopening the lock. Hash syntax does not authenticate upstream bytes or identity. Check/plan report `pins-not-authenticated`. There is no resolved catalog, lock generation or upgrade mechanism yet. Do not populate placeholder hashes to satisfy checks.
 
 ## Deterministic preview
 

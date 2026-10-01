@@ -269,7 +269,8 @@ impl Config {
     }
 }
 
-/// Read `armorer.lock` under `root`, returning `None` when it is absent.
+/// Read `armorer.lock` under `root`, returning the validated lock and exact
+/// bytes from the same read, or `None` when it is absent.
 ///
 /// `config_digest` is the lowercase SHA-256 of the exact configuration bytes.
 /// Checks its binding, runtime compatibility, and pin syntax; upstream pins
@@ -279,7 +280,7 @@ impl Config {
 /// Returns `Error::Toml` for invalid UTF-8, malformed TOML, or a schema mismatch,
 /// and `Error::Invalid` for oversized input or invalid or incompatible lock
 /// contents. Propagates path and I/O errors.
-pub fn load_lock(root: &Path, config_digest: &str) -> Result<Option<Lock>> {
+pub fn load_lock(root: &Path, config_digest: &str) -> Result<Option<(Lock, Vec<u8>)>> {
     let path = safe_path(root, "armorer.lock")?;
     if !path.try_exists()? {
         return Ok(None);
@@ -310,5 +311,5 @@ pub fn load_lock(root: &Path, config_digest: &str) -> Result<Option<Lock>> {
             "tool pin requires a valid name, exact version and distribution SHA-256",
         )?;
     }
-    Ok(Some(lock))
+    Ok(Some((lock, bytes)))
 }

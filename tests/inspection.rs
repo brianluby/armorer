@@ -303,7 +303,9 @@ sha256 = "{}"
         "c".repeat(64)
     );
     write(root.path(), "armorer.lock", &lock);
-    assert!(load_lock(root.path(), &digest).unwrap().is_some());
+    let (validated, bytes) = load_lock(root.path(), &digest).unwrap().unwrap();
+    assert_eq!(validated.config_sha256, digest);
+    assert_eq!(bytes, lock.as_bytes());
     assert!(load_lock(root.path(), &"d".repeat(64)).is_err());
     write(
         root.path(),
@@ -311,6 +313,45 @@ sha256 = "{}"
         &lock.replace(&"b".repeat(40), "v1"),
     );
     assert!(load_lock(root.path(), &digest).is_err());
+    assert_eq!(
+        bytes,
+        lock.as_bytes(),
+        "loaded bytes remain bound to the validated lock after the file changes"
+    );
+}
+
+#[test]
+fn plan_hashes_exact_validated_lock_bytes() {
+    use sha2::{Digest, Sha256};
+    let root = fixture();
+    let config_digest = format!("{:x}", Sha256::digest(CONFIG.as_bytes()));
+    let lock = format!(
+        r#"schema_version = 1
+config_sha256 = "{config_digest}"
+runtime_version = "0.1.0"
+[workflows]
+repository = "brianluby/armorer-workflows"
+commit = "{}"
+[tools.cargo-cyclonedx]
+version = "0.5.9"
+sha256 = "{}"
+"#,
+        "b".repeat(40),
+        "c".repeat(64)
+    );
+    for bytes in [lock.clone(), format!("# reviewed comment\n{lock}")] {
+        write(root.path(), "armorer.lock", &bytes);
+        let plan = inspect(root.path(), "plan").unwrap();
+        assert_eq!(
+            plan.lock_sha256,
+            Some(format!("{:x}", Sha256::digest(bytes.as_bytes())))
+        );
+        assert!(
+            plan.findings
+                .iter()
+                .any(|f| f.code == "pins-not-authenticated")
+        );
+    }
 }
 
 #[test]
@@ -440,4 +481,170 @@ fn rejects_repository_local_executable_on_path() {
             .unwrap()
             .contains("rustup-path")
     );
+}
+
+#[test]
+fn accepts_anchored_package_patterns_and_opaque_metadata() {
+    let root = fixture();
+    let manifest = fs::read_to_string(root.path().join("crates/tool/Cargo.toml")).unwrap();
+    write(
+        root.path(),
+        "crates/tool/Cargo.toml",
+        &manifest.replace("[package]", "[package]\nexclude = [\"/ci\", \"/.github\"]"),
+    );
+    assert!(inspect(root.path(), "plan").is_ok());
+    write(
+        root.path(),
+        "crates/tool/Cargo.toml",
+        &format!(
+            "{manifest}\n[package.metadata.external]\npath = \"/opaque/value\"\nexclude = [\"/opaque/pattern\"]\n"
+        ),
+    );
+    assert!(inspect(root.path(), "plan").is_ok());
+}
+
+#[test]
+fn rejects_actual_workspace_and_dependency_escapes_in_all_cargo_tables() {
+    for declaration in [
+        "[workspace]\nmembers = [\"/outside\"]",
+        "[workspace]\nmembers = [\"../outside\"]",
+        "[workspace]\nexclude = [\"/outside\"]",
+        "[workspace]\ndefault-members = [\"../outside\"]",
+        "[workspace.package]\nreadme = \"/outside\"",
+        "[workspace.dependencies]\nexternal = { path = \"../outside\" }",
+        "[dependencies]\nexternal = { path = \"../outside\" }",
+        "[dev-dependencies]\nexternal = { path = \"/outside\" }",
+        "[build-dependencies]\nexternal = { path = \"../outside\" }",
+        "[target.'cfg(unix)'.dependencies]\nexternal = { path = \"/outside\" }",
+        "[patch.crates-io]\nexternal = { path = \"../outside\" }",
+        "[replace]\n'external:0.1.0' = { path = \"/outside\" }",
+        "[lib]\npath = \"../outside.rs\"",
+        "[[bin]]\nname = \"external\"\npath = \"/outside.rs\"",
+        "[package]\nname = \"external\"\nbuild = \"../outside.rs\"",
+    ] {
+        let root = fixture();
+        write(root.path(), "Cargo.toml", declaration);
+        assert_eq!(
+            inspect(root.path(), "plan").unwrap_err().code(),
+            "unsafe-path",
+            "{declaration}"
+        );
+    }
+}
+
+#[test]
+fn rejects_excessively_deep_directory_trees() {
+    let root = fixture();
+    let mut path = root.path().join("deep");
+    for _ in 0..130 {
+        fs::create_dir(&path).unwrap();
+        path.push("nested");
+    }
+    assert_eq!(
+        inspect(root.path(), "plan").unwrap_err().code(),
+        "invalid-config"
+    );
+    assert!(!root.path().join("Cargo.lock").exists());
+}
+
+#[test]
+fn rejects_oversized_directory_inventory() {
+    let root = fixture();
+    let many = root.path().join("many");
+    fs::create_dir(&many).unwrap();
+    for i in 0..20_000 {
+        fs::File::create(many.join(i.to_string())).unwrap();
+    }
+    assert_eq!(
+        inspect(root.path(), "plan").unwrap_err().code(),
+        "invalid-config"
+    );
+    assert!(!root.path().join("Cargo.lock").exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn rejects_fifo_inputs_without_blocking() {
+    use std::{
+        process::Stdio,
+        time::{Duration, Instant},
+    };
+    for file in ["armorer.toml", "armorer.lock", "rust-toolchain.toml"] {
+        let root = fixture();
+        let input = root.path().join(file);
+        if input.exists() {
+            fs::remove_file(&input).unwrap();
+        }
+        assert!(
+            Command::new("/usr/bin/mkfifo")
+                .arg(&input)
+                .status()
+                .unwrap()
+                .success()
+        );
+        let mut child = Command::new(env!("CARGO_BIN_EXE_armorer"))
+            .args(["--repository", root.path().to_str().unwrap(), "plan"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap();
+        let started = Instant::now();
+        let status = loop {
+            if let Some(status) = child.try_wait().unwrap() {
+                break status;
+            }
+            if started.elapsed() > Duration::from_secs(2) {
+                child.kill().unwrap();
+                child.wait().unwrap();
+                panic!("inspection blocked on {file}");
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        };
+        assert_eq!(status.code(), Some(1));
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn rejects_temporary_directory_inside_consumer_before_writing() {
+    let root = fixture();
+    let scratch = root.path().join("scratch");
+    fs::create_dir(&scratch).unwrap();
+    let before = fs::metadata(&scratch).unwrap().modified().unwrap();
+    let result = Command::new(env!("CARGO_BIN_EXE_armorer"))
+        .env("TMPDIR", &scratch)
+        .args(["--repository", root.path().to_str().unwrap(), "plan"])
+        .output()
+        .unwrap();
+    assert_eq!(result.status.code(), Some(1));
+    let value: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
+    assert_eq!(value["error"]["code"], "unsafe-path");
+    assert_eq!(fs::metadata(&scratch).unwrap().modified().unwrap(), before);
+    assert_eq!(fs::read_dir(&scratch).unwrap().count(), 0);
+}
+
+#[cfg(unix)]
+#[test]
+fn rejects_inherited_temporary_ancestor_cargo_configuration() {
+    let root = fixture();
+    let parent = tempfile::tempdir().unwrap();
+    let scratch = parent.path().join("scratch");
+    fs::create_dir(&scratch).unwrap();
+    write(
+        parent.path(),
+        ".cargo/config.toml",
+        "not-valid-TOML-DO-NOT-ECHO",
+    );
+    let before = fs::metadata(&scratch).unwrap().modified().unwrap();
+    let result = Command::new(env!("CARGO_BIN_EXE_armorer"))
+        .env("TMPDIR", &scratch)
+        .args(["--repository", root.path().to_str().unwrap(), "plan"])
+        .output()
+        .unwrap();
+    assert_eq!(result.status.code(), Some(1));
+    let value: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
+    assert_eq!(value["error"]["code"], "unsafe-path");
+    assert!(!String::from_utf8_lossy(&result.stdout).contains("DO-NOT-ECHO"));
+    assert_eq!(fs::metadata(&scratch).unwrap().modified().unwrap(), before);
+    assert_eq!(fs::read_dir(&scratch).unwrap().count(), 0);
 }
