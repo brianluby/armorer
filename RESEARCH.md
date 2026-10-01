@@ -1,0 +1,59 @@
+# Upstream and pilot research
+
+Read-only discovery on 2026-09-30. These capabilities inform a proposed design; candidate versions are not yet reviewed implementation pins. Recheck release provenance, full commits, distribution digests and compatibility in the contract/tool-catalog slice. Current Armorer scope targets L2 for v0.1; L3 research is retained as reference for an unscheduled future-version backlog item, not an initial delivery requirement.
+
+## Momus reference
+
+Read [Momus ticket #48](https://kanban.luby.us/tasks/1303) with Veans: task ID 1303, project 15, title “Epic: verifiable releases with SBOMs and SLSA provenance.” Its plan requires target Cargo SBOMs, platform attestations, final-byte verification, immutable drafts, consumer enforcement and a staged L2/L3 assessment. Armorer generalizes its controls; Momus implementation continues separately.
+
+GitHub release API for [v0.2.0](https://github.com/brianluby/momus-review/releases/tag/v0.2.0) reports six assets (three archives/checksums) and `immutable=false`. Local `git show v0.2.0:.github/workflows/release.yml` confirms three targets, locked Cargo commands, SHA-pinned actions and Apple signing, but a floating stable toolchain and direct glob-based release creation. Current immutable-release settings API reports `enabled=true`; this affects future releases and does not retroactively make v0.2.0 immutable.
+
+The active `feat/slsa-provenance` checkout contains a pinned toolchain, reusable builder, SBOM validation, attest/verify/draft work and uncommitted edits. Treat these as implementation in progress, not proven publication. No Momus edits or tests were performed. Its documentation's tentative L3 statements were not independently validated or inherited.
+
+The SHA-pinned [Apple workflow](https://github.com/brianluby/apple-signing/blob/bac7bb3123e4a1b1d6f89fc928914a20f21386d6/.github/workflows/sign-macos.yml) uses macos-14 and `release-signing`, Developer ID signing, notarytool and codesign notarization checks. Its comment correctly distinguishes standalone Mach-O tools from staplable bundles; Armorer must retain that distinction and audit the adapter before adoption.
+
+## Primary-source findings and tradeoffs
+
+| Tool/capability | Verified finding | Armorer recommendation |
+| --- | --- | --- |
+| [SLSA v1.2 requirements](https://slsa.dev/spec/v1.2/build-requirements) | L2 requires authentic platform provenance and hosted builds; L3 adds unforgeability and isolation, including complete external parameters and cache poisoning protection. Hermeticity is distinct. | Target L2 first; assess full transformation chain per artifact before L3 |
+| [GitHub reusable-build guidance](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/increase-security-rating) | Reusable workflows can strengthen provenance trust, with both caller and reusable permissions and explicit signer verification. | Trusted fixed-command controller; independently assess our modified chain against v1.2 |
+| [actions/attest](https://github.com/actions/attest) | Consolidated provenance/SBOM/custom modes; explicit subject paths and bundle outputs; automatic subject discovery also exists. | Use explicit paths, native SLSA and SBOM modes; no caller custom claims or digest input |
+| [attest v4.2.2](https://github.com/actions/attest/releases/tag/v4.2.2) | Latest release reported by upstream API during discovery; immutable release dated August 4 | Candidate only; pin reviewed full SHA rather than v4 |
+| [GitHub eligibility](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations) | Current plans support public attestations; private/internal require Enterprise Cloud. File attestations need contents read, attestations write and id-token write. | Tri-state capability checks; CI-only option when secure releases unsupported |
+| [Public/private trust infrastructure](https://docs.github.com/en/actions/concepts/security/artifact-attestations) | Public uses Sigstore public-good transparency infrastructure; private uses GitHub's instance without a transparency log. | Separate trust-root/auth/offline documentation; no automatic backend substitution |
+| [GitHub CLI verification](https://cli.github.com/manual/gh_attestation_verify) | Source ref/digest, signer repository/workflow/digest, predicate and hosted-runner flags; bundles/custom roots and JSON verification output | Delegate crypto, enforce independent typed policy and SBOM semantic matching |
+| [CLI v2.102.0](https://github.com/cli/cli/releases/tag/v2.102.0) | Latest API release snapshot, September 30 | Candidate version; test/pin exact verifier behavior and output schema |
+| [cargo-cyclonedx README](https://github.com/CycloneDX/cyclonedx-rust-cargo/blob/main/cargo-cyclonedx/README.md) and [changelog](https://github.com/CycloneDX/cyclonedx-rust-cargo/blob/main/cargo-cyclonedx/CHANGELOG.md) | Target/features and binary descriptions; development dependencies excluded; latest documented 0.5.9 includes SOURCE_DATE_EPOCH and CARGO_BUILD_TARGET behavior | Start with pinned 0.5.9 and supported CycloneDX JSON schema (1.5 for Momus compatibility); test exact CLI/package filtering and lock preservation |
+| [Immutable releases](https://docs.github.com/en/code-security/concepts/supply-chain-security/immutable-releases) | Published assets and associated tag are locked; publish creates a release attestation; draft-first assembly supported | Draft inventory verification then publication; build and release attestations are complementary |
+| [Immutable-setting API](https://docs.github.com/en/rest/repos/repos#check-if-immutable-releases-are-enabled-for-a-repository) | Requires Administration read; normal GITHUB_TOKEN permissions cannot grant it | Scoped preflight capability; denied access means unknown/block, never warning-and-publish |
+| [Release verification](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/secure-your-dependencies/verify-release-integrity) | gh release verify and verify-asset validate immutability and asset membership; auto-generated source archives excluded | Include post-publication/consumer checks; unavailable before draft publication |
+| [Reusable workflow semantics](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows) and [environments](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments) | Permission nesting and environment-secret behavior require deliberate design; protection availability varies by account/visibility | Test actual caller environment scope; named secrets and protected refs; report manual prerequisites |
+| [Generic SLSA generator](https://github.com/slsa-framework/slsa-github-generator/blob/main/internal/builders/generic/README.md) | Upstream says no longer actively maintained and recommends GitHub attestations; documented generator reference is full semver, not SHA | Avoid for new baseline; recognize legacy integrations without adopting them as trusted defaults |
+
+## Additional defenses worth bringing in
+
+| Tool | What it adds | Scope/tradeoff |
+| --- | --- | --- |
+| [cargo-deny](https://embarkstudios.github.io/cargo-deny/checks/index.html) | License, advisory, source and dependency-ban policy | Default project-owned policy; license allowlist is not inferred from Armorer's MIT license |
+| [actionlint](https://github.com/rhysd/actionlint) + [zizmor](https://zizmor.sh/) | Workflow correctness plus security anti-patterns | Default cheap gates; pin maintained safe versions and reviewed suppressions |
+| [Gitleaks](https://github.com/gitleaks/gitleaks/blob/master/README.md) | Detect committed secret material | Redacted pinned standalone scanner avoids action licensing assumptions. Current upstream says feature-complete/security fixes only and points to Betterleaks; evaluate successor before committing long-term default |
+| [CodeQL Rust/Actions](https://docs.github.com/en/code-security/concepts/code-scanning/codeql/codeql-code-scanning) | Source/workflow security analysis; Rust is currently supported | Enable when eligible; explicit capability/coverage reporting. Rust supports [no-build analysis](https://docs.github.com/en/code-security/reference/code-scanning/codeql/build-options-for-compiled-languages) |
+| [cargo-hack](https://github.com/taiki-e/cargo-hack) | Bounded feature-set testing | Library/profile capability; avoid unbounded powerset execution and invalid combinations |
+| [cargo-semver-checks](https://github.com/obi1kenobi/cargo-semver-checks) | Detect supported API compatibility violations | Library gate where a meaningful published baseline exists |
+| [cargo-vet](https://mozilla.github.io/cargo-vet/) | Human audit/exemption-backed dependency trust | Recommended opt-in; imports/exemptions require maintainer review and do not mean every dependency was locally audited |
+| [cargo-auditable](https://github.com/rust-secure-code/cargo-auditable) | Embed dependency data in production binaries for later auditing | Valuable next step; changes build outputs, complements rather than replaces signed release SBOM |
+| [Syft](https://github.com/anchore/syft) | Filesystem/container inventory including complementary non-Cargo scope | Optional supplement for native libraries/OCI; do not claim stripped-binary scans recover the full Cargo graph |
+| [OpenSSF Scorecard](https://github.com/ossf/scorecard) | Repository security practice diagnostics | Scheduled report with concrete actions; never substitute aggregate score for artifact evidence |
+| [Harden-Runner](https://github.com/step-security/harden-runner) | Egress/process/file observation and controls | Evaluate Linux fixture and licensing/backend implications; not assumed portable to macOS or sufficient for L3 |
+| [dist / cargo-dist](https://github.com/axodotdev/cargo-dist) | Rich packaging/installers and distribution automation | Evaluate bounded build-only adapter later; Armorer retains verification/publication authority and safe installer policy |
+| [crates.io trusted publishing](https://blog.rust-lang.org/2026/01/21/crates-io-development-update/) | GitHub OIDC publishing and optional trusted-publishing-only enforcement; unsafe triggers blocked | Preferred library publishing adapter later; verify actual registry .crate bytes and workspace partial-publish recovery |
+| Reproducible/offline builds | Independent rebuild comparison, vendored inputs and reduced network influence | Separate evidence/experimental profile; Apple timestamps/notarization and hosted images prevent blanket byte-reproducibility claims |
+
+Tools are chosen for distinct threats and maintenance costs. No tool availability, passing scan, checksum, provenance file or score implies absence of vulnerabilities. Maintain separate SBOM scope, vulnerability results, dependency review, source review, code-signing, provenance and reproducibility evidence.
+
+## Live discovery limits
+
+Both proposed Armorer upstreams returned 404 and were not created. Armorer workspace contained only local Veans/agent configuration before these planning documents; it is not initialized as Git. Existing credential values were never read or printed. Veans initially failed inside the sandbox; approved access to the credential store resolved ticket reading and project-16 task creation. Project identity, ticket indexes, parent/dependency relations and writes are verified through readback.
+
+Pilot manifests/workflows and GitHub visibility were inspected read-only, not built or assessed exhaustively. Current branches can move during the ongoing work. Hosted settings/provenance capability, required reviewers, distribution pins and negative tests remain implementation/rehearsal gates.

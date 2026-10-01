@@ -1,0 +1,6 @@
+/target/
+/.worktrees/
+/.claude/
+/.opencode/
+/.veans.yml
+.DS_Store
