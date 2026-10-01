@@ -1,6 +1,6 @@
 # Armorer architecture proposal
 
-Status: proposed for review; discovery and planning only. Verified 2026-09-30.
+Status: accepted design; implementation is delivered in reviewed slices. Original research verified 2026-09-30; parallel contracts updated 2026-10-01.
 
 Armorer makes secure Rust CI and independently verifiable releases a repeatable repository capability. It configures a project, checks what is actually enforced, and records what has been demonstrated. Installing workflow files alone never means a project has achieved a SLSA level.
 
@@ -13,7 +13,7 @@ Confirmed decisions: public repositories under `brianluby`, MIT license, secure 
 | CLI and shared runtime | `brianluby/armorer`; local `/Users/bluby/repos/armorer` | Discovery, typed configuration, previews, safe file changes, migrations, capability checks, release inventory and consumer verification |
 | Trusted workflows | `brianluby/armorer-workflows` | Versioned CI/build/release controllers, fixed commands, job permissions, reviewed tool pins, workflow integration fixtures |
 
-The local Armorer directory has no Git repository yet. GitHub returned 404 for both proposed repositories; treat them as unprovisioned, not as existing upstreams. Recheck before creating them. Reserve the executable name `armorer`; registry package-name availability is a provisioning check, not an assumption. Use original project artwork and describe the forging inspiration in prose.
+Both public repositories are provisioned. Armorer PR #1 merged configuration validation and read-only Cargo discovery; the workflow repository has an MIT/contributor-documentation base for subsequent implementation PRs. Crate-name availability remains a publication-time check, not a reservation. Use original project artwork and describe the forging inspiration in prose. [ADR 0004](docs/adr/0004-parallel-contracts.md) freezes ownership and interfaces for transactional apply, reusable CI and target-aware builders.
 
 Use **Rust** initially, with Clap, Serde, TOML editing that preserves comments, Cargo metadata support, and a small shared core/runtime. Rust provides typed validation, portable binaries, strong filesystem handling and direct alignment with the repositories being configured. Python would accelerate prototyping but add interpreter/dependency distribution to every adopter; shell is unsuitable for transactional migration and robust untrusted-input handling; Go is viable but loses the Cargo ecosystem alignment. Delegate Sigstore cryptographic verification to a pinned GitHub CLI initially rather than implementing a new verifier.
 
