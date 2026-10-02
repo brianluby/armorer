@@ -47,6 +47,8 @@ jobs:
         run: python3 -I scripts/qualify-test-sbom-validator.py --output-directory "$RUNNER_TEMP/armorer-fixture-cyclonedx" --github-env
       - name: Validate complete CycloneDX documents and adversarial fixtures
         run: cargo test --locked --test real_cyclonedx -- --ignored --test-threads=1
+      - name: Reject unauthenticated inventories before metadata and asset processing
+        run: cargo test --locked --test release_context -- --ignored --test-threads=1
       - name: Build
         run: cargo build --locked
       - name: Verify committed schemas
@@ -57,9 +59,12 @@ jobs:
           done
           target/debug/armorer schema cargo-graph-v2 > /tmp/armorer-cargo-graph-v2.json
           diff -u schemas/cargo-graph-v2.json /tmp/armorer-cargo-graph-v2.json
+          target/debug/armorer schema verification-context > /tmp/armorer-verification-context-v1.json
+          diff -u schemas/verification-context-v1.json /tmp/armorer-verification-context-v1.json
       - name: Independently validate example schemas
         run: |
           python3 -m venv /tmp/armorer-schema-venv
           /tmp/armorer-schema-venv/bin/python -m pip install --require-hashes --only-binary=:all: -r requirements-schema.txt
           /tmp/armorer-schema-venv/bin/python scripts/validate-contract-examples.py
           /tmp/armorer-schema-venv/bin/python scripts/validate-graph-v2.py
+          /tmp/armorer-schema-venv/bin/python scripts/validate-verification-context.py
