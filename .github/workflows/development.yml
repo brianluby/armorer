@@ -16,7 +16,7 @@ jobs:
   validate:
     name: Rust / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
@@ -48,7 +48,7 @@ jobs:
       - name: Validate complete CycloneDX documents and adversarial fixtures
         run: cargo test --locked --test real_cyclonedx -- --ignored --test-threads=1
       - name: Reject unauthenticated inventories before metadata and asset processing
-        run: cargo test --locked --test release_context -- --ignored --test-threads=1
+        run: cargo test --locked --test release_context real_inventory_authentication_failure_precedes_json_and_asset_processing -- --ignored --test-threads=1
       - name: Build
         run: cargo build --locked
       - name: Verify committed schemas
@@ -61,6 +61,10 @@ jobs:
           diff -u schemas/cargo-graph-v2.json /tmp/armorer-cargo-graph-v2.json
           target/debug/armorer schema verification-context > /tmp/armorer-verification-context-v1.json
           diff -u schemas/verification-context-v1.json /tmp/armorer-verification-context-v1.json
+          for kind in native-catalog-v2 runtime-distribution-v1 verification-context-v2; do
+            target/debug/armorer schema "$kind" > "/tmp/armorer-$kind.json"
+            diff -u "schemas/$kind.json" "/tmp/armorer-$kind.json"
+          done
       - name: Independently validate example schemas
         run: |
           python3 -m venv /tmp/armorer-schema-venv
@@ -68,3 +72,19 @@ jobs:
           /tmp/armorer-schema-venv/bin/python scripts/validate-contract-examples.py
           /tmp/armorer-schema-venv/bin/python scripts/validate-graph-v2.py
           /tmp/armorer-schema-venv/bin/python scripts/validate-verification-context.py
+          /tmp/armorer-schema-venv/bin/python scripts/validate-runtime-native.py
+      - name: Build unprivileged native runtime candidate
+        run: cargo build --locked --release
+      - name: Stage native runtime observations
+        run: python3 -I scripts/stage-runtime-candidate.py --output-directory "$RUNNER_TEMP/armorer-runtime-candidate"
+      - name: Retain unprivileged native runtime candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: runtime-candidate-${{ matrix.os }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/armorer-runtime-candidate/armorer
+            ${{ runner.temp }}/armorer-runtime-candidate/runtime-build.json
+          archive: true
+          if-no-files-found: error
+          overwrite: false
+          retention-days: 14

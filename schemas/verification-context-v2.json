@@ -1,0 +1,620 @@
+{
+  "$defs": {
+    "ByteIdentity": {
+      "additionalProperties": false,
+      "description": "An exact byte identity, independent of a filename or producer claim.",
+      "properties": {
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size": {
+          "format": "uint64",
+          "maximum": 1073741824,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sha256",
+        "size"
+      ],
+      "type": "object"
+    },
+    "CapabilityId": {
+      "enum": [
+        "platform-attestations",
+        "immutable-releases",
+        "protected-tags",
+        "protected-publish-environment",
+        "protected-signing-environment",
+        "apple-signing",
+        "cargo-sbom",
+        "dependency-policy",
+        "codeql",
+        "cargo-vet",
+        "embedded-metadata",
+        "native-sbom",
+        "linux-egress",
+        "independent-rebuild",
+        "scorecard",
+        "dist-build",
+        "registry-publish"
+      ],
+      "type": "string"
+    },
+    "ContextTrigger": {
+      "description": "Only the existing supported secure release/rehearsal invoking events are representable.",
+      "enum": [
+        "push",
+        "workflow_dispatch"
+      ],
+      "type": "string"
+    },
+    "Coverage": {
+      "additionalProperties": false,
+      "properties": {
+        "capability": {
+          "$ref": "#/$defs/CapabilityId"
+        },
+        "enforcement": {
+          "$ref": "#/$defs/Enforcement"
+        },
+        "exception_ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "omissions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "outcome": {
+          "$ref": "#/$defs/Outcome"
+        },
+        "scope": {
+          "type": "string"
+        },
+        "tested_subject": {
+          "$ref": "#/$defs/ByteIdentity"
+        }
+      },
+      "required": [
+        "capability",
+        "scope",
+        "tested_subject",
+        "omissions",
+        "outcome",
+        "enforcement",
+        "exception_ids"
+      ],
+      "type": "object"
+    },
+    "Enforcement": {
+      "enum": [
+        "disabled",
+        "not-tested",
+        "skipped",
+        "reporting",
+        "enforced"
+      ],
+      "type": "string"
+    },
+    "EvidenceRequirements": {
+      "additionalProperties": false,
+      "description": "Independently reviewed evidence expectations, distinct from producer records.\nPin bytes and reviewed exceptions come from authenticated catalog/policy input.",
+      "properties": {
+        "allowed_exceptions": {
+          "items": {
+            "$ref": "#/$defs/Exception"
+          },
+          "type": "array"
+        },
+        "apple_team": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "catalog": {
+          "$ref": "#/$defs/ByteIdentity"
+        },
+        "inputs": {
+          "$ref": "#/$defs/InputIdentity"
+        },
+        "max_age_seconds": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "required_coverage": {
+          "items": {
+            "$ref": "#/$defs/Coverage"
+          },
+          "type": "array"
+        },
+        "review": {
+          "$ref": "#/$defs/Review"
+        },
+        "schema_version": {
+          "format": "uint32",
+          "maximum": 1,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "selection": {
+          "$ref": "#/$defs/Selection"
+        },
+        "steps": {
+          "additionalProperties": false,
+          "properties": {
+            "build": {
+              "$ref": "#/$defs/WorkflowIdentity"
+            },
+            "notarize": {
+              "$ref": "#/$defs/WorkflowIdentity"
+            },
+            "package": {
+              "$ref": "#/$defs/WorkflowIdentity"
+            },
+            "sign": {
+              "$ref": "#/$defs/WorkflowIdentity"
+            }
+          },
+          "type": "object"
+        },
+        "tools": {
+          "items": {
+            "$ref": "#/$defs/ToolEvidence"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "schema_version",
+        "inputs",
+        "selection",
+        "catalog",
+        "max_age_seconds",
+        "steps",
+        "tools",
+        "required_coverage",
+        "allowed_exceptions",
+        "review"
+      ],
+      "type": "object"
+    },
+    "Exception": {
+      "additionalProperties": false,
+      "properties": {
+        "capability": {
+          "$ref": "#/$defs/CapabilityId"
+        },
+        "id": {
+          "type": "string"
+        },
+        "policy": {
+          "$ref": "#/$defs/ByteIdentity"
+        },
+        "positive_control": {
+          "$ref": "#/$defs/ByteIdentity"
+        },
+        "review": {
+          "$ref": "#/$defs/Review"
+        },
+        "rule": {
+          "type": "string"
+        },
+        "subject": {
+          "$ref": "#/$defs/ByteIdentity"
+        },
+        "tool": {
+          "type": "string"
+        },
+        "tool_version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "capability",
+        "tool",
+        "rule",
+        "tool_version",
+        "subject",
+        "policy",
+        "review",
+        "positive_control"
+      ],
+      "type": "object"
+    },
+    "InputIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "cargo_lock_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "config_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "lock_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "run": {
+          "$ref": "#/$defs/RunIdentity"
+        },
+        "runtime": {
+          "$ref": "#/$defs/ByteIdentity"
+        },
+        "runtime_version": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/Source"
+        }
+      },
+      "required": [
+        "source",
+        "config_sha256",
+        "lock_sha256",
+        "cargo_lock_sha256",
+        "runtime",
+        "runtime_version",
+        "run"
+      ],
+      "type": "object"
+    },
+    "InputKind": {
+      "enum": [
+        "tool",
+        "action",
+        "helper",
+        "database",
+        "query-pack",
+        "schema",
+        "policy",
+        "native-input"
+      ],
+      "type": "string"
+    },
+    "Outcome": {
+      "enum": [
+        "passed",
+        "failed",
+        "unknown",
+        "unsupported",
+        "error",
+        "skipped",
+        "not-tested"
+      ],
+      "type": "string"
+    },
+    "Profile": {
+      "enum": [
+        "library",
+        "cli",
+        "service"
+      ],
+      "type": "string"
+    },
+    "ReleaseExpectations": {
+      "additionalProperties": false,
+      "description": "Serializable claims become trusted only through an independently approved exact context digest.",
+      "properties": {
+        "caller_workflow": {
+          "$ref": "#/$defs/WorkflowIdentity"
+        },
+        "catalog": {
+          "$ref": "#/$defs/ByteIdentity"
+        },
+        "inputs": {
+          "$ref": "#/$defs/InputIdentity"
+        },
+        "native_sbom_validator": {
+          "$ref": "#/$defs/ByteIdentity"
+        },
+        "review": {
+          "$ref": "#/$defs/Review"
+        },
+        "schema_version": {
+          "format": "uint32",
+          "maximum": 1,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "selections": {
+          "items": {
+            "$ref": "#/$defs/ReleaseSelection"
+          },
+          "type": "array"
+        },
+        "signers": {
+          "additionalProperties": false,
+          "description": "One exact signer per fixed scope; multiple policy candidates never select a signer implicitly.",
+          "properties": {
+            "cargo-sbom-file": {
+              "$ref": "#/$defs/WorkflowIdentity"
+            },
+            "evidence-file": {
+              "$ref": "#/$defs/WorkflowIdentity"
+            },
+            "final-artifact": {
+              "$ref": "#/$defs/WorkflowIdentity"
+            },
+            "inventory": {
+              "$ref": "#/$defs/WorkflowIdentity"
+            },
+            "sbom-predicate": {
+              "$ref": "#/$defs/WorkflowIdentity"
+            }
+          },
+          "type": "object"
+        },
+        "trigger": {
+          "$ref": "#/$defs/ContextTrigger"
+        },
+        "verification_policy": {
+          "$ref": "#/$defs/ByteIdentity"
+        }
+      },
+      "required": [
+        "schema_version",
+        "inputs",
+        "caller_workflow",
+        "trigger",
+        "catalog",
+        "verification_policy",
+        "native_sbom_validator",
+        "signers",
+        "selections",
+        "review"
+      ],
+      "type": "object"
+    },
+    "ReleaseSelection": {
+      "additionalProperties": false,
+      "description": "The target name/version and evidence requirements are independently resolved from reviewed source.",
+      "properties": {
+        "evidence_requirements": {
+          "$ref": "#/$defs/EvidenceRequirements"
+        },
+        "root_component_name": {
+          "type": "string"
+        },
+        "selection": {
+          "$ref": "#/$defs/Selection"
+        }
+      },
+      "required": [
+        "selection",
+        "root_component_name",
+        "evidence_requirements"
+      ],
+      "type": "object"
+    },
+    "Review": {
+      "additionalProperties": false,
+      "description": "Review records bind a policy decision; their contents do not prove review occurred.",
+      "properties": {
+        "expires_at": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "owner": {
+          "type": "string"
+        },
+        "rationale": {
+          "type": "string"
+        },
+        "record": {
+          "$ref": "#/$defs/ByteIdentity"
+        },
+        "reviewed_at": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "owner",
+        "rationale",
+        "reviewed_at",
+        "expires_at",
+        "record"
+      ],
+      "type": "object"
+    },
+    "RunIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "attempt": {
+          "format": "uint64",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "id": {
+          "format": "uint64",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "workflow": {
+          "$ref": "#/$defs/WorkflowIdentity"
+        }
+      },
+      "required": [
+        "id",
+        "attempt",
+        "workflow"
+      ],
+      "type": "object"
+    },
+    "Selection": {
+      "additionalProperties": false,
+      "properties": {
+        "binary": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "default_features": {
+          "type": "boolean"
+        },
+        "deliverable_id": {
+          "type": "string"
+        },
+        "feature_set": {
+          "type": "string"
+        },
+        "features": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "package": {
+          "type": "string"
+        },
+        "package_version": {
+          "type": "string"
+        },
+        "profile": {
+          "$ref": "#/$defs/Profile"
+        },
+        "target": {
+          "type": "string"
+        },
+        "toolchain": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "deliverable_id",
+        "profile",
+        "package",
+        "package_version",
+        "target",
+        "feature_set",
+        "default_features",
+        "features",
+        "toolchain"
+      ],
+      "type": "object"
+    },
+    "Source": {
+      "additionalProperties": false,
+      "properties": {
+        "commit": {
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
+        "git_ref": {
+          "type": "string"
+        },
+        "repository": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "repository",
+        "commit",
+        "git_ref"
+      ],
+      "type": "object"
+    },
+    "ToolEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "authentication_record": {
+          "$ref": "#/$defs/ByteIdentity"
+        },
+        "bytes": {
+          "$ref": "#/$defs/ByteIdentity"
+        },
+        "kind": {
+          "$ref": "#/$defs/InputKind"
+        },
+        "max_age_seconds": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "observed_at": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "kind",
+        "version",
+        "bytes",
+        "authentication_record",
+        "observed_at"
+      ],
+      "type": "object"
+    },
+    "WorkflowIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "commit": {
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "repository": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "repository",
+        "path",
+        "commit"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Explicit outer v2 semantics select the native catalog; nested frozen input shapes stay version one.",
+  "properties": {
+    "release": {
+      "$ref": "#/$defs/ReleaseExpectations"
+    },
+    "runtime_source": {
+      "$ref": "#/$defs/Source"
+    },
+    "schema_version": {
+      "format": "uint32",
+      "maximum": 2,
+      "minimum": 2,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schema_version",
+    "runtime_source",
+    "release"
+  ],
+  "title": "ReleaseExpectationsV2",
+  "type": "object"
+}

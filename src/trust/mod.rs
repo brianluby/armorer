@@ -6,6 +6,7 @@
 pub mod capability;
 pub mod evidence;
 pub mod inventory;
+pub mod native;
 pub mod policy;
 pub mod publication;
 

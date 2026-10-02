@@ -1,0 +1,1 @@
+Synthetic native headers only, created with CPython tarfile USTAR_FORMAT. These 128-byte leaves are inert format-test data, not functional executables, reviewed tools, signed runtimes or release acceptance evidence. No test invokes them. UID/GID/mtime/owner names are zero/empty; mode 0500; exactly three ordered flat members; 10240-byte record padding.

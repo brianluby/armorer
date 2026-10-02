@@ -497,3 +497,379 @@ fn inventory_rejects_cross_target_sbom_subject_swap_before_bundle_processing() {
         .unwrap();
     assert!(error.to_string().contains("asset-relationship-mismatch"));
 }
+
+/// Build an explicit three-target synthetic context with different archive and executable identities.
+fn native_fixture() -> (tempfile::TempDir, Value, Value) {
+    use armorer::config::{Config, Lock, Profile, ToolPin};
+    let (directory, mut release) = fixture();
+    let archive = include_bytes!("fixtures/runtime/synthetic-runtime.tar");
+    let targets = [
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "aarch64-apple-darwin",
+    ];
+    let mut config: Config =
+        toml::from_str(&fs::read_to_string(directory.path().join("armorer.toml")).unwrap())
+            .unwrap();
+    config.deliverables[0].profile = Profile::Library;
+    config.deliverables[0].binary = None;
+    config.deliverables[0].targets = targets.iter().map(|target| target.to_string()).collect();
+    let config_bytes = toml::to_string(&config).unwrap().into_bytes();
+    fs::write(directory.path().join("armorer.toml"), &config_bytes).unwrap();
+    let old: Value =
+        serde_json::from_slice(&fs::read(directory.path().join("catalog.json")).unwrap()).unwrap();
+    let mut adapters = old["adapters"].clone();
+    let mut lock: Lock =
+        toml::from_str(&fs::read_to_string(directory.path().join("armorer.lock")).unwrap())
+            .unwrap();
+    lock.config_sha256 = ByteIdentity::from_bytes(&config_bytes).sha256;
+    lock.tools.clear();
+    for adapter in adapters.as_array_mut().unwrap() {
+        let old_pin = adapter["pins"][0].clone();
+        let mut pins = Vec::new();
+        for target in targets {
+            let name = format!("{}--{target}", old_pin["name"].as_str().unwrap());
+            let distribution =
+                ByteIdentity::from_bytes(format!("synthetic compressed archive {name}").as_bytes());
+            let executable =
+                ByteIdentity::from_bytes(format!("synthetic executed member {name}").as_bytes());
+            lock.tools.insert(
+                name.clone(),
+                ToolPin {
+                    version: old_pin["version"].as_str().unwrap().into(),
+                    sha256: distribution.sha256.clone(),
+                },
+            );
+            pins.push(json!({"name":name,"version":old_pin["version"],"kind":"tool","format":"tar-xz","distribution":distribution,"authentication_record":old_pin["authentication_record"],"material":{"material":"native-member","target":target,"name":old_pin["name"],"bytes":executable}}));
+        }
+        adapter["pins"] = pins.into();
+    }
+    let lock_bytes = toml::to_string(&lock).unwrap().into_bytes();
+    fs::write(directory.path().join("armorer.lock"), &lock_bytes).unwrap();
+    let runtime_source =
+        json!({"repository":"fixture/armorer","commit":"d".repeat(40),"git_ref":"refs/heads/main"});
+    let members: serde_json::Map<_,_> = targets.iter().enumerate().map(|(index,target)|
+        (target.to_string(),json!({"name":format!("armorer--{target}"),"bytes":ByteIdentity::from_bytes(&archive[index*1024+512..index*1024+640])}))).collect();
+    let runtime = json!({"schema_version":1,"version":"0.1.0","source":runtime_source,"compiler":"1.95.0","cargo_lock":ByteIdentity::from_bytes(b"synthetic runtime Cargo.lock"),"build_workflow":{"repository":"fixture/armorer","path":".github/workflows/development.yml","commit":"d".repeat(40)},"authentication_record":ByteIdentity::from_bytes(b"synthetic runtime qualification; no provenance claim"),"distribution":ByteIdentity::from_bytes(archive),"members":members});
+    let catalog = json!({"schema_version":2,"previous_catalog":release["catalog"],"runtime":runtime,"adapters":adapters});
+    let catalog_identity = write(&directory.path().join("catalog.json"), &catalog);
+    release["catalog"] = catalog_identity.clone();
+    release["inputs"]["config_sha256"] = lock.config_sha256.into();
+    release["inputs"]["lock_sha256"] = ByteIdentity::from_bytes(&lock_bytes).sha256.into();
+    release["inputs"]["runtime"] = runtime["distribution"].clone();
+    let selected = release["selections"][0].clone();
+    release["selections"] = targets
+        .iter()
+        .map(|target| {
+            let mut item = selected.clone();
+            item["selection"]["profile"] = "library".into();
+            item["selection"]["binary"] = Value::Null;
+            item["selection"]["target"] = (*target).into();
+            let selection = item["selection"].clone();
+            let requirements = &mut item["evidence_requirements"];
+            requirements["selection"] = selection;
+            requirements["inputs"] = release["inputs"].clone();
+            requirements["catalog"] = catalog_identity.clone();
+            let tool = selected["evidence_requirements"]["tools"][0].clone();
+            requirements["tools"] = catalog["adapters"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .flat_map(|a| a["pins"].as_array().unwrap())
+                .filter(|pin| pin["material"]["target"] == *target)
+                .map(|pin| {
+                    let mut result = tool.clone();
+                    result["name"] = pin["name"].clone();
+                    result["kind"] = pin["kind"].clone();
+                    result["version"] = pin["version"].clone();
+                    result["bytes"] = pin["material"]["bytes"].clone();
+                    result["authentication_record"] = pin["authentication_record"].clone();
+                    result
+                })
+                .collect::<Vec<_>>()
+                .into();
+            item
+        })
+        .collect::<Vec<_>>()
+        .into();
+    fs::write(directory.path().join("runtime.tar"), archive).unwrap();
+    (
+        directory,
+        json!({"schema_version":2,"runtime_source":runtime_source,"release":release}),
+        catalog,
+    )
+}
+
+/// Update approved catalog bindings in synthetic tests without approving real upstream material.
+fn bind_native_catalog(directory: &Path, outer: &mut Value, catalog: &Value) {
+    let identity = write(&directory.join("catalog.json"), catalog);
+    outer["release"]["catalog"] = identity.clone();
+    for selected in outer["release"]["selections"].as_array_mut().unwrap() {
+        selected["evidence_requirements"]["catalog"] = identity.clone();
+    }
+}
+
+/// Independently approve a synthetic outer v2 context for semantic tests only.
+fn open_native(directory: &Path, outer: &Value) -> armorer::Result<TrustedReleaseContext> {
+    use armorer::verification::context::NATIVE_CONTEXT_NAME;
+    let identity: ByteIdentity =
+        serde_json::from_value(write(&directory.join(NATIVE_CONTEXT_NAME), outer)).unwrap();
+    TrustedReleaseContext::open_native_v2(directory, &identity.sha256)
+}
+
+#[test]
+/// Every target uses its executed members while retaining compressed archive digests in the lock.
+fn native_context_selects_target_members_and_never_reinterprets_v1_catalogs() {
+    if !supported() {
+        return;
+    }
+    let (directory, outer, catalog) = native_fixture();
+    let context = open_native(directory.path(), &outer).unwrap();
+    assert_eq!(context.selections().len(), 3);
+    assert_eq!(
+        context.inputs().runtime,
+        serde_json::from_value(catalog["runtime"]["distribution"].clone()).unwrap()
+    );
+    for selected in context.selections() {
+        assert_eq!(selected.evidence_requirements.tools.len(), 3);
+        for tool in &selected.evidence_requirements.tools {
+            assert!(tool.name.ends_with(&selected.selection.target));
+            assert_ne!(tool.bytes.sha256, context.lock().tools[&tool.name].sha256);
+        }
+    }
+    assert!(open(directory.path(), &outer["release"]).is_err());
+    let (legacy, context) = fixture();
+    assert!(
+        open_native(
+            legacy.path(),
+            &json!({"schema_version":2,"runtime_source":outer["runtime_source"],"release":context})
+        )
+        .is_err()
+    );
+}
+
+#[test]
+/// Wrong archive/member/target/kind/source/runtime/compiler and missing baseline pins fail closed.
+fn native_context_rejects_archive_member_and_cross_target_substitution() {
+    if !supported() {
+        return;
+    }
+    for case in 0..15 {
+        let (directory, mut outer, mut catalog) = native_fixture();
+        match case {
+            0 => outer["schema_version"] = 1.into(),
+            1 => outer["runtime_source"]["commit"] = "e".repeat(40).into(),
+            2 => catalog["runtime"]["distribution"]["size"] = 1.into(),
+            3 => catalog["runtime"]["compiler"] = "stable".into(),
+            4 => catalog["runtime"]["version"] = "0.2.0".into(),
+            5 => catalog["runtime"]["members"]
+                .as_object_mut()
+                .unwrap()
+                .remove("aarch64-apple-darwin")
+                .map(|_| ())
+                .unwrap(),
+            6 => catalog["adapters"][0]["pins"][0]["material"]["name"] = "../escape".into(),
+            7 => {
+                catalog["adapters"][0]["pins"][0]["distribution"]["sha256"] = "f".repeat(64).into()
+            }
+            8 => {
+                catalog["adapters"][0]["pins"][0]["material"]["bytes"]["size"] =
+                    134217729_u64.into()
+            }
+            9 => {
+                outer["release"]["selections"][0]["evidence_requirements"]["tools"][0]["bytes"] =
+                    catalog["adapters"][0]["pins"][0]["distribution"].clone()
+            }
+            10 => {
+                outer["release"]["selections"][0]["evidence_requirements"]["tools"][0]["kind"] =
+                    "action".into()
+            }
+            11 => {
+                outer["release"]["selections"][0]["evidence_requirements"]["tools"][0] =
+                    outer["release"]["selections"][1]["evidence_requirements"]["tools"][0].clone()
+            }
+            12 => {
+                outer["release"]["selections"][0]["evidence_requirements"]["tools"]
+                    .as_array_mut()
+                    .unwrap()
+                    .pop();
+            }
+            13 => catalog["adapters"][0]["pins"][0]["format"] = "raw".into(),
+            _ => catalog["runtime"]["build_workflow"]["commit"] = "e".repeat(40).into(),
+        }
+        bind_native_catalog(directory.path(), &mut outer, &catalog);
+        assert!(
+            open_native(directory.path(), &outer).is_err(),
+            "accepted native substitution {case}"
+        );
+        assert!(!directory.path().join("executed").exists());
+    }
+}
+
+#[test]
+/// Approved synthetic headers are retained read-only; loader performs no executable invocation.
+fn native_runtime_snapshots_only_approved_members_and_never_runs_them() {
+    use armorer::verification::runtime::ApprovedRuntimeFiles;
+    if !supported() {
+        return;
+    }
+    let (directory, outer, _) = native_fixture();
+    let context = open_native(directory.path(), &outer).unwrap();
+    let before = fs::read(directory.path().join("runtime.tar")).unwrap();
+    let runtime =
+        ApprovedRuntimeFiles::open(&directory.path().join("runtime.tar"), &context).unwrap();
+    assert_eq!(
+        runtime.distribution_identity(),
+        &ByteIdentity::from_bytes(&before)
+    );
+    let executable = runtime.native_executable().unwrap();
+    assert_eq!(fs::read(executable).unwrap().len(), 128);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        assert_eq!(
+            fs::metadata(executable).unwrap().permissions().mode() & 0o777,
+            0o500
+        );
+    }
+    assert_eq!(
+        fs::read(directory.path().join("runtime.tar")).unwrap(),
+        before
+    );
+    assert!(!directory.path().join("target").exists());
+    assert!(!directory.path().join("executed").exists());
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(executable, fs::Permissions::from_mode(0o700)).unwrap();
+        fs::write(executable, b"changed private executable").unwrap();
+        assert!(runtime.native_executable().is_err());
+    }
+    let (legacy, context) = fixture();
+    let legacy_context = open(legacy.path(), &context).unwrap();
+    assert!(
+        ApprovedRuntimeFiles::open(&directory.path().join("runtime.tar"), &legacy_context).is_err()
+    );
+}
+
+#[test]
+/// Even separately approved malformed archives cannot introduce paths, links, extensions or foreign native headers.
+fn native_runtime_rejects_unsafe_containers_and_retained_executable_mutation() {
+    use armorer::verification::runtime::ApprovedRuntimeFiles;
+    if !supported() {
+        return;
+    }
+    for case in 0..12 {
+        let (directory, mut outer, mut catalog) = native_fixture();
+        let mut archive = fs::read(directory.path().join("runtime.tar")).unwrap();
+        match case {
+            0 => archive[0] = b'/',
+            1 => archive[156] = b'2',
+            2 => archive[156] = b'x',
+            3 => archive[257] = b'g',
+            4 => archive[148] ^= 1,
+            5 => archive[640] = 1,
+            6 => archive[3500] = 1,
+            7 => {
+                archive.truncate(3500);
+            }
+            8 => {
+                archive.extend_from_slice(&[0; 512]);
+            }
+            9 => archive[512] = b'#',
+            10 => archive[512 + 18] = 183,
+            _ => archive[1536] ^= 1,
+        }
+        if case == 9 || case == 10 {
+            catalog["runtime"]["members"]["x86_64-unknown-linux-gnu"]["bytes"] =
+                serde_json::to_value(ByteIdentity::from_bytes(&archive[512..640])).unwrap();
+        }
+        let identity = serde_json::to_value(ByteIdentity::from_bytes(&archive)).unwrap();
+        catalog["runtime"]["distribution"] = identity.clone();
+        outer["release"]["inputs"]["runtime"] = identity.clone();
+        for selected in outer["release"]["selections"].as_array_mut().unwrap() {
+            selected["evidence_requirements"]["inputs"]["runtime"] = identity.clone();
+        }
+        bind_native_catalog(directory.path(), &mut outer, &catalog);
+        fs::write(directory.path().join("runtime.tar"), archive).unwrap();
+        let context = open_native(directory.path(), &outer).unwrap();
+        assert!(
+            ApprovedRuntimeFiles::open(&directory.path().join("runtime.tar"), &context).is_err(),
+            "accepted malformed archive {case}"
+        );
+    }
+    let (directory, outer, _) = native_fixture();
+    let context = open_native(directory.path(), &outer).unwrap();
+    fs::write(directory.path().join("runtime.tar"), b"not a tar archive").unwrap();
+    let error = ApprovedRuntimeFiles::open(&directory.path().join("runtime.tar"), &context)
+        .err()
+        .unwrap();
+    assert!(
+        error
+            .to_string()
+            .contains("runtime-distribution-byte-mismatch")
+    );
+}
+
+#[test]
+#[ignore = "Explicit operator gate after independently qualifying all three exact-head native CI artifacts"]
+/// Load actual three-host candidate bytes against a separately approved spec; invoke only fixed native --version.
+fn real_native_runtime_distribution_matches_independent_provider_qualification() {
+    use armorer::{trust::Source, verification::runtime::ApprovedRuntimeFiles};
+    use std::process::Command;
+    let archive = PathBuf::from(
+        std::env::var_os("ARMORER_TEST_RUNTIME_ARCHIVE")
+            .expect("qualify actual provider archive first"),
+    );
+    let spec_path = PathBuf::from(
+        std::env::var_os("ARMORER_TEST_RUNTIME_SPEC")
+            .expect("retain independently approved candidate spec first"),
+    );
+    let spec_sha = std::env::var("ARMORER_TEST_RUNTIME_SPEC_SHA256")
+        .expect("independently approve exact spec bytes");
+    let source_commit = std::env::var("ARMORER_TEST_RUNTIME_SOURCE_COMMIT")
+        .expect("independently bind immutable source checkout");
+    let source_ref =
+        std::env::var("ARMORER_TEST_RUNTIME_SOURCE_REF").expect("independently bind checkout ref");
+    let bytes = fs::read(&spec_path).unwrap();
+    assert!(bytes.len() <= 1048576);
+    assert_eq!(ByteIdentity::from_bytes(&bytes).sha256, spec_sha);
+    let spec: Value = serde_json::from_slice(&bytes).unwrap();
+    let expected_source = Source {
+        repository: "brianluby/armorer".into(),
+        commit: source_commit,
+        git_ref: source_ref,
+    };
+    expected_source.validate().unwrap();
+    assert_eq!(
+        spec["source"],
+        serde_json::to_value(&expected_source).unwrap()
+    );
+    let (directory, mut outer, mut catalog) = native_fixture();
+    catalog["runtime"] = spec.clone();
+    outer["runtime_source"] = serde_json::to_value(expected_source).unwrap();
+    outer["release"]["inputs"]["runtime"] = spec["distribution"].clone();
+    for selected in outer["release"]["selections"].as_array_mut().unwrap() {
+        selected["evidence_requirements"]["inputs"]["runtime"] = spec["distribution"].clone();
+    }
+    bind_native_catalog(directory.path(), &mut outer, &catalog);
+    let context = open_native(directory.path(), &outer).unwrap();
+    let runtime = ApprovedRuntimeFiles::open(&archive, &context).unwrap();
+    let home = tempfile::tempdir().unwrap();
+    let output = Command::new(runtime.native_executable().unwrap())
+        .arg("--version")
+        .env_clear()
+        .env("HOME", home.path())
+        .env("PATH", "/usr/bin:/bin")
+        .current_dir(home.path())
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    assert_eq!(output.stdout, b"armorer 0.1.0\n");
+    assert!(output.stderr.is_empty());
+    assert_eq!(
+        runtime.distribution_identity(),
+        &serde_json::from_value(spec["distribution"].clone()).unwrap()
+    );
+    // Synthetic selection authorities above test member loading, not an actual signed release or production catalog.
+}

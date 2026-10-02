@@ -61,6 +61,9 @@ enum Operation {
 
 #[derive(Clone, ValueEnum)]
 enum SchemaKind {
+    NativeCatalogV2,
+    RuntimeDistributionV1,
+    VerificationContextV2,
     VerificationContext,
     CargoGraphV2,
     Config,
@@ -121,6 +124,15 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
         }
         Operation::Schema { kind } => {
             let schema = match kind {
+                SchemaKind::NativeCatalogV2 => {
+                    schemars::schema_for!(armorer::trust::native::NativeCatalogV2)
+                }
+                SchemaKind::RuntimeDistributionV1 => {
+                    schemars::schema_for!(armorer::trust::native::RuntimeDistributionV1)
+                }
+                SchemaKind::VerificationContextV2 => {
+                    schemars::schema_for!(armorer::verification::context::ReleaseExpectationsV2)
+                }
                 SchemaKind::VerificationContext => {
                     schemars::schema_for!(armorer::verification::context::ReleaseExpectations)
                 }

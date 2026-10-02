@@ -22,6 +22,7 @@ use std::{
 };
 
 pub const CONTEXT_NAME: &str = "armorer-verification-context.json";
+pub const NATIVE_CONTEXT_NAME: &str = "armorer-verification-context-v2.json";
 const MAX_CONTEXT: u64 = 4 * 1024 * 1024;
 
 /// Only the existing supported secure release/rehearsal invoking events are representable.
@@ -69,6 +70,106 @@ pub struct ReleaseExpectations {
     pub review: Review,
 }
 
+/// Explicit outer v2 semantics select the native catalog; nested frozen input shapes stay version one.
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReleaseExpectationsV2 {
+    #[schemars(range(min = 2, max = 2))]
+    pub schema_version: u32,
+    pub runtime_source: crate::trust::Source,
+    pub release: ReleaseExpectations,
+}
+
+enum CatalogAuthority {
+    Legacy(Catalog),
+    NativeV2 {
+        catalog: Box<crate::trust::native::NativeCatalogV2>,
+        runtime_source: crate::trust::Source,
+    },
+}
+impl CatalogAuthority {
+    /// Recheck the explicitly selected catalog without projecting native members into v1 pins.
+    fn validate(&self, lock: &Lock, inputs: &InputIdentity, now: u64) -> Result<()> {
+        match self {
+            Self::Legacy(catalog) => catalog.validate(lock, now),
+            Self::NativeV2 {
+                catalog,
+                runtime_source,
+            } => catalog.validate(lock, inputs, runtime_source, now),
+        }
+    }
+    /// Require baseline adapters from the actual approved catalog version.
+    fn has_adapter(&self, id: AdapterId) -> bool {
+        match self {
+            Self::Legacy(catalog) => catalog.adapters.iter().any(|adapter| adapter.id == id),
+            Self::NativeV2 { catalog, .. } => {
+                catalog.adapters.iter().any(|adapter| adapter.id == id)
+            }
+        }
+    }
+    /// Bind v1 distribution bytes or v2 selected executable members according to explicit authority.
+    fn matches_tool(&self, tool: &crate::trust::evidence::ToolEvidence, target: &str) -> bool {
+        match self {
+            Self::Legacy(catalog) => catalog.adapters.iter().flat_map(|a| &a.pins).any(|pin| {
+                pin.name == tool.name
+                    && pin.version == tool.version
+                    && pin.distribution == tool.bytes
+                    && pin.authentication_record == tool.authentication_record
+            }),
+            Self::NativeV2 { catalog, .. } => catalog
+                .adapters
+                .iter()
+                .flat_map(|a| &a.pins)
+                .any(|pin| pin.matches(tool, target)),
+        }
+    }
+    /// Require every applicable baseline input, rejecting adapters with no pins for the selection.
+    fn baseline_present(&self, requirements: &EvidenceRequirements, mac: bool) -> bool {
+        let baseline = |id| {
+            matches!(
+                id,
+                AdapterId::RustNative | AdapterId::CargoCyclonedx | AdapterId::GithubSigstore
+            ) || (mac && id == AdapterId::AppleNative)
+        };
+        match self {
+            Self::Legacy(catalog) => {
+                catalog
+                    .adapters
+                    .iter()
+                    .filter(|a| baseline(a.id))
+                    .all(|adapter| {
+                        adapter.pins.iter().all(|pin| {
+                            requirements.tools.iter().any(|tool| {
+                                tool.name == pin.name
+                                    && tool.version == pin.version
+                                    && tool.bytes == pin.distribution
+                                    && tool.authentication_record == pin.authentication_record
+                            })
+                        })
+                    })
+            }
+            Self::NativeV2 { catalog, .. } => catalog
+                .adapters
+                .iter()
+                .filter(|a| baseline(a.id))
+                .all(|adapter| {
+                    let pins: Vec<_> = adapter
+                        .pins
+                        .iter()
+                        .filter(|pin| pin.applies_to(&requirements.selection.target))
+                        .collect();
+                    !pins.is_empty()
+                        && pins.iter().all(|pin| {
+                            requirements
+                                .tools
+                                .iter()
+                                .any(|tool| pin.matches(tool, &requirements.selection.target))
+                        })
+                }),
+        }
+    }
+}
+
 /// Private-constructor independently approved context, distinct from producer JSON and policy review syntax.
 /// ```compile_fail
 /// let context: armorer::verification::context::TrustedReleaseContext = serde_json::from_str("{}").unwrap();
@@ -78,13 +179,27 @@ pub struct TrustedReleaseContext {
     identity: ByteIdentity,
     config: Config,
     lock: Lock,
-    catalog: Catalog,
+    catalog: CatalogAuthority,
     policy: VerificationPolicy,
 }
 impl TrustedReleaseContext {
     /// Match the independently approved context SHA first, then exact config/locks/catalog/policy bytes.
     /// This reads trusted input files only; it never discovers, builds or executes a consuming repository.
     pub fn open(directory: &Path, independently_approved_sha256: &str) -> Result<Self> {
+        Self::open_version(directory, independently_approved_sha256, false)
+    }
+
+    /// Select the explicit v2 archive/member catalog; errors never retry the legacy context.
+    pub fn open_native_v2(directory: &Path, independently_approved_sha256: &str) -> Result<Self> {
+        Self::open_version(directory, independently_approved_sha256, true)
+    }
+
+    /// Authenticate the chosen context bytes before decoding any schema or separately retained input.
+    fn open_version(
+        directory: &Path,
+        independently_approved_sha256: &str,
+        native: bool,
+    ) -> Result<Self> {
         require(
             config::hex_digest(independently_approved_sha256, 64),
             "invalid-approved-release-context-digest",
@@ -93,12 +208,28 @@ impl TrustedReleaseContext {
             std::fs::symlink_metadata(directory)?.is_dir(),
             "release-context-directory-type",
         )?;
-        let bytes = io::read_bounded(&directory.join(CONTEXT_NAME), MAX_CONTEXT)?;
+        let bytes = io::read_bounded(
+            &directory.join(if native {
+                NATIVE_CONTEXT_NAME
+            } else {
+                CONTEXT_NAME
+            }),
+            MAX_CONTEXT,
+        )?;
         require(
             crate::digest(&bytes) == independently_approved_sha256,
             "unapproved-release-context",
         )?;
-        let expectations: ReleaseExpectations = io::parse(&bytes)?;
+        let (expectations, runtime_source) = if native {
+            let outer: ReleaseExpectationsV2 = io::parse(&bytes)?;
+            require(
+                outer.schema_version == 2,
+                "unsupported-native-release-context-version",
+            )?;
+            (outer.release, Some(outer.runtime_source))
+        } else {
+            (io::parse::<ReleaseExpectations>(&bytes)?, None)
+        };
         let now = sigstore::wall_time()?;
         require(
             expectations.schema_version == 1,
@@ -125,17 +256,21 @@ impl TrustedReleaseContext {
         expectations.catalog.validate()?;
         let catalog_bytes = io::read_bounded(&directory.join("catalog.json"), 1_048_576)?;
         expectations.catalog.matches(&catalog_bytes)?;
-        let catalog: Catalog = io::parse(&catalog_bytes)?;
-        catalog.validate(&lock, now)?;
+        let catalog = if let Some(runtime_source) = runtime_source {
+            CatalogAuthority::NativeV2 {
+                catalog: io::parse(&catalog_bytes)?,
+                runtime_source,
+            }
+        } else {
+            CatalogAuthority::Legacy(io::parse(&catalog_bytes)?)
+        };
+        catalog.validate(&lock, &expectations.inputs, now)?;
         for id in [
             AdapterId::RustNative,
             AdapterId::CargoCyclonedx,
             AdapterId::GithubSigstore,
         ] {
-            require(
-                catalog.adapters.iter().any(|adapter| adapter.id == id),
-                "release-baseline-adapter-missing",
-            )?;
+            require(catalog.has_adapter(id), "release-baseline-adapter-missing")?;
         }
         expectations.verification_policy.validate()?;
         let policy_bytes =
@@ -166,7 +301,8 @@ impl TrustedReleaseContext {
     pub(crate) fn validate_at(&self, now: u64) -> Result<()> {
         self.expectations.review.validate_at(now)?;
         self.policy.validate(now)?;
-        self.catalog.validate(&self.lock, now)?;
+        self.catalog
+            .validate(&self.lock, &self.expectations.inputs, now)?;
         let source = &self.expectations.inputs.source;
         let caller = &self.expectations.caller_workflow;
         caller.validate()?;
@@ -242,11 +378,7 @@ impl TrustedReleaseContext {
                 require(
                     self.policy.apple_team.is_some()
                         && requirements.apple_team == self.policy.apple_team
-                        && self
-                            .catalog
-                            .adapters
-                            .iter()
-                            .any(|adapter| adapter.id == AdapterId::AppleNative),
+                        && self.catalog.has_adapter(AdapterId::AppleNative),
                     "release-context-apple-requirements-missing",
                 )?;
             } else {
@@ -290,38 +422,14 @@ impl TrustedReleaseContext {
                             .max_age_seconds
                             .is_none_or(|age| age > 0 && now - tool.observed_at <= age)
                         && (tool.kind != InputKind::Database || tool.max_age_seconds.is_some())
-                        && self
-                            .catalog
-                            .adapters
-                            .iter()
-                            .flat_map(|adapter| &adapter.pins)
-                            .any(|pin| {
-                                pin.name == tool.name
-                                    && pin.version == tool.version
-                                    && pin.distribution == tool.bytes
-                                    && pin.authentication_record == tool.authentication_record
-                            }),
+                        && self.catalog.matches_tool(tool, &selection.target),
                     "release-context-tool-pin-or-time-mismatch",
                 )?;
             }
-            for adapter in self.catalog.adapters.iter().filter(|adapter| {
-                matches!(
-                    adapter.id,
-                    AdapterId::RustNative | AdapterId::CargoCyclonedx | AdapterId::GithubSigstore
-                ) || (mac && adapter.id == AdapterId::AppleNative)
-            }) {
-                for pin in &adapter.pins {
-                    require(
-                        requirements.tools.iter().any(|tool| {
-                            tool.name == pin.name
-                                && tool.version == pin.version
-                                && tool.bytes == pin.distribution
-                                && tool.authentication_record == pin.authentication_record
-                        }),
-                        "release-context-baseline-tool-missing",
-                    )?;
-                }
-            }
+            require(
+                self.catalog.baseline_present(requirements, mac),
+                "release-context-baseline-tool-missing",
+            )?;
             let mut coverage = BTreeSet::new();
             for record in &requirements.required_coverage {
                 record.tested_subject.validate()?;
@@ -368,6 +476,18 @@ impl TrustedReleaseContext {
             }
         }
         Ok(())
+    }
+
+    /// Borrow the approved v2 runtime metadata; a legacy context cannot authorize member extraction.
+    pub(crate) fn runtime_distribution(
+        &self,
+    ) -> Result<&crate::trust::native::RuntimeDistributionV1> {
+        match &self.catalog {
+            CatalogAuthority::NativeV2 { catalog, .. } => Ok(&catalog.runtime),
+            CatalogAuthority::Legacy(_) => {
+                Err(Error::Invalid("native-runtime-requires-v2-context".into()))
+            }
+        }
     }
 
     /// Bind an independently opened cryptographic adapter to this exact approved policy identity.
