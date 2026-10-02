@@ -7,7 +7,7 @@ use crate::{
     Error, Result,
     apply::{decode, json, lock, optional_bytes, replace, sync_directory, text},
     catalog,
-    config::hex_digest,
+    config::{WorkflowPin, hex_digest},
     digest, safe_path,
 };
 use serde::{Deserialize, Serialize};
@@ -26,6 +26,7 @@ pub(super) struct State {
     schema_version: u32,
     runtime_version: String,
     catalog_sha256: String,
+    workflow: WorkflowPin,
     last_plan_sha256: String,
     pub managed: BTreeMap<String, Base>,
 }
@@ -77,6 +78,8 @@ fn validate_state(state: &State) -> Result<()> {
     if state.schema_version != VERSION
         || state.runtime_version != env!("CARGO_PKG_VERSION")
         || state.catalog_sha256 != catalog::TOOLS_SHA256
+        || state.workflow.repository != catalog::WORKFLOW_REPOSITORY
+        || state.workflow.commit != catalog::WORKFLOW_COMMIT
         || !hex_digest(&state.last_plan_sha256, 64)
         || state.managed.len() > TARGETS.len()
         || state.managed.iter().any(|(path, base)| {
@@ -156,6 +159,10 @@ fn operations(plan: &Plan, state_bytes: Option<&str>) -> Result<Vec<Write>> {
         schema_version: VERSION,
         runtime_version: env!("CARGO_PKG_VERSION").into(),
         catalog_sha256: catalog::TOOLS_SHA256.into(),
+        workflow: WorkflowPin {
+            repository: catalog::WORKFLOW_REPOSITORY.into(),
+            commit: catalog::WORKFLOW_COMMIT.into(),
+        },
         last_plan_sha256: plan.plan_sha256.clone(),
         managed,
     };

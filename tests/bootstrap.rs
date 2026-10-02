@@ -497,7 +497,7 @@ fn oversized_escaped_or_non_utf8_conflicts_fail_without_truncation_or_writes() {
 
 #[test]
 fn replay_rejects_removed_adopted_or_substituted_ownership_receipts() {
-    for mutation in 0..4 {
+    for mutation in 0..6 {
         let (root, policy) = fixture("library");
         let initial = inspect(root.path(), policy.path()).unwrap();
         if mutation == 1 {
@@ -523,6 +523,8 @@ fn replay_rejects_removed_adopted_or_substituted_ownership_receipts() {
             }
             2 => state["catalog_sha256"] = "a".repeat(64).into(),
             3 => state["runtime_version"] = "0.0.1".into(),
+            4 => state["workflow"]["repository"] = "example/substitution".into(),
+            5 => state["workflow"]["commit"] = "a".repeat(40).into(),
             _ => unreachable!(),
         }
         fs::write(state_path, serde_json::to_vec(&state).unwrap()).unwrap();

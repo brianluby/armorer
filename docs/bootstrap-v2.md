@@ -108,7 +108,8 @@ A legacy `rust-toolchain` blocks the new toolchain and is shown verbatim for rev
 Recover unfinished v1 journals using v1 `recover` first. The updated v1 writer
 refuses active v2 state/journals. Older CLI builds do not understand the v2 ownership
 contract; switching back requires a separately reviewed rollback/migration.
-Changed catalog/runtime identities fail closed pending #5's reviewed upgrades.
+Ownership also records the exact workflow repository/commit. Changed workflow,
+catalog or runtime identities fail closed pending #5's reviewed upgrades.
 Imported workflows, three-way customizations, downgrade controls and compatibility
 previews remain #5 work. No moving reference is automatically adopted.
 
