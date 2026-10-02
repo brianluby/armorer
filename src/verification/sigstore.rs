@@ -603,10 +603,10 @@ fn validate_output(
             "verified-provenance-source-mismatch",
         )?;
         let details = statement.predicate.get("runDetails").ok_or(Error::Json)?;
-        equal_field(
+        validate_builder_identity(
             details.get("builder").ok_or(Error::Json)?,
-            "id",
-            "https://github.com/actions/runner/github-hosted",
+            github,
+            &signer_uri,
         )?;
         equal_field(
             details.get("metadata").ok_or(Error::Json)?,
@@ -615,6 +615,24 @@ fn validate_output(
         )?;
     }
     Ok(statement.predicate)
+}
+
+/// Accept only qualified legacy hosted-runner or exact SHA-pinned reusable-workflow builder IDs.
+/// The modern format requires its OIDC-derived hosted claim; certificate hosted checks remain mandatory.
+fn validate_builder_identity(builder: &Value, github: &Value, signer_uri: &str) -> Result<()> {
+    let id = field(builder, "id")?;
+    if id == signer_uri {
+        return equal_field(github, "runner_environment", "github-hosted");
+    }
+    require(
+        id == "https://github.com/actions/runner/github-hosted",
+        "verified-provenance-builder-mismatch",
+    )?;
+    // The genuine historical fixture predates this internal field. If present it must agree.
+    if github.get("runner_environment").is_some() {
+        equal_field(github, "runner_environment", "github-hosted")?;
+    }
+    Ok(())
 }
 
 #[derive(Clone, Copy)]
@@ -852,6 +870,79 @@ mod tests {
         let wrong_signed = value[0]["verificationResult"]["statement"].clone();
         assert!(check(&value, &wrong_signed, &bytes, &expected).is_err());
     }
+    #[test]
+    /// Qualify modern builder identity semantics only; synthetic output never constructs a signature proof.
+    fn workflow_builder_requires_exact_signer_pin_and_both_hosted_claims() {
+        let (mut value, _, bytes, expected) = fixture();
+        let signer = format!(
+            "https://github.com/{}/{}@{}",
+            expected.run.workflow.repository,
+            expected.run.workflow.path,
+            expected.run.workflow.commit
+        );
+        let statement = &mut value[0]["verificationResult"]["statement"];
+        statement["predicate"]["runDetails"]["builder"]["id"] = signer.clone().into();
+        statement["predicate"]["buildDefinition"]["internalParameters"]["github"]["runner_environment"] =
+            "github-hosted".into();
+        let signed = value[0]["verificationResult"]["statement"].clone();
+        assert!(check(&value, &signed, &bytes, &expected).is_ok());
+        for wrong in [
+            signer.replace(&expected.run.workflow.commit, "refs/heads/main"),
+            signer.replace(&expected.run.workflow.commit, &"a".repeat(40)),
+            signer.replace(&expected.run.workflow.repository, "attacker/workflows"),
+            signer.replace(&expected.run.workflow.path, ".github/workflows/other.yml"),
+            format!("{signer}/"),
+            format!("http{}", &signer[5..]),
+        ] {
+            let mut changed = value.clone();
+            changed[0]["verificationResult"]["statement"]["predicate"]["runDetails"]["builder"]["id"] =
+                wrong.into();
+            let signed = changed[0]["verificationResult"]["statement"].clone();
+            assert!(check(&changed, &signed, &bytes, &expected).is_err());
+        }
+        for runner in [
+            serde_json::json!("self-hosted"),
+            serde_json::Value::Null,
+            serde_json::json!(true),
+        ] {
+            let mut changed = value.clone();
+            changed[0]["verificationResult"]["statement"]["predicate"]["buildDefinition"]["internalParameters"]
+                ["github"]["runner_environment"] = runner;
+            let signed = changed[0]["verificationResult"]["statement"].clone();
+            assert!(check(&changed, &signed, &bytes, &expected).is_err());
+        }
+        let mut missing = value.clone();
+        missing[0]["verificationResult"]["statement"]["predicate"]["buildDefinition"]["internalParameters"]["github"]
+            .as_object_mut().unwrap().remove("runner_environment");
+        let signed = missing[0]["verificationResult"]["statement"].clone();
+        assert!(check(&missing, &signed, &bytes, &expected).is_err());
+        let signed = value[0]["verificationResult"]["statement"].clone();
+        value[0]["verificationResult"]["signature"]["certificate"]["runnerEnvironment"] =
+            "self-hosted".into();
+        assert!(check(&value, &signed, &bytes, &expected).is_err());
+    }
+
+    #[test]
+    /// Preserve genuine legacy semantics while rejecting contradictory optional runner assertions.
+    fn legacy_builder_still_requires_hosted_certificate_and_consistent_optional_claim() {
+        let (original, signed, bytes, expected) = fixture();
+        assert!(check(&original, &signed, &bytes, &expected).is_ok());
+        let mut value = original.clone();
+        value[0]["verificationResult"]["statement"]["predicate"]["buildDefinition"]["internalParameters"]
+            ["github"]["runner_environment"] = "github-hosted".into();
+        let signed = value[0]["verificationResult"]["statement"].clone();
+        assert!(check(&value, &signed, &bytes, &expected).is_ok());
+        value[0]["verificationResult"]["statement"]["predicate"]["buildDefinition"]["internalParameters"]
+            ["github"]["runner_environment"] = "self-hosted".into();
+        let signed = value[0]["verificationResult"]["statement"].clone();
+        assert!(check(&value, &signed, &bytes, &expected).is_err());
+        let signed = original[0]["verificationResult"]["statement"].clone();
+        let mut certificate = original.clone();
+        certificate[0]["verificationResult"]["signature"]["certificate"]["runnerEnvironment"] =
+            "self-hosted".into();
+        assert!(check(&certificate, &signed, &bytes, &expected).is_err());
+    }
+
     #[test]
     /// Ensure invalid root transport cannot select a usable subset of supplied records.
     fn root_transport_rejects_duplicates_arrays_empty_and_malformed_records() {

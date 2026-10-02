@@ -73,6 +73,29 @@ caller workflow, event, repository IDs, resolved source commit, hosted builder a
 run invocation. Signed predicates remain workflow-produced assertions; accepting
 the signer still requires independently reviewed workflow/catalog expectations.
 
+The reader recognizes two source-qualified `runDetails.builder.id` forms. The
+genuine 2024 fixture uses `https://github.com/actions/runner/github-hosted`.
+The pinned [actions/attest v4.2.0 source](https://github.com/actions/attest/tree/f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6)
+locks `@actions/attest` 3.2.0; its
+[SSRI-pinned official distribution](https://registry.npmjs.org/@actions/attest/-/attest-3.2.0.tgz)
+derives the builder URI from OIDC `job_workflow_ref`. That modern URI must equal
+the independently approved reusable signer repository, path and full commit.
+Modern provenance must also contain the OIDC-derived
+`internalParameters.github.runner_environment: "github-hosted"`. The older form
+may omit that internal field, but any supplied value must agree. Both forms
+always require the verified certificate's hosted runner, exact signer URI/digest,
+source/caller/run and all other existing checks. Moving refs, caller identities,
+wrong workflow pins, missing modern runner claims and self-hosted runners fail.
+
+`tests/fixtures/sigstore/attest-v4-producer-source.json` records actual Git blob
+identities and the lock-matched npm SHA-512 distribution identity. The official
+release tag is v4.2.0 while its package manifest reports 4.1.0; qualification uses
+the immutable action commit and dependency distribution, not that version string.
+The npm version metadata has no `gitHead`; the receipt does not invent one.
+New-format tests cover post-crypto semantics only and cannot manufacture an
+authenticated proof. An own-repository current-producer signed positive remains
+required before complete producer/consumer or Build L2 acceptance.
+
 Public-good fixtures pass real offline verification. The private backend supplies
 `--no-public-good` and requires a `private` visibility certificate; this slice
 only tests rejection of public evidence in that mode. Genuine private-backend
