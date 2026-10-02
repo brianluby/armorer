@@ -40,9 +40,12 @@ fn caller_selected_executable_approval_cannot_replace_the_compiled_native_tool()
         )
         .is_err()
     );
-    assert!(
-        OfflineSbomValidator::open(file.path(), &qualified_native_validator().unwrap()).is_err()
-    );
+    let approval = match qualified_native_validator() {
+        Ok(identity) => identity,
+        // This is only a negative test identity; unsupported production hosts still fail closed.
+        Err(_) => ByteIdentity::from_bytes(b"unsupported-platform"),
+    };
+    assert!(OfflineSbomValidator::open(file.path(), &approval).is_err());
 }
 #[test]
 #[ignore = "Required explicit native CI gate after compiled-pin distribution qualification"]

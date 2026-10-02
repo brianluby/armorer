@@ -39,8 +39,11 @@ Its CycloneDX.Core dependency is 12.1.2 at
 with format validation enabled. Downloaded SBOM `$schema`, URLs and external
 references do not select executable code or a schema-fetch command.
 
-The child gets an empty environment with an isolated HOME, temporary directory
-and .NET bundle-extraction directory, null stdin and no inherited credentials,
+The child gets an empty environment with an isolated HOME and document temporary
+directory, plus a .NET bundle-extraction directory private to the validator
+workspace. Repeated validations reuse that qualified tool runtime cache while
+each document request remains separate. The 30-second process limit is unchanged.
+The child receives null stdin and no inherited credentials,
 PATH, user configuration or startup hooks. Extraction of the qualified tool's own
 embedded .NET runtime is permitted inside that private directory; consuming
 artifacts are never extracted or executed. The document is capped at 17 MiB,

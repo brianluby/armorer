@@ -69,6 +69,7 @@ impl ValidatedSbom {
 pub struct OfflineSbomValidator {
     workspace: tempfile::TempDir,
     executable: PathBuf,
+    bundle_directory: PathBuf,
     identity: ByteIdentity,
 }
 impl OfflineSbomValidator {
@@ -89,9 +90,13 @@ impl OfflineSbomValidator {
         )?;
         sigstore::native_executable(&copy)?;
         io::readonly(&copy, true)?;
+        // The qualified tool's own runtime cache is private to this validator, while each document stays isolated.
+        let bundle_directory = workspace.path().join("native-bundle");
+        fs::create_dir(&bundle_directory)?;
         Ok(Self {
             workspace,
             executable: copy,
+            bundle_directory,
             identity,
         })
     }
@@ -119,9 +124,7 @@ impl OfflineSbomValidator {
         )?;
         io::readonly(&input, false)?;
         let home = request.path().join("home");
-        let bundle_directory = request.path().join("native-bundle");
         fs::create_dir(&home)?;
-        fs::create_dir(&bundle_directory)?;
         let mut command = Command::new(&self.executable);
         command
             .args(["validate", "--input-file"])
@@ -137,7 +140,7 @@ impl OfflineSbomValidator {
             .env_clear()
             .env("HOME", &home)
             .env("TMPDIR", request.path())
-            .env("DOTNET_BUNDLE_EXTRACT_BASE_DIR", &bundle_directory)
+            .env("DOTNET_BUNDLE_EXTRACT_BASE_DIR", &self.bundle_directory)
             .env("DOTNET_CLI_TELEMETRY_OPTOUT", "1")
             .env("DOTNET_SKIP_FIRST_TIME_EXPERIENCE", "1")
             .stdin(Stdio::null());
