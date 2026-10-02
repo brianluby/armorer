@@ -15,14 +15,14 @@ use std::{collections::BTreeMap, fs, path::Path};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct Base {
+pub(crate) struct Base {
     pub content: String,
     sha256: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct State {
+pub(crate) struct State {
     schema_version: u32,
     runtime_version: String,
     catalog_sha256: String,
@@ -93,13 +93,19 @@ fn validate_state(state: &State) -> Result<()> {
     Ok(())
 }
 
-pub(super) fn load_state(root: &Path) -> Result<Option<(State, Vec<u8>)>> {
+pub(crate) fn load_state(root: &Path) -> Result<Option<(State, Vec<u8>)>> {
     let Some(bytes) = optional_bytes(root, STATE)? else {
         return Ok(None);
     };
-    let state = decode(&bytes)?;
-    validate_state(&state)?;
+    let state = state_from_bytes(&bytes)?;
     Ok(Some((state, bytes)))
+}
+
+/// Decode current authenticated bootstrap ownership without filesystem mutation.
+pub(crate) fn state_from_bytes(bytes: &[u8]) -> Result<State> {
+    let state: State = decode(bytes)?;
+    validate_state(&state)?;
+    Ok(state)
 }
 
 /// Reconstruct the entire write inventory, including exact ownership state.
@@ -175,6 +181,7 @@ fn operations(plan: &Plan, state_bytes: Option<&str>) -> Result<Vec<Write>> {
 }
 
 fn guard_legacy(root: &Path) -> Result<()> {
+    crate::upgrade::guard_previous(root)?;
     if optional_bytes(root, V1_STATE)?.is_some() {
         return Err(Error::Transaction(
             "version-one ownership requires an explicit reviewed migration",
@@ -190,7 +197,7 @@ fn guard_legacy(root: &Path) -> Result<()> {
 
 /// Create only required parents, sync each creation, and recheck for symlinks.
 /// Empty created directories are retained on rollback; unrelated directories are never removed.
-fn ensure_parent(root: &Path, relative: &str) -> Result<()> {
+pub(crate) fn ensure_parent(root: &Path, relative: &str) -> Result<()> {
     let parent = Path::new(relative)
         .parent()
         .ok_or(Error::Transaction("invalid bootstrap parent"))?;

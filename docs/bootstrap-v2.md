@@ -110,8 +110,12 @@ refuses active v2 state/journals. Older CLI builds do not understand the v2 owne
 contract; switching back requires a separately reviewed rollback/migration.
 Ownership also records the exact workflow repository/commit. Changed workflow,
 catalog or runtime identities fail closed pending #5's reviewed upgrades.
-Imported workflows, three-way customizations, downgrade controls and compatibility
-previews remain #5 work. No moving reference is automatically adopted.
+The separate [reviewed upgrade command](upgrades.md) implements explicit v1/v2
+ownership migration, supported imported workflows, stored generated-base previews
+and historical reversal. It remains in review; migration between two independently
+accepted catalogs still needs the future authenticated successor. Active upgrade
+ownership/journals require that command; bootstrap planning/apply refuse them. No
+moving reference is automatically adopted.
 
 `configured: true` means these local bytes were provisioned. It does not mean a
 missing Cargo.lock, unrecognized SPDX license, native dependency or Cargo override

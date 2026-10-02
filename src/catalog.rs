@@ -127,6 +127,23 @@ impl AuthenticatedCatalog {
         toml::to_string_pretty(&lock).map_err(|_| Error::Toml)
     }
 
+    /// Fixed bootstrap file set for an already validated configuration and policy.
+    pub(crate) fn bootstrap_files(
+        &self,
+        config_sha256: &str,
+        toolchain: &str,
+        policy: &str,
+    ) -> Result<BTreeMap<String, String>> {
+        let mut files = self.caller_workflows();
+        files.insert(".armorer/ci-policy.toml".into(), policy.into());
+        files.insert(
+            "armorer.lock".into(),
+            self.lock_for_config_sha256(config_sha256)?,
+        );
+        files.insert("rust-toolchain.toml".into(), format!("[toolchain]\nchannel = \"{}\"\nprofile = \"minimal\"\ncomponents = [\"clippy\", \"rustfmt\"]\n", toolchain));
+        Ok(files)
+    }
+
     /// Fixed unprivileged callers. Existing custom workflows remain separate.
     /// The build caller is manual and unsigned; it has no publication capability.
     pub fn caller_workflows(&self) -> BTreeMap<String, String> {
