@@ -443,3 +443,57 @@ fn real_inventory_authentication_failure_precedes_json_and_asset_processing() {
         assert!(!directory.path().join("executed").exists());
     }
 }
+
+#[test]
+/// A matching bundle filename cannot override the frozen inventory's exact target-subject relationship.
+fn inventory_rejects_cross_target_sbom_subject_swap_before_bundle_processing() {
+    use armorer::{
+        config::Config,
+        trust::{
+            inventory::{AssetRole, ReleaseInventory},
+            policy::{Predicate, VerificationPolicy},
+        },
+    };
+    const FIXTURE_NOW: u64 = 1_790_870_400;
+    let mut config: Config =
+        toml::from_str(&fs::read_to_string(example("armorer.toml")).unwrap()).unwrap();
+    config.deliverables[0]
+        .targets
+        .push("aarch64-unknown-linux-gnu".into());
+    let policy: VerificationPolicy =
+        serde_json::from_value(read("verification-policy.json")).unwrap();
+    let mut inventory: ReleaseInventory =
+        serde_json::from_value(read("release-inventory.json")).unwrap();
+    let original = inventory.assets.clone();
+    for mut asset in original {
+        asset.name = asset
+            .name
+            .replace("x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu");
+        for name in &mut asset.subjects {
+            *name = name.replace("x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu");
+        }
+        if let Some(name) = &mut asset.predicate_asset {
+            *name = name.replace("x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu");
+        }
+        inventory.assets.push(asset);
+    }
+    // Equal synthetic SBOM/artifact identities cannot bypass the independently derived layout.
+    inventory
+        .validate_against(&config, &policy, &inventory.inputs, FIXTURE_NOW)
+        .unwrap();
+    let bundle = inventory
+        .assets
+        .iter_mut()
+        .find(|asset| {
+            asset.role == AssetRole::AttestationBundle
+                && asset.predicate == Some(Predicate::CycloneDxV15)
+                && asset.name.contains("x86_64-unknown-linux-gnu")
+        })
+        .unwrap();
+    bundle.subjects[0] = "app--aarch64-unknown-linux-gnu--minimal.tar.gz".into();
+    let error = inventory
+        .validate_against(&config, &policy, &inventory.inputs, FIXTURE_NOW)
+        .err()
+        .unwrap();
+    assert!(error.to_string().contains("asset-relationship-mismatch"));
+}

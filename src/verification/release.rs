@@ -4,7 +4,7 @@ use super::{
     cyclonedx::{OfflineSbomValidator, ValidatedSbom},
     graph::CargoGraphV2,
     io,
-    sigstore::{self, OfflineVerifier, VerifiedAttestation},
+    sigstore::{self, ExpectedAttestation, OfflineVerifier, VerifiedAttestation},
 };
 use crate::{
     Error, Result,
@@ -196,8 +196,10 @@ impl AuthenticatedReleaseFiles {
             let proof = attestations
                 .get(&predicate_bundle)
                 .ok_or_else(|| Error::Invalid("authenticated-sbom-predicate-missing".into()))?;
+            validate_sbom_slot(proof.expected(), &final_name)?;
             require(
-                proof.predicate() == sbom.document(),
+                identities.get(&final_name) == Some(proof.subject())
+                    && proof.predicate() == sbom.document(),
                 "authenticated-sbom-predicate-document-mismatch",
             )?;
             let graph: CargoGraphV2 = io::parse(&io::read_bounded(
@@ -351,6 +353,17 @@ impl AuthenticatedReleaseFiles {
     }
 }
 
+/// Recheck the cryptographically matched subject/scope/predicate at the local selected-SBOM boundary.
+/// Inventory validation already enforces the pairing; this check never relies on a filename alone.
+fn validate_sbom_slot(expected: &ExpectedAttestation, final_name: &str) -> Result<()> {
+    require(
+        expected.subject_name == final_name
+            && expected.scope == EvidenceScope::SbomPredicate
+            && expected.predicate == Predicate::CycloneDxV15,
+        "authenticated-sbom-predicate-slot-mismatch",
+    )
+}
+
 /// Map exact role/predicate relationships to independently approved signer scopes.
 fn slot_scope(role: AssetRole, predicate: Predicate) -> Result<EvidenceScope> {
     match (role, predicate) {
@@ -407,6 +420,48 @@ fn compare_directory(directory: &Path, expected: &BTreeSet<String>) -> Result<()
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    /// Check post-crypto identity semantics only; no synthetic claim constructs a signature proof.
+    fn selected_sbom_slot_rejects_another_target_scope_or_predicate() {
+        use crate::trust::{RunIdentity, Source, WorkflowIdentity};
+        let final_name = "app--x86_64-unknown-linux-gnu--minimal.tar.gz";
+        let workflow = WorkflowIdentity {
+            repository: "fixture/workflows".into(),
+            path: ".github/workflows/release.yml".into(),
+            commit: "b".repeat(40),
+        };
+        let mut expected = ExpectedAttestation {
+            source: Source {
+                repository: "fixture/project".into(),
+                commit: "a".repeat(40),
+                git_ref: "refs/tags/v1.0.0".into(),
+            },
+            run: RunIdentity {
+                id: 12,
+                attempt: 1,
+                workflow: workflow.clone(),
+            },
+            caller_workflow: WorkflowIdentity {
+                repository: "fixture/project".into(),
+                path: workflow.path.clone(),
+                commit: "a".repeat(40),
+            },
+            trigger: sigstore::Trigger::Push,
+            scope: EvidenceScope::SbomPredicate,
+            predicate: Predicate::CycloneDxV15,
+            subject_name: final_name.into(),
+        };
+        validate_sbom_slot(&expected, final_name).unwrap();
+        expected.subject_name = "app--aarch64-unknown-linux-gnu--minimal.tar.gz".into();
+        assert!(validate_sbom_slot(&expected, final_name).is_err());
+        expected.subject_name = final_name.into();
+        expected.scope = EvidenceScope::FinalArtifact;
+        assert!(validate_sbom_slot(&expected, final_name).is_err());
+        expected.scope = EvidenceScope::SbomPredicate;
+        expected.predicate = Predicate::SlsaProvenanceV1;
+        assert!(validate_sbom_slot(&expected, final_name).is_err());
+    }
     #[test]
     /// Exact regular-leaf downloads reject extras, missing leaves and nested paths.
     fn downloaded_file_set_is_exact_and_never_traverses_subdirectories() {
