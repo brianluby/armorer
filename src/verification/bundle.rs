@@ -36,14 +36,17 @@ pub struct UnverifiedBundle {
     statement: Value,
 }
 impl UnverifiedBundle {
+    /// Return the exact unverified bare transport bytes; this establishes no authenticity.
     pub fn bytes(&self) -> &[u8] {
         &self.bytes
     }
+    /// Expose the strictly parsed signed payload only to the cryptographic adapter.
     pub(crate) fn statement(&self) -> &Value {
         &self.statement
     }
 }
 
+/// Validate bounded single-signature transport and reject ambiguity inside its signed payload.
 fn bare(bytes: Vec<u8>) -> Result<UnverifiedBundle> {
     let bundle: Bundle = parse(&bytes)?;
     require(

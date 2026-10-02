@@ -21,6 +21,7 @@ MAX_ARCHIVE = 32 * 1024 * 1024
 
 
 def fetch(name, limit):
+    """Download one fixed release path with a byte cap; never execute returned bytes."""
     with urllib.request.urlopen(BASE_URL + name, timeout=30) as response:
         data = response.read(limit + 1)
     if len(data) > limit:
@@ -29,6 +30,7 @@ def fetch(name, limit):
 
 
 def qualify(destination):
+    """Authenticate manifest, archive and executable, then create a new owned output."""
     pins = json.loads(PINS.read_text())
     if pins["version"] != "2.102.0" or pins["source_commit"] != "fc4b137cdef0a6bd28fd461b7cf9c84a5812a8cd":
         raise ValueError("unsupported verifier source/version")
@@ -85,6 +87,7 @@ def qualify(destination):
 
 
 def main():
+    """Qualify a native test tool and optionally export only its path to hosted CI."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-directory", type=Path, required=True)
     parser.add_argument("--github-env", action="store_true", help="Append qualified path to the current CI environment file")

@@ -1,16 +1,19 @@
 use armorer::verification::bundle::load_one;
 use std::{fs, path::Path};
+/// Locate the genuine bare upstream Sigstore bundle without executing its artifact.
 fn fixture() -> std::path::PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests/fixtures/sigstore/reusable-workflow-attestation.sigstore.json")
 }
 #[test]
+/// Keep original transport bytes while exposing no signature-authentication result.
 fn genuine_transport_is_retained_exactly_and_never_produces_a_verified_claim() {
     let path = fixture();
     let bytes = fs::read(&path).unwrap();
     assert_eq!(load_one(&path).unwrap().bytes(), bytes);
 }
 #[test]
+/// Reject inputs that could otherwise conceal or discard offered evidence.
 fn multiple_entries_unknown_fields_and_nested_duplicate_keys_cannot_select_a_verified_subset() {
     let bytes = fs::read_to_string(fixture()).unwrap();
     let value: serde_json::Value = serde_json::from_str(&bytes).unwrap();
@@ -39,6 +42,7 @@ fn multiple_entries_unknown_fields_and_nested_duplicate_keys_cannot_select_a_ver
 }
 
 #[test]
+/// Reject ambiguity within signed bytes and explicit download wrappers before invoking gh.
 fn signed_payload_duplicates_and_download_ambiguity_are_rejected_before_verification() {
     use armorer::verification::bundle::load_download;
     use base64::{Engine, engine::general_purpose::STANDARD};

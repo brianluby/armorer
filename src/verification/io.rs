@@ -16,6 +16,7 @@ pub(crate) const MAX_PAYLOAD: usize = 17 * 1024 * 1024;
 pub(crate) const MAX_ROOT: u64 = 4 * 1024 * 1024;
 pub(crate) const MAX_VERIFIER: u64 = 128 * 1024 * 1024;
 
+/// Open a bounded regular leaf and compare its opened inode with the inspected file.
 pub(crate) fn regular(path: &Path, max: u64) -> Result<File> {
     let before = fs::symlink_metadata(path)?;
     require(
@@ -39,6 +40,7 @@ pub(crate) fn regular(path: &Path, max: u64) -> Result<File> {
     Ok(file)
 }
 
+/// Read at most the cap plus one byte so file growth cannot bypass the size gate.
 pub(crate) fn read_bounded(path: &Path, max: u64) -> Result<Vec<u8>> {
     let mut bytes = Vec::new();
     regular(path, max)?.take(max + 1).read_to_end(&mut bytes)?;
@@ -55,6 +57,7 @@ struct Seed<'a> {
 }
 impl<'de> DeserializeSeed<'de> for Seed<'_> {
     type Value = serde_json::Value;
+    /// Consume a value-node budget before recursively allocating that JSON value.
     fn deserialize<D: serde::Deserializer<'de>>(
         self,
         decoder: D,
@@ -70,32 +73,41 @@ impl<'de> DeserializeSeed<'de> for Seed<'_> {
 }
 impl<'de> Visitor<'de> for Seed<'_> {
     type Value = serde_json::Value;
+    /// Describe the parser contract without echoing untrusted input.
     fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("bounded JSON without duplicate keys")
     }
+    /// Retain a JSON boolean as a value, never as an authentication decision.
     fn visit_bool<E: serde::de::Error>(self, v: bool) -> std::result::Result<Self::Value, E> {
         Ok(v.into())
     }
+    /// Retain a signed JSON integer exactly.
     fn visit_i64<E: serde::de::Error>(self, v: i64) -> std::result::Result<Self::Value, E> {
         Ok(v.into())
     }
+    /// Retain an unsigned JSON integer exactly.
     fn visit_u64<E: serde::de::Error>(self, v: u64) -> std::result::Result<Self::Value, E> {
         Ok(v.into())
     }
+    /// Retain finite JSON numbers and reject values without a JSON representation.
     fn visit_f64<E: serde::de::Error>(self, v: f64) -> std::result::Result<Self::Value, E> {
         serde_json::Number::from_f64(v)
             .map(Into::into)
             .ok_or_else(|| E::custom("invalid JSON number"))
     }
+    /// Retain decoded string contents for semantic comparison of signed statements.
     fn visit_str<E: serde::de::Error>(self, v: &str) -> std::result::Result<Self::Value, E> {
         Ok(v.into())
     }
+    /// Retain an already owned decoded JSON string without changing its contents.
     fn visit_string<E: serde::de::Error>(self, v: String) -> std::result::Result<Self::Value, E> {
         Ok(v.into())
     }
+    /// Represent explicit JSON null; typed required-field checks remain separate.
     fn visit_unit<E: serde::de::Error>(self) -> std::result::Result<Self::Value, E> {
         Ok(serde_json::Value::Null)
     }
+    /// Apply the shared node/depth budget to every array element before retaining it.
     fn visit_seq<A: serde::de::SeqAccess<'de>>(
         self,
         mut access: A,
@@ -109,6 +121,7 @@ impl<'de> Visitor<'de> for Seed<'_> {
         }
         Ok(values.into())
     }
+    /// Reject duplicate keys and apply the shared structural budget to every map value.
     fn visit_map<A: serde::de::MapAccess<'de>>(
         self,
         mut access: A,
@@ -127,6 +140,7 @@ impl<'de> Visitor<'de> for Seed<'_> {
         Ok(values.into())
     }
 }
+/// Parse one complete, duplicate-free document under node and depth limits.
 pub(crate) fn parse<T: DeserializeOwned>(bytes: &[u8]) -> Result<T> {
     let mut decoder = serde_json::Deserializer::from_slice(bytes);
     let mut remaining = MAX_NODES;
@@ -140,6 +154,7 @@ pub(crate) fn parse<T: DeserializeOwned>(bytes: &[u8]) -> Result<T> {
     serde_json::from_value(value).map_err(|_| Error::Json)
 }
 
+/// Create a new byte-for-byte file while streaming its bounded SHA-256 identity.
 pub(crate) fn snapshot(source: &Path, destination: &Path, max: u64) -> Result<ByteIdentity> {
     let mut input = regular(source, max)?.take(max + 1);
     let mut output = OpenOptions::new()
@@ -168,6 +183,7 @@ pub(crate) fn snapshot(source: &Path, destination: &Path, max: u64) -> Result<By
     Ok(identity)
 }
 
+/// Stream the bounded file identity; matching a producer digest alone does not authenticate it.
 pub(crate) fn identity(path: &Path, max: u64) -> Result<ByteIdentity> {
     let mut input = regular(path, max)?.take(max + 1);
     let mut hash = Sha256::new();
@@ -190,6 +206,7 @@ pub(crate) fn identity(path: &Path, max: u64) -> Result<ByteIdentity> {
     Ok(value)
 }
 
+/// Create an exact private snapshot without replacing an existing file, then restrict writes.
 pub(crate) fn write_readonly(path: &Path, bytes: &[u8]) -> Result<()> {
     let mut file = OpenOptions::new().create_new(true).write(true).open(path)?;
     file.write_all(bytes)?;
@@ -197,6 +214,7 @@ pub(crate) fn write_readonly(path: &Path, bytes: &[u8]) -> Result<()> {
     readonly(path, false)
 }
 
+/// Limit snapshot access to owner reads and optional approved native execution.
 pub(crate) fn readonly(path: &Path, executable: bool) -> Result<()> {
     #[cfg(unix)]
     {
@@ -218,6 +236,7 @@ pub(crate) fn readonly(path: &Path, executable: bool) -> Result<()> {
 mod tests {
     use super::*;
     #[test]
+    /// Reject allocation-amplifying, ambiguous and trailing JSON while retaining ordinary values.
     fn untrusted_json_has_node_depth_duplicate_and_trailing_data_bounds() {
         assert!(parse::<serde_json::Value>(b"{\"a\":{\"b\":1,\"b\":2}}").is_err());
         assert!(parse::<serde_json::Value>(b"{} {} ").is_err());

@@ -18,17 +18,20 @@ use std::{
     path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
 };
+/// Locate the inert, immutable upstream signature fixtures retained in this repository.
 fn fixture(name: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests/fixtures/sigstore")
         .join(name)
 }
+/// Observe the clock for short-lived fixture-only policy review records.
 fn now() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs()
 }
+/// Define exact source/signer/run identities independently of the downloaded signature payload.
 fn expectation() -> ExpectedAttestation {
     let source = Source {
         repository: "malancas/attest-demo".into(),
@@ -57,6 +60,7 @@ fn expectation() -> ExpectedAttestation {
         subject_name: "github_provenance_demo-0.0.0-py3-none-any.whl".into(),
     }
 }
+/// Require the native test executable to match both retained and compiled official pins.
 fn pinned_verifier() -> (PathBuf, ByteIdentity) {
     let path = PathBuf::from(std::env::var_os("ARMORER_TEST_GH").expect(
         "Explicit real test requires ARMORER_TEST_GH; use scripts/qualify-test-verifier.py",
@@ -83,6 +87,7 @@ fn pinned_verifier() -> (PathBuf, ByteIdentity) {
     );
     (path, identity)
 }
+/// Build an explicitly fixture-only policy; its review record is not production root approval.
 fn policy(expected: &ExpectedAttestation, verifier: ByteIdentity) -> VerificationPolicy {
     let review = Review {owner: "fixture-reviewer".into(), rationale: "Authentic external integration fixture only; not production roots or Armorer release acceptance".into(),
         reviewed_at: now() - 60, expires_at: now() + 3600, record: ByteIdentity::from_bytes(include_bytes!("fixtures/sigstore/source-receipt.json"))};
@@ -122,6 +127,7 @@ fn policy(expected: &ExpectedAttestation, verifier: ByteIdentity) -> Verificatio
         review,
     }
 }
+/// Instantiate a fixture verifier with an explicit test policy approval digest.
 fn open(policy: &VerificationPolicy, executable: &Path) -> OfflineVerifier {
     let file = tempfile::NamedTempFile::new().unwrap();
     let bytes = serde_json::to_vec(policy).unwrap();
@@ -136,6 +142,7 @@ fn open(policy: &VerificationPolicy, executable: &Path) -> OfflineVerifier {
 }
 #[test]
 #[ignore = "Required explicit CI gate with independently hash-qualified native gh"]
+/// Run real offline signatures and reject all tamper, identity, subset and approval errors.
 fn genuine_pinned_gh_verifies_and_every_offered_tamper_or_identity_error_fails() {
     let (executable, verifier_pin) = pinned_verifier();
     let expected = expectation();

@@ -58,6 +58,7 @@ pub enum Trigger {
     WorkflowDispatch,
 }
 impl Trigger {
+    /// Map the fixed trigger enum to the exact certificate and CLI event spelling.
     fn name(self) -> &'static str {
         match self {
             Self::Push => "push",
@@ -80,6 +81,7 @@ pub struct ExpectedAttestation {
     pub subject_name: String,
 }
 impl ExpectedAttestation {
+    /// Check independent context against the approved source, mode, signer and scope policy.
     fn validate(&self, policy: &VerificationPolicy) -> Result<()> {
         self.source.validate()?;
         self.run.validate()?;
@@ -124,6 +126,7 @@ pub struct VerifiedAttestation {
     policy: ByteIdentity,
 }
 impl std::fmt::Debug for VerifiedAttestation {
+    /// Summarize proof identities without logging signed predicates or downloaded metadata.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("VerifiedAttestation")
             .field("subject", &self.subject)
@@ -135,24 +138,31 @@ impl std::fmt::Debug for VerifiedAttestation {
     }
 }
 impl VerifiedAttestation {
+    /// Return the independent expectations matched by this authenticated statement.
     pub fn expected(&self) -> &ExpectedAttestation {
         &self.expected
     }
+    /// Return the rehashed subject digest and byte count matched by this proof.
     pub fn subject(&self) -> &ByteIdentity {
         &self.subject
     }
+    /// Return the identity of the exact bare bundle supplied to the verifier.
     pub fn bundle(&self) -> &ByteIdentity {
         &self.bundle
     }
+    /// Return the signed predicate; its semantic accuracy still needs consumer reconciliation.
     pub fn predicate(&self) -> &Value {
         &self.predicate
     }
+    /// Return the independently qualified native verifier identity used for this proof.
     pub fn verifier(&self) -> &ByteIdentity {
         &self.verifier
     }
+    /// Return the approved root snapshot identity used for this proof.
     pub fn trusted_root(&self) -> &ByteIdentity {
         &self.root
     }
+    /// Return the exact approved policy byte identity bound to this proof.
     pub fn policy(&self) -> &ByteIdentity {
         &self.policy
     }
@@ -169,6 +179,7 @@ pub struct OfflineVerifier {
     root: PathBuf,
 }
 impl OfflineVerifier {
+    /// Authenticate approved policy bytes and compiled native pins before creating isolated trust snapshots.
     pub fn open(
         policy_path: &Path,
         approved_policy_sha256: &str,
@@ -221,13 +232,16 @@ impl OfflineVerifier {
             root: root_copy,
         })
     }
+    /// Borrow the independently approved policy without permitting mutation.
     pub fn policy(&self) -> &VerificationPolicy {
         &self.policy
     }
+    /// Return the exact policy bytes matched to the independent approval SHA.
     pub fn policy_identity(&self) -> &ByteIdentity {
         &self.policy_identity
     }
 
+    /// Authenticate one bare published evidence slot and all of its exact expected identities.
     pub fn verify(
         &self,
         artifact: &Path,
@@ -258,6 +272,7 @@ impl OfflineVerifier {
         Ok(proofs)
     }
 
+    /// Snapshot one subject/bundle, verify it with fixed arguments, then validate and seal the proof.
     fn verify_one(
         &self,
         artifact: &Path,
@@ -368,6 +383,7 @@ impl OfflineVerifier {
     }
 }
 
+/// Observe current epoch seconds; an unavailable clock cannot bypass review-expiry gates.
 fn wall_time() -> Result<u64> {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -375,6 +391,7 @@ fn wall_time() -> Result<u64> {
         .map_err(|_| Error::Invalid("verification-clock-unavailable".into()))
 }
 
+/// Map only the two frozen predicate types to exact native verifier flags.
 fn predicate_name(predicate: Predicate) -> &'static str {
     match predicate {
         Predicate::SlsaProvenanceV1 => "https://slsa.dev/provenance/v1",
@@ -382,6 +399,7 @@ fn predicate_name(predicate: Predicate) -> &'static str {
     }
 }
 
+/// Accept complete bounded root objects or JSONL records, rejecting ambiguous partial input.
 fn validate_root_transport(bytes: &[u8]) -> Result<()> {
     if let Ok(value) = io::parse::<Value>(bytes) {
         return require(value.is_object(), "invalid-trusted-root-transport");
@@ -399,6 +417,7 @@ fn validate_root_transport(bytes: &[u8]) -> Result<()> {
     require(count > 0, "trusted-root-record-missing")
 }
 
+/// Check supported native headers after authenticating the complete official executable bytes.
 fn native_executable(path: &Path) -> Result<()> {
     let mut header = [0_u8; 32];
     io::regular(path, io::MAX_VERIFIER)?.read_exact(&mut header)?;
@@ -432,16 +451,19 @@ struct Statement {
     predicate: Value,
 }
 
+/// Read a required string from verified provider output, failing on absent or wrong-type fields.
 fn field<'a>(value: &'a Value, key: &str) -> Result<&'a str> {
     value
         .get(key)
         .and_then(Value::as_str)
         .ok_or_else(|| Error::Invalid("verified-certificate-field-missing".into()))
 }
+/// Compare an identity exactly; case, regex and prefix relaxations are not accepted.
 fn equal_field(value: &Value, key: &str, expected: &str) -> Result<()> {
     require(field(value, key)? == expected, "verified-identity-mismatch")
 }
 
+/// Match one cryptographically verified result to the original signed payload and independent context.
 fn validate_output(
     output: &[u8],
     signed_statement: &Value,
@@ -602,6 +624,7 @@ struct Limits {
     stderr: usize,
 }
 impl Default for Limits {
+    /// Use fixed production time and output limits for every native invocation.
     fn default() -> Self {
         Self {
             timeout: Duration::from_secs(30),
@@ -612,17 +635,20 @@ impl Default for Limits {
 }
 struct Running(Child);
 impl Running {
+    /// Kill and reap the verifier process after a timeout, failure or cleanup.
     fn stop(&mut self) {
         let _ = self.0.kill();
         let _ = self.0.wait();
     }
 }
 impl Drop for Running {
+    /// Reap a spawned verifier even when an earlier error exits the request.
     fn drop(&mut self) {
         self.stop();
     }
 }
 
+/// Drain both bounded streams while enforcing the pinned child exit status and deadline.
 fn run_process(mut command: Command, limits: Limits) -> Result<Vec<u8>> {
     let child = command
         .stdout(Stdio::piped())
@@ -686,6 +712,7 @@ fn run_process(mut command: Command, limits: Limits) -> Result<Vec<u8>> {
         outcome
     })
 }
+/// Read only the limit plus one byte and fail when a child stream exceeds its cap.
 fn capture(mut stream: impl Read, limit: usize) -> Result<Vec<u8>> {
     let mut bytes = Vec::new();
     stream
@@ -699,6 +726,7 @@ fn capture(mut stream: impl Read, limit: usize) -> Result<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    /// Load retained real-verifier output solely for post-cryptographic consistency tests.
     fn fixture() -> (Value, Value, ByteIdentity, ExpectedAttestation) {
         let output: Value = serde_json::from_str(include_str!(
             "../../tests/fixtures/sigstore/verified-result.json"
@@ -739,6 +767,7 @@ mod tests {
         };
         (output, signed, bytes, expected)
     }
+    /// Exercise identity checks without constructing a public authenticated proof.
     fn check(
         value: &Value,
         signed: &Value,
@@ -754,6 +783,7 @@ mod tests {
         )
     }
     #[test]
+    /// Reject every changed certificate, run, provenance or subject identity after the crypto boundary.
     fn verified_provider_output_requires_all_identities_and_exact_single_subject() {
         // This test exercises post-crypto consistency only. Real cryptographic
         // verification is required separately by tests/real_sigstore.rs.
@@ -823,6 +853,7 @@ mod tests {
         assert!(check(&value, &wrong_signed, &bytes, &expected).is_err());
     }
     #[test]
+    /// Ensure invalid root transport cannot select a usable subset of supplied records.
     fn root_transport_rejects_duplicates_arrays_empty_and_malformed_records() {
         assert!(
             validate_root_transport(include_bytes!(
@@ -843,7 +874,9 @@ mod tests {
     }
     #[cfg(unix)]
     #[test]
+    /// Exercise time/output/exit faults independently of genuine cryptographic verification.
     fn subprocess_faults_have_bounded_output_time_and_no_raw_error_disclosure() {
+        /// Build a test-only shell process to simulate bounded child faults; production never uses it.
         fn command(script: &str) -> Command {
             let mut c = Command::new("/bin/sh");
             c.args(["-c", script]).stdin(Stdio::null());
