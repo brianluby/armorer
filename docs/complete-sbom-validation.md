@@ -80,5 +80,7 @@ it is a schema proof, not a Sigstore or complete-release proof. Project 16 #8 st
 requires inventory-first authentication, all asset/bundle verification, comparison
 of the verified CycloneDX predicate with this exact published document and the
 required selected graph, the trusted final-byte producer, genuine signed Armorer
-rehearsal, private-backend positive qualification and explicit historical routing.
+rehearsal and private-backend positive qualification. The explicit
+[historical byte route](historical-verification.md) establishes only reviewed
+legacy byte identity.
 Human acceptance/merge and Build L2 acceptance remain separate gates.

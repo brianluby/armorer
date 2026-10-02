@@ -3,6 +3,7 @@ pub mod bundle;
 pub mod context;
 pub mod cyclonedx;
 pub mod graph;
+pub mod historical;
 mod io;
 pub mod release;
 pub mod sigstore;

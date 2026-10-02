@@ -112,8 +112,9 @@ review. The offline call does not fetch or silently refresh roots. Offline key
 material has no built-in expiry and cannot reveal revocations since it was
 exported; Armorer's policy review expiry is a separate gate. See
 [GitHub's offline root guidance](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/verify-attestations-offline).
-Historical byte compatibility is a separate future consumer operation, never a
-fallback from an authentication error in this adapter.
+Historical byte compatibility uses the separate explicit
+[`verify-historical-bytes` operation](historical-verification.md), never a fallback
+from an authentication error in this adapter.
 
 ## Authentic integration evidence
 
