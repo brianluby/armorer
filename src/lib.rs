@@ -11,6 +11,7 @@
 
 pub mod apply;
 pub mod catalog;
+pub mod ci_policy;
 pub mod config;
 pub mod discovery;
 pub mod plan;
