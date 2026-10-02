@@ -18,6 +18,38 @@ armorer --repository /path/to/workspace apply \
   --expect-plan-sha256 APPROVED_64_CHARACTER_DIGEST
 ```
 
+For an exact review view, run `armorer --repository /path/to/workspace plan --preview`
+(or its short equivalent, `armorer --repository /path/to/workspace preview`).
+Its JSON contains the unchanged v1 `plan` plus exact `before_content` (null means
+absent), `proposed_content`, disposition and `unified_diff` for every managed
+path. An unchanged file has an empty diff; conflict views show the proposed
+candidate without authorizing replacement. `preserved_inputs` exposes a blocking
+legacy `rust-toolchain`, including when the TOML candidate itself is identical.
+The view retains all manual prerequisites in `plan.findings`.
+
+To bind the view to the saved plan above, use its digest as an identity check
+while reviewing; approval is a separate human decision:
+
+```sh
+armorer --repository /path/to/workspace preview \
+  --plan /tmp/armorer-reviewed-plan.json \
+  --expect-plan-sha256 PLAN_DIGEST_BEING_REVIEWED
+```
+
+Apply still takes the saved v1 plan, never the preview envelope. The embedded
+plan is identical to `plan` output for the same snapshot, with unchanged schema
+and digest semantics. A stale saved plan or changed display preimage fails;
+regenerate and review it. Preview never creates a lock, journal, compiler output,
+Cargo lock or consumer file, and never runs repository build scripts.
+
+Diffs use complete replacement hunks with linear work instead of a line-matching
+algorithm. JSON strings preserve CRLF, Unicode and final-newline bytes; hunks
+include missing-final-newline markers. Both inputs and the complete escaped JSON
+view are bounded to 1 MiB. Non-UTF-8 or oversized views fail explicitly without
+truncating customizations or changing any bytes. Inspection assumes a stable
+filesystem; a preview is not a lock against other editors. Apply independently
+rechecks the saved plan under its existing transaction lock.
+
 Do not obtain the approval digest from an unreviewed replacement plan at apply
 time. The digest hashes compact typed JSON with `plan_sha256` blank. Whitespace
 and object ordering are immaterial; unknown fields, missing canonical fields and

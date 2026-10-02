@@ -28,3 +28,7 @@ See [onboarding and boundaries](docs/onboarding.md), [reviewed apply and recover
 Confirmed: MIT license, fail-closed secure releases, and Momus/Rusty Brain pilots. v0.1 targets SLSA Build L2. Linux release assets will be authenticated through signed GitHub/Sigstore attestations; macOS additionally requires Developer ID signing and notarization before final-byte attestation. L3 assessment and gap closure are deferred to an unscheduled future backlog item. Additional security controls complement provenance.
 
 Inspired by the Armorer's craft: forge protection into the tools projects begin with.
+
+`armorer plan --preview` (also `armorer preview`) shows exact current/proposed bytes and complete diffs while
+retaining the approval-bound v1 plan. See [review and apply](docs/apply.md) and
+the [v0.1 acceptance ledger](docs/v01-acceptance.md) for delivered scope and gates.
