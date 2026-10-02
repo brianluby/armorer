@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "repository": "cli/cli",
+  "version": "2.102.0",
+  "source_commit": "fc4b137cdef0a6bd28fd461b7cf9c84a5812a8cd",
+  "manifest_sha256": "afe49e9affa232faa8212aed035417166f6ade9b9470acb53d4dbd28c0504e8d",
+  "pins": [
+    {
+      "platform": "linux-amd64",
+      "archive": {
+        "name": "gh_2.102.0_linux_amd64.tar.gz",
+        "sha256": "bb766f710eef8ede859c18578c72c327597cd4c8a85b06001b1f3843c6019386",
+        "size": 15319960
+      },
+      "executable": {
+        "sha256": "7469124f706944133d6a169691dd1c6c3511b12e85878d255e044e2948df4c9b",
+        "size": 42086560
+      },
+      "leaf": "gh_2.102.0_linux_amd64/bin/gh"
+    },
+    {
+      "platform": "linux-arm64",
+      "archive": {
+        "name": "gh_2.102.0_linux_arm64.tar.gz",
+        "sha256": "7862c86c72f43df3a2d93ddde6f473285b4e2af61b494849846827e513ef6484",
+        "size": 13917794
+      },
+      "executable": {
+        "sha256": "93308395c2d296a63a662742c6366e4db413d2a4870d07bd9b84e491c065d65d",
+        "size": 39059616
+      },
+      "leaf": "gh_2.102.0_linux_arm64/bin/gh"
+    },
+    {
+      "platform": "darwin-arm64",
+      "archive": {
+        "name": "gh_2.102.0_macOS_arm64.zip",
+        "sha256": "da922c20d1792e5b2cbf375593d7a658acf034c12c84e007e71c76ef959c337e",
+        "size": 14359983
+      },
+      "executable": {
+        "sha256": "8a4258433c81106343144857750316241759d06dcf16265cf3c4864a8f2f2ad6",
+        "size": 39834784
+      },
+      "leaf": "gh_2.102.0_macOS_arm64/bin/gh"
+    }
+  ],
+  "qualification": "Archive matches official release digest and exact checksum manifest; executable extracted only from named regular leaf. Linux binaries have not been executed on this macOS host."
+}

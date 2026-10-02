@@ -1,0 +1,98 @@
+[
+  {
+    "verificationResult": {
+      "mediaType": "application/vnd.dev.sigstore.verificationresult+json;version=0.1",
+      "signature": {
+        "certificate": {
+          "certificateIssuer": "CN=sigstore-intermediate,O=sigstore.dev",
+          "subjectAlternativeName": "https://github.com/github/artifact-attestations-workflows/.github/workflows/attest.yml@09b495c3f12c7881b3cc17209a327792065c1a1d",
+          "issuer": "https://token.actions.githubusercontent.com",
+          "githubWorkflowTrigger": "workflow_dispatch",
+          "githubWorkflowSHA": "95baf27389e83e6a5c48f42e190d48d7abcea19e",
+          "githubWorkflowName": "Build / Attest / Verify (Shared)",
+          "githubWorkflowRepository": "malancas/attest-demo",
+          "githubWorkflowRef": "refs/heads/main",
+          "buildSignerURI": "https://github.com/github/artifact-attestations-workflows/.github/workflows/attest.yml@09b495c3f12c7881b3cc17209a327792065c1a1d",
+          "buildSignerDigest": "09b495c3f12c7881b3cc17209a327792065c1a1d",
+          "runnerEnvironment": "github-hosted",
+          "sourceRepositoryURI": "https://github.com/malancas/attest-demo",
+          "sourceRepositoryDigest": "95baf27389e83e6a5c48f42e190d48d7abcea19e",
+          "sourceRepositoryRef": "refs/heads/main",
+          "sourceRepositoryIdentifier": "804070735",
+          "sourceRepositoryOwnerURI": "https://github.com/malancas",
+          "sourceRepositoryOwnerIdentifier": "16248153",
+          "buildConfigURI": "https://github.com/malancas/attest-demo/.github/workflows/shared.yml@refs/heads/main",
+          "buildConfigDigest": "95baf27389e83e6a5c48f42e190d48d7abcea19e",
+          "buildTrigger": "workflow_dispatch",
+          "runInvocationURI": "https://github.com/malancas/attest-demo/actions/runs/9228858953/attempts/1",
+          "sourceRepositoryVisibilityAtSigning": "public"
+        }
+      },
+      "verifiedTimestamps": [
+        {
+          "type": "Tlog",
+          "uri": "https://rekor.sigstore.dev",
+          "timestamp": "2024-05-24T12:14:24-07:00"
+        }
+      ],
+      "verifiedIdentity": {
+        "subjectAlternativeName": {
+          "subjectAlternativeName": "",
+          "regexp": "^https://github\\.com/github/artifact-attestations-workflows/\\.github/workflows/attest\\.yml(@(refs/.*|[0-9a-fA-F]+))?$"
+        },
+        "issuer": {
+          "issuer": "",
+          "regexp": ".*"
+        },
+        "runnerEnvironment": "github-hosted"
+      },
+      "statement": {
+        "_type": "https://in-toto.io/Statement/v1",
+        "subject": [
+          {
+            "name": "github_provenance_demo-0.0.0-py3-none-any.whl",
+            "digest": {
+              "sha256": "49a3aa6075e0f49f82843e74b5baa614ad2a588e6675612bf108a0a008c5ac25"
+            }
+          }
+        ],
+        "predicateType": "https://slsa.dev/provenance/v1",
+        "predicate": {
+          "buildDefinition": {
+            "buildType": "https://slsa-framework.github.io/github-actions-buildtypes/workflow/v1",
+            "externalParameters": {
+              "workflow": {
+                "path": ".github/workflows/shared.yml",
+                "ref": "refs/heads/main",
+                "repository": "https://github.com/malancas/attest-demo"
+              }
+            },
+            "internalParameters": {
+              "github": {
+                "event_name": "workflow_dispatch",
+                "repository_id": "804070735",
+                "repository_owner_id": "16248153"
+              }
+            },
+            "resolvedDependencies": [
+              {
+                "digest": {
+                  "gitCommit": "95baf27389e83e6a5c48f42e190d48d7abcea19e"
+                },
+                "uri": "git+https://github.com/malancas/attest-demo@refs/heads/main"
+              }
+            ]
+          },
+          "runDetails": {
+            "builder": {
+              "id": "https://github.com/actions/runner/github-hosted"
+            },
+            "metadata": {
+              "invocationId": "https://github.com/malancas/attest-demo/actions/runs/9228858953/attempts/1"
+            }
+          }
+        }
+      }
+    }
+  }
+]
