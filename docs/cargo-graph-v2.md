@@ -27,7 +27,9 @@ may differ from its package name. Dependency versions may have legitimate
 prerelease/build metadata; the selected root follows v1's stable version policy.
 
 `validate_against` requires hosted run/attempt identities and compares the
-expected source, input digests, workflow commit and selection. Null run values
+expected source, input digests, workflow commit and selection. The expected
+run workflow commit must equal the approved graph workflow commit: the v1
+catalog binds baseline adapters to one workflow repository commit. Null run values
 identify unhosted development output and cannot pass this release-context check.
 The graph's run identity does not itself establish GitHub platform authenticity.
 

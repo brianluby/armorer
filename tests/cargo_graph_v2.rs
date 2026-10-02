@@ -383,3 +383,17 @@ fn native_python_graphs_match_independent_rust_reader() {
         }
     }
 }
+
+/// Reject an independently supplied run workflow from another reviewed catalog snapshot.
+#[test]
+fn graph_and_expected_run_share_the_approved_workflow_commit() {
+    let (graph, _) = fixture("optional");
+    let (config, selection, mut inputs, root_name) = context("optional");
+    inputs.run.workflow.commit = "c".repeat(40);
+    inputs.validate().unwrap();
+    assert!(
+        graph
+            .validate_against(&config, &selection, root_name, &inputs, &"b".repeat(40))
+            .is_err()
+    );
+}

@@ -171,6 +171,7 @@ impl CargoGraphV2 {
             self.source.repository == inputs.source.repository
                 && self.source.commit == inputs.source.commit
                 && hex_digest(workflow_commit, 40)
+                && inputs.run.workflow.commit == workflow_commit
                 && self.runtime_commit == workflow_commit
                 && self.run_id == Some(inputs.run.id)
                 && self.run_attempt == Some(inputs.run.attempt)
