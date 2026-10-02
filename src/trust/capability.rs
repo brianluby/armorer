@@ -121,6 +121,7 @@ pub struct CapabilityConfig {
 }
 
 impl CapabilityConfig {
+    /// Bind exact config/catalog bytes and current review, requiring baseline and applicable Apple policies.
     pub fn validate(
         &self,
         config: &Config,
