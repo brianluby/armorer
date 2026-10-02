@@ -94,6 +94,11 @@ impl AuthenticatedCatalog {
     /// Propagates read-only configuration validation and serialization failures.
     pub fn render_lock(&self, root: &Path) -> Result<String> {
         let (_, bytes) = load_config(root)?;
+        self.lock_for_config_sha256(&digest(&bytes))
+    }
+
+    /// Render fixed pins for a digest already bound to the approved configuration.
+    pub(crate) fn lock_for_config_sha256(&self, config_sha256: &str) -> Result<String> {
         let tools = self
             .tools
             .iter()
@@ -111,7 +116,7 @@ impl AuthenticatedCatalog {
             .collect();
         let lock = Lock {
             schema_version: 1,
-            config_sha256: digest(&bytes),
+            config_sha256: config_sha256.into(),
             runtime_version: env!("CARGO_PKG_VERSION").into(),
             workflows: WorkflowPin {
                 repository: WORKFLOW_REPOSITORY.into(),

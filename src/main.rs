@@ -26,6 +26,12 @@ enum Operation {
     /// Print the authenticated embedded bootstrap tool/workflow catalog (no downloads).
     Catalog,
 
+    /// Explicit multi-file provisioning with a separately versioned approval contract.
+    Bootstrap {
+        #[command(subcommand)]
+        operation: BootstrapOperation,
+    },
+
     /// Preview changes without writing repository files (JSON).
     Plan,
     /// Apply a reviewed plan; the digest must be supplied independently.
@@ -47,8 +53,36 @@ enum Operation {
     },
 }
 
+#[derive(Subcommand)]
+enum BootstrapOperation {
+    /// Preview exact bootstrap files using explicit owner-reviewed policy (read only).
+    Plan {
+        #[arg(long)]
+        policy: PathBuf,
+    },
+    /// Inspect the same configuration without writing (exit 2; release gates remain open).
+    Check {
+        #[arg(long)]
+        policy: PathBuf,
+    },
+    /// Apply a reviewed version-two plan and independently supplied digest.
+    Apply {
+        #[arg(long)]
+        plan: PathBuf,
+        #[arg(long)]
+        expect_plan_sha256: String,
+    },
+    /// Recover only the exact matching version-two journal.
+    Recover {
+        #[arg(long)]
+        expect_plan_sha256: String,
+    },
+}
+
 #[derive(Clone, ValueEnum)]
 enum SchemaKind {
+    BootstrapPlan,
+    CiPolicy,
     Config,
     Lock,
     Plan,
@@ -72,12 +106,48 @@ enum SchemaKind {
 /// conversion failures to `Error::Json`; output is left to the caller.
 fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
     match cli.command {
+        Operation::Bootstrap { operation } => {
+            let (value, status) = match operation {
+                BootstrapOperation::Plan { policy } => (
+                    serde_json::to_value(armorer::bootstrap::inspect(&cli.repository, &policy)?),
+                    0,
+                ),
+                BootstrapOperation::Check { policy } => (
+                    serde_json::to_value(armorer::bootstrap::inspect(&cli.repository, &policy)?),
+                    2,
+                ),
+                BootstrapOperation::Apply {
+                    plan,
+                    expect_plan_sha256,
+                } => {
+                    let plan = armorer::bootstrap::load_plan(&plan, &expect_plan_sha256)?;
+                    (
+                        serde_json::to_value(armorer::bootstrap::apply(
+                            &cli.repository,
+                            &plan,
+                            &expect_plan_sha256,
+                        )?),
+                        0,
+                    )
+                }
+                BootstrapOperation::Recover { expect_plan_sha256 } => (
+                    serde_json::to_value(armorer::bootstrap::recover(
+                        &cli.repository,
+                        &expect_plan_sha256,
+                    )?),
+                    0,
+                ),
+            };
+            Ok((value.map_err(|_| Error::Json)?, status))
+        }
         Operation::Catalog => Ok((
             serde_json::to_value(armorer::catalog::reviewed()?).map_err(|_| Error::Json)?,
             0,
         )),
         Operation::Schema { kind } => {
             let schema = match kind {
+                SchemaKind::BootstrapPlan => schemars::schema_for!(armorer::bootstrap::Plan),
+                SchemaKind::CiPolicy => schemars::schema_for!(armorer::ci_policy::CiPolicy),
                 SchemaKind::Config => schemars::schema_for!(Config),
                 SchemaKind::Lock => schemars::schema_for!(Lock),
                 SchemaKind::Plan => schemars::schema_for!(Plan),

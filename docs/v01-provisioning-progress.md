@@ -8,8 +8,8 @@ Veans project 16 / epic #1 (database ID 1304); #4 remains In Progress.
 | --- | --- | --- | --- | --- |
 | #4 exact preview C1/C4 | PR #6, 90784cfcbd816567e969ac6a4721ebb58ced5ca0 | 81 tests, pinned build/fmt/strict Clippy; 14 schemas / 54 positive / 7 rejection examples; actionlint/Zizmor | Linux/macOS run 36980365033 success; CodeRabbit portability finding fixed, inline reply 4163806606 and resolved thread PRRT_kwDOU2HMOM6oQxPG | Merge approval requested and pending |
 | #4 catalog/caller foundation C5/C6 | PR #7, 3496ad1787bf9adf318d840a397e695315e56ea3 | 75 tests; same build/fmt/lint/schema gates; all 18 publisher asset digests match compiled baseline; caller security scans pass | Linux/macOS run 36980656371 success; CodeRabbit reviewed all 12 files, no actionable findings; docstrings 84.62% | Open; no merge authorization |
-| #4 explicit policy foundation | codex/bootstrap-provisioning, based on PR #7 source | 4 new policy tests; primary Python runtime independently agrees on same-day / 90-day / expired / too-far / invalid-date cases; UTC day 20728 agrees with datetime oracle | Pending integrated provisioning candidate and hosted validation | Pending |
-| #4 repeated apply/recovery/customization C2/C3 | Existing accepted v1 toolchain engine | Existing tests retained in every suite | Multi-file fault/crash/recovery extension remains required | Full ticket remains open |
+| #4 C1–C6 integrated bootstrap | codex/bootstrap-provisioning, based on PR #7 source and policy foundation fb31d8057dd97b2f540ebbda4e3b187e06cf0dbe | 103 tests; all five targets, three profiles, independent patch reconstruction, every write/crash/commit boundary, recovery conflicts, replay and version guards; frozen 14 schema bytes plus new schemas/examples; catalog workflow audits pass | Local onboarding walkthrough with accepted workflow discovery/policy runtime passes for all three profiles; exact final hosted/review receipts will be recorded in #4 and epic comments | Delivered candidate; acceptance pending |
+| #4 repeated apply/recovery/customization C2/C3 | Accepted v1 plus proposed multi-file engine | Existing tests retained; 24 new bootstrap transaction/integration tests cover multiple scenarios and boundaries | Integrated candidate awaits hosted Linux/macOS and review adjudication | Full ticket remains open |
 | #5 upgrades/migration; #8–#14 runtime/pilots/docs | Accepted schema/builder baseline and ledger references | No new full acceptance earned | Exact crypto, Apple, draft-state, adversarial integration, two pilots and dogfooding remain required | All nine tickets stay open |
 
 ## Current work and limitations
@@ -21,10 +21,13 @@ current day with a 90-day ceiling. SPDX membership and actual dependency/advisor
 coverage remain the existing enforced CI runtime's responsibility. It supplies
 no default license list or exception and executes no repository code.
 
-ADR 0009 proposes a separately versioned multi-file plan/state/journal sharing
-the persistent kernel apply lock. It still needs implementation, exact preview,
-ownership/preimage validation, complete meaningful fault/crash/recovery tests,
-repeatability, legacy ownership migration handling and hosted provisioning evidence.
+ADR 0009 is implemented for review with a separate version-two plan/state/journal
+sharing the persistent kernel apply lock. Exact plans bind all five targets,
+config/discovery/license/policy bytes, catalog, ownership and managed preimages.
+Updates require matching owned bases; edits/deletions and differing unowned files
+conflict. Recovery reconstructs every operation and ownership byte from the
+approved plan; fault/crash coverage spans six writes and both commit-marker states.
+Imported v1 ownership and three-way/downgrade migrations remain explicit #5 work.
 Earlier v1 plans must never gain new mutation targets implicitly.
 
 The primary checkout remains clean at d5f048240db04fb40d73515e571a4028f049b973;
@@ -35,6 +38,6 @@ automatic approval review; it was not run. Available GitHub review findings were
 read and adjudicated. Copilot review errors and Codex review quota exhaustion
 are recorded as unavailable reviews, not approvals.
 
-Continue #4 multi-file provisioning, then #5. Develop #8/#9 against accepted
+Finish #4 hosted validation/review remediation, then implement #5. Develop #8/#9 against accepted
 contracts; they unlock #10, #10 unlocks #11, and #5/#11 unlock the isolated pilots.
 Human merges and protected external validation are separate outstanding gates.

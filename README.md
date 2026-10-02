@@ -2,7 +2,7 @@
 
 Repeatable secure CI and verifiable releases for Rust repositories.
 
-**Early development:** read-only `check`/`plan` validate explicit Cargo workspace selections. Digest-approved `apply` configures the pinned toolchain transactionally, with explicit `recover` for interrupted writes. Workflow/pin upgrades, reusable workflows, SBOMs, attestations and publication require later integration. No SLSA level is claimed by this slice.
+**Early development:** read-only `check`/`plan` validate explicit Cargo workspace selections. Digest-approved v1 `apply` configures only the pinned toolchain. The explicit version-two `bootstrap` path previews and transactionally provisions all five local CI/build files using reviewed catalog pins and owner-selected policy, with exact recovery. Workflow/pin upgrades, final-byte verification, protected signing and publication require later integration. No SLSA level is claimed by this slice.
 
 The public MIT repositories are [armorer](https://github.com/brianluby/armorer) for the Rust CLI and [armorer-workflows](https://github.com/brianluby/armorer-workflows) for separately versioned trusted reusable workflows.
 
@@ -31,4 +31,4 @@ Inspired by the Armorer's craft: forge protection into the tools projects begin 
 
 `armorer catalog` exposes the reviewed bootstrap tool/workflow authority without
 network access or consuming files. See [catalog source and limits](docs/bootstrap-catalog.md).
-Project policy and transactional provisioning remain separate required integration.
+Use [version-two bootstrap and recovery](docs/bootstrap-v2.md) with an explicit reviewed policy to provision the catalog-backed files.

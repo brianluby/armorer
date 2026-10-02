@@ -1,5 +1,6 @@
 //! Explicit project decisions compatible with the reviewed CI policy runtime.
 use crate::{Error, Result, config::identifier, read_small};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeSet,
@@ -7,7 +8,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CiPolicy {
     pub schema_version: u32,
@@ -16,17 +17,17 @@ pub struct CiPolicy {
     pub sources: Sources,
     pub bans: Bans,
 }
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Licenses {
     pub allow: Vec<String>,
 }
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Advisories {
     pub exceptions: Vec<Exception>,
 }
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Exception {
     pub id: String,
@@ -34,18 +35,18 @@ pub struct Exception {
     pub reason: String,
     pub expires: String,
 }
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Sources {
     pub allow_git: Vec<String>,
 }
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Bans {
     pub multiple_versions: DuplicatePolicy,
     pub deny: Vec<String>,
 }
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum DuplicatePolicy {
     Warn,
@@ -131,13 +132,17 @@ pub fn utc_day(value: &str) -> Result<u64> {
 /// Cargo-deny's existing enforced gate validates recognized identifiers later.
 pub fn load(path: &Path) -> Result<(CiPolicy, Vec<u8>)> {
     let bytes = read_small(path)?;
-    let now = SystemTime::now()
+    let policy = parse_at(&bytes, today()?)?;
+    Ok((policy, bytes))
+}
+
+/// Read UTC time independently of consuming configuration.
+pub(crate) fn today() -> Result<u64> {
+    Ok(SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(|_| Error::Invalid("UTC clock precedes epoch".into()))?
         .as_secs()
-        / 86400;
-    let policy = parse_at(&bytes, now)?;
-    Ok((policy, bytes))
+        / 86400)
 }
 
 /// Parse without defaults. `today` is an independently supplied trusted UTC day;

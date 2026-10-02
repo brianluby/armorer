@@ -1,0 +1,16 @@
+# Fixture-only decision for this dependency-free MIT example.
+# Replace with the consuming owner's reviewed dependency policy.
+schema_version = 1
+
+[licenses]
+allow = ["MIT"]
+
+[advisories]
+exceptions = []
+
+[sources]
+allow_git = []
+
+[bans]
+multiple_versions = "warn"
+deny = []

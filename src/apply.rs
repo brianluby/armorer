@@ -77,7 +77,7 @@ fn receipt(plan: &Plan, outcome: &'static str, toolchain_configured: bool) -> Re
     }
 }
 
-fn optional_bytes(root: &Path, relative: &str) -> Result<Option<Vec<u8>>> {
+pub(crate) fn optional_bytes(root: &Path, relative: &str) -> Result<Option<Vec<u8>>> {
     let path = safe_path(root, relative)?;
     match fs::symlink_metadata(&path) {
         Ok(_) => Ok(Some(read_small(&path)?)),
@@ -86,7 +86,7 @@ fn optional_bytes(root: &Path, relative: &str) -> Result<Option<Vec<u8>>> {
     }
 }
 
-fn json<T: Serialize>(value: &T) -> Result<Vec<u8>> {
+pub(crate) fn json<T: Serialize>(value: &T) -> Result<Vec<u8>> {
     let bytes = serde_json::to_vec_pretty(value).map_err(|_| Error::Json)?;
     if bytes.len() > 1_048_576 {
         return Err(Error::Transaction("transaction exceeds 1 MiB"));
@@ -94,7 +94,7 @@ fn json<T: Serialize>(value: &T) -> Result<Vec<u8>> {
     Ok(bytes)
 }
 
-fn text(bytes: &[u8]) -> Result<String> {
+pub(crate) fn text(bytes: &[u8]) -> Result<String> {
     String::from_utf8(bytes.to_vec()).map_err(|_| Error::Transaction("managed input must be UTF-8"))
 }
 
@@ -185,7 +185,7 @@ impl<'de> Deserialize<'de> for StrictValue {
     }
 }
 
-fn decode<T: serde::de::DeserializeOwned + Serialize>(bytes: &[u8]) -> Result<T> {
+pub(crate) fn decode<T: serde::de::DeserializeOwned + Serialize>(bytes: &[u8]) -> Result<T> {
     let StrictValue(value) = serde_json::from_slice(bytes)
         .map_err(|_| Error::Transaction("invalid transaction JSON"))?;
     let typed: T = serde_json::from_value(value.clone())
@@ -263,7 +263,7 @@ fn validate_plan(plan: &Plan, expected: &str) -> Result<()> {
     Ok(())
 }
 
-fn lock(root: &Path) -> Result<File> {
+pub(crate) fn lock(root: &Path) -> Result<File> {
     let directory = safe_path(root, ".armorer")?;
     match fs::create_dir(&directory) {
         Ok(()) => sync_directory(root)?,
@@ -289,7 +289,7 @@ fn lock(root: &Path) -> Result<File> {
     }
 }
 
-fn sync_directory(path: &Path) -> Result<()> {
+pub(crate) fn sync_directory(path: &Path) -> Result<()> {
     // Initial mutation support is Unix, matching the supported host platforms.
     #[cfg(unix)]
     File::open(path)?.sync_all()?;
@@ -303,7 +303,7 @@ fn sync_directory(path: &Path) -> Result<()> {
     Ok(())
 }
 
-fn replace(root: &Path, relative: &str, bytes: &[u8], absent: bool) -> Result<()> {
+pub(crate) fn replace(root: &Path, relative: &str, bytes: &[u8], absent: bool) -> Result<()> {
     let destination = safe_path(root, relative)?;
     let parent = destination
         .parent()
@@ -409,6 +409,7 @@ fn apply_transaction(
     mut after_write: impl FnMut(usize) -> Result<()>,
     commit_marker: impl FnOnce(&Path, &[u8]) -> Result<()>,
 ) -> Result<Receipt> {
+    crate::bootstrap::guard_v1(root)?;
     validate_plan(plan, expected)?;
     if plan
         .changes
@@ -427,6 +428,7 @@ fn apply_transaction(
         ));
     }
     let _guard = lock(&root)?;
+    crate::bootstrap::guard_v1(&root)?;
     if optional_bytes(&root, JOURNAL)?.is_some() {
         return Err(Error::Transaction(
             "unfinished transaction requires explicit recovery",
@@ -644,11 +646,13 @@ pub fn recover(root: &Path, expected: &str) -> Result<Receipt> {
         ));
     }
     let root = root.canonicalize()?;
+    crate::bootstrap::guard_v1(&root)?;
     let bytes = optional_bytes(&root, JOURNAL)?.ok_or(Error::Transaction("no recovery journal"))?;
     let journal: Journal = decode(&bytes)?;
     validate_journal(&journal, expected)?;
     journal.plan.intent.validate(&root)?;
     let _guard = lock(&root)?;
+    crate::bootstrap::guard_v1(&root)?;
     if optional_bytes(&root, JOURNAL)?.as_deref() != Some(bytes.as_slice()) {
         return Err(Error::Transaction("journal changed while acquiring lock"));
     }

@@ -1,0 +1,129 @@
+{
+  "$defs": {
+    "Advisories": {
+      "additionalProperties": false,
+      "properties": {
+        "exceptions": {
+          "items": {
+            "$ref": "#/$defs/Exception"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "exceptions"
+      ],
+      "type": "object"
+    },
+    "Bans": {
+      "additionalProperties": false,
+      "properties": {
+        "deny": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "multiple_versions": {
+          "$ref": "#/$defs/DuplicatePolicy"
+        }
+      },
+      "required": [
+        "multiple_versions",
+        "deny"
+      ],
+      "type": "object"
+    },
+    "DuplicatePolicy": {
+      "enum": [
+        "warn",
+        "deny"
+      ],
+      "type": "string"
+    },
+    "Exception": {
+      "additionalProperties": false,
+      "properties": {
+        "expires": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "owner": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "owner",
+        "reason",
+        "expires"
+      ],
+      "type": "object"
+    },
+    "Licenses": {
+      "additionalProperties": false,
+      "properties": {
+        "allow": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "allow"
+      ],
+      "type": "object"
+    },
+    "Sources": {
+      "additionalProperties": false,
+      "properties": {
+        "allow_git": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "allow_git"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "advisories": {
+      "$ref": "#/$defs/Advisories"
+    },
+    "bans": {
+      "$ref": "#/$defs/Bans"
+    },
+    "licenses": {
+      "$ref": "#/$defs/Licenses"
+    },
+    "schema_version": {
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "sources": {
+      "$ref": "#/$defs/Sources"
+    }
+  },
+  "required": [
+    "schema_version",
+    "licenses",
+    "advisories",
+    "sources",
+    "bans"
+  ],
+  "title": "CiPolicy",
+  "type": "object"
+}

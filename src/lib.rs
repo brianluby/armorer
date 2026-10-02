@@ -10,6 +10,7 @@
 //! ```
 
 pub mod apply;
+pub mod bootstrap;
 pub mod catalog;
 pub mod ci_policy;
 pub mod config;

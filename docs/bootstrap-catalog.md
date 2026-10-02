@@ -2,8 +2,8 @@
 
 This #4 slice supplies an independently anchored, immutable bootstrap catalog,
 v1-compatible lock rendering and fixed CI/unsigned-build caller templates. It
-performs no adoption or consumer mutation. Explicit project policy and multi-file
-plan/apply/recovery integration remain required before end-to-end configuration.
+performs no adoption or consumer mutation itself. [Version-two bootstrap](bootstrap-v2.md)
+combines this authority with explicit project policy and transactional provisioning.
 The release trust Catalog is a separate contract; no bootstrap snapshot qualifies
 attestations, Apple signing, release publication or SLSA Build L2.
 
@@ -68,13 +68,13 @@ covers the example callers. The complete existing schema/fixture and Rust suite
 must pass before committing/pushing this slice; hosted results and review findings
 are retained at its exact PR head.
 
-Next: explicit project-owned CI policy, bounded provisioning plans with the exact
-before/proposed views, persistent generated bases and transactional multi-file
-apply/recovery. A v1 toolchain plan cannot be reinterpreted as authorization to
-write these callers or policy. Review an additive versioned provisioning plan
-and its compatibility boundary before extending mutation targets.
+The additive [version-two provisioning plan](bootstrap-v2.md) provides explicit
+policy, complete before/proposed views, generated bases and multi-file recovery.
+A v1 toolchain plan still cannot authorize writes to these callers or policy.
+Reviewed three-way migration/upgrades, hosted adoption and release verification
+remain separate gates.
 
-## Local candidate receipt — 2026-10-02
+## Preserved catalog-foundation local receipt — 2026-10-02
 
 Pinned Rust 1.95.0 locked build, fmt, strict all-target/all-feature Clippy and
 **75 tests** pass (9 library, 10 apply, 6 catalog, 24 inspection,
