@@ -52,3 +52,25 @@ jobs:
           python3 -m venv /tmp/armorer-schema-venv
           /tmp/armorer-schema-venv/bin/python -m pip install --require-hashes --only-binary=:all: -r requirements-schema.txt
           /tmp/armorer-schema-venv/bin/python scripts/validate-contract-examples.py
+      - name: Checkout reviewed workflow lint runtime
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: brianluby/armorer-workflows
+          ref: 772ca83e386c883c88cc3b936d69f8cb3216c91e
+          path: workflow-tools-source
+          persist-credentials: false
+      - name: Authenticate native tools and audit development and caller workflows
+        env:
+          TOOL_DIRECTORY: ${{ runner.temp }}/armorer-workflow-tools
+        run: |
+          python3 -I - <<'PY'
+          import os, sys
+          from pathlib import Path
+          root = Path.cwd()
+          sys.path.insert(0, str(root / "workflow-tools-source"))
+          from armorer_runtime.tools import install_tools
+          from armorer_runtime.ci import scan_workflows
+          binaries = install_tools(Path(os.environ["TOOL_DIRECTORY"]), ["actionlint", "zizmor"])
+          scan_workflows(root, binaries)
+          scan_workflows(root / "examples/bootstrap-catalog", binaries)
+          PY

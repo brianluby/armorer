@@ -28,3 +28,7 @@ See [onboarding and boundaries](docs/onboarding.md), [reviewed apply and recover
 Confirmed: MIT license, fail-closed secure releases, and Momus/Rusty Brain pilots. v0.1 targets SLSA Build L2. Linux release assets will be authenticated through signed GitHub/Sigstore attestations; macOS additionally requires Developer ID signing and notarization before final-byte attestation. L3 assessment and gap closure are deferred to an unscheduled future backlog item. Additional security controls complement provenance.
 
 Inspired by the Armorer's craft: forge protection into the tools projects begin with.
+
+`armorer catalog` exposes the reviewed bootstrap tool/workflow authority without
+network access or consuming files. See [catalog source and limits](docs/bootstrap-catalog.md).
+Project policy and transactional provisioning remain separate required integration.

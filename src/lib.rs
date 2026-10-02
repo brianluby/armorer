@@ -10,6 +10,7 @@
 //! ```
 
 pub mod apply;
+pub mod catalog;
 pub mod config;
 pub mod discovery;
 pub mod plan;
