@@ -279,7 +279,7 @@ fn independent_patch_reconstructs_exact_proposed_bytes() {
         }
         let patch = tempfile::NamedTempFile::new().unwrap();
         fs::write(patch.path(), &result.files[0].unified_diff).unwrap();
-        let output = Command::new("/usr/bin/patch")
+        let output = Command::new("patch")
             .current_dir(reconstruction.path())
             .args(["--batch", "-p1", "-i"])
             .arg(patch.path())

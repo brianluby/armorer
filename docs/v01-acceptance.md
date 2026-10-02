@@ -102,3 +102,21 @@ CRLF/Unicode/final-newline identity, stale/forged saved plans, symlinks,
 non-UTF-8/oversized inputs/views and whole consumer snapshots with build-script
 execution markers. These are local preview/transaction evidence, not signing,
 publication, credentialed rehearsals or Build L2 evidence.
+
+## Preview hosted receipt and review disposition
+
+[PR #6](https://github.com/brianluby/armorer/pull/6), source
+`ead990ecb2832ace5ca03b5288d8b8877ccca420`, passed hosted Linux/macOS validation
+in [run 36979744806](https://github.com/brianluby/armorer/actions/runs/36979744806).
+CodeRabbit's one inline finding is valid: resolve the test-only patch executable
+through PATH for Unix hosts with a different installation layout. The remediation
+also documents the three private preview helpers to address the docstring warning.
+New candidate local/hosted evidence is retained in the PR and #4 comments before
+requesting acceptance. Copilot returned a review error and Codex reported review
+quota exhaustion; neither is an independent completed review. No merge occurred.
+
+The next #4 foundation is isolated at `codex/bootstrap-catalog`: embedded catalog
+identity from workflow commit `772ca83e386c883c88cc3b936d69f8cb3216c91e`, all
+18 primary-source distribution digests reverified on 2026-10-02, fixed unprivileged
+caller rendering and explicit native-target pin IDs. Integration with project
+policy and transactional provisioning is still required.

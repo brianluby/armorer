@@ -39,6 +39,7 @@ pub struct PreservedInput {
     pub reason: &'static str,
 }
 
+/// Read only the exact digest-bound preimage, retaining absence separately from empty text.
 fn optional_text(root: &Path, relative: &str, expected: Option<&str>) -> Result<Option<String>> {
     let path = safe_path(root, relative)?;
     let bytes = match std::fs::symlink_metadata(&path) {
@@ -60,6 +61,7 @@ fn optional_text(root: &Path, relative: &str, expected: Option<&str>) -> Result<
         .transpose()
 }
 
+/// Emit every original line verbatim and annotate missing final newlines for patch readers.
 fn append_lines(output: &mut String, prefix: char, content: &str) {
     for line in content.split_inclusive('\n') {
         output.push(prefix);
@@ -89,6 +91,7 @@ fn diff(path: &str, before: Option<&str>, after: &str) -> String {
     output
 }
 
+/// Attach matching display preimages and legacy blockers, then bound the complete JSON view.
 fn from_plan(root: &Path, plan: Plan) -> Result<Preview> {
     let mut files = Vec::new();
     for change in &plan.changes {
