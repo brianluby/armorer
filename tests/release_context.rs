@@ -396,6 +396,10 @@ fn real_inventory_authentication_failure_precedes_json_and_asset_processing() {
         serde_json::to_value(qualified_native_verifier().unwrap()).unwrap();
     context["verification_policy"] = write(&policy_path, &policy);
     let trusted = open(directory.path(), &context).unwrap();
+    assert_eq!(
+        trusted.policy_identity(),
+        &ByteIdentity::from_bytes(&fs::read(&policy_path).unwrap())
+    );
     let verifier = OfflineVerifier::open(
         &policy_path,
         context["verification_policy"]["sha256"].as_str().unwrap(),
@@ -425,6 +429,25 @@ fn real_inventory_authentication_failure_precedes_json_and_asset_processing() {
         )
         .err()
         .expect("unrelated genuine bundle must never authenticate the inventory");
+        let cli = release_cli(
+            download.path(),
+            directory.path(),
+            &trusted.identity().sha256,
+            "legacy-v1",
+            &gh,
+            &source.join("trusted_root.json"),
+            &cdx,
+        );
+        assert_eq!(cli.status.code(), Some(1));
+        let cli_error: Value = serde_json::from_slice(&cli.stdout).unwrap();
+        assert!(
+            cli_error["error"]["message"]
+                .as_str()
+                .unwrap()
+                .contains("attestation-authentication-failed")
+        );
+        assert!(cli_error.get("provenance_verified").is_none());
+        assert!(cli.stderr.is_empty());
         assert!(
             error
                 .to_string()
@@ -872,4 +895,180 @@ fn real_native_runtime_distribution_matches_independent_provider_qualification()
         &serde_json::from_value(spec["distribution"].clone()).unwrap()
     );
     // Synthetic selection authorities above test member loading, not an actual signed release or production catalog.
+}
+
+/// Invoke the complete consumer with cleared ambient credentials and paths confined to test-owned inputs.
+fn release_cli(
+    download: &Path,
+    trusted: &Path,
+    digest: &str,
+    kind: &str,
+    gh: &Path,
+    root: &Path,
+    cdx: &Path,
+) -> std::process::Output {
+    std::process::Command::new(env!("CARGO_BIN_EXE_armorer"))
+        .env_clear()
+        .current_dir(trusted)
+        .arg("verify-release")
+        .arg("--directory")
+        .arg(download)
+        .arg("--trusted-inputs")
+        .arg(trusted)
+        .arg("--expect-context-sha256")
+        .arg(digest)
+        .arg("--context-kind")
+        .arg(kind)
+        .arg("--gh")
+        .arg(gh)
+        .arg("--trusted-root")
+        .arg(root)
+        .arg("--cyclonedx")
+        .arg(cdx)
+        .output()
+        .unwrap()
+}
+
+#[test]
+/// CLI verification rejects offered approval digests before parsing context or touching tools/release files.
+fn cli_rejects_unapproved_context_before_release_and_tools() {
+    let directory = tempfile::tempdir().unwrap();
+    let context = b"malformed offered context; reject its independent digest first";
+    fs::write(directory.path().join(CONTEXT_NAME), context).unwrap();
+    let absent = directory.path().join("never-open-this");
+    let cli = release_cli(
+        &absent,
+        directory.path(),
+        &"a".repeat(64),
+        "legacy-v1",
+        &absent,
+        &absent,
+        &absent,
+    );
+    assert_eq!(cli.status.code(), Some(1));
+    let error: Value = serde_json::from_slice(&cli.stdout).unwrap();
+    assert!(
+        error["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("unapproved-release-context")
+    );
+    assert!(error.get("provenance_verified").is_none());
+    assert!(cli.stderr.is_empty());
+    assert_eq!(
+        fs::read(directory.path().join(CONTEXT_NAME)).unwrap(),
+        context
+    );
+    assert_eq!(fs::read_dir(directory.path()).unwrap().count(), 1);
+}
+
+#[test]
+/// Selecting native v2 never falls back to an available legacy context when v2 bytes fail.
+fn cli_context_version_is_explicit_without_fallback() {
+    use armorer::verification::context::NATIVE_CONTEXT_NAME;
+    let (directory, context) = fixture();
+    let _ = write(&directory.path().join(CONTEXT_NAME), &context);
+    let malformed = b"invalid native v2 context";
+    fs::write(directory.path().join(NATIVE_CONTEXT_NAME), malformed).unwrap();
+    let absent = directory.path().join("never-open-this");
+    let cli = release_cli(
+        &absent,
+        directory.path(),
+        &ByteIdentity::from_bytes(malformed).sha256,
+        "native-v2",
+        &absent,
+        &absent,
+        &absent,
+    );
+    assert_eq!(cli.status.code(), Some(1));
+    let error: Value = serde_json::from_slice(&cli.stdout).unwrap();
+    assert_eq!(error["error"]["code"], "json");
+    assert!(error.get("provenance_verified").is_none());
+    assert!(cli.stderr.is_empty());
+    assert_eq!(
+        fs::read(directory.path().join(NATIVE_CONTEXT_NAME)).unwrap(),
+        malformed
+    );
+}
+
+#[test]
+/// Approved synthetic intent cannot execute a caller-selected fake native verifier or consume a release.
+fn cli_requires_compiled_native_tool_approval_before_release_processing() {
+    let (directory, context) = fixture();
+    let digest: ByteIdentity =
+        serde_json::from_value(write(&directory.path().join(CONTEXT_NAME), &context)).unwrap();
+    let marker = directory.path().join("executed");
+    let tool = directory.path().join("fake-gh");
+    fs::write(&tool, b"#!/bin/sh\ntouch executed\n").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&tool, fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    let absent = directory.path().join("never-open-this");
+    let cli = release_cli(
+        &absent,
+        directory.path(),
+        &digest.sha256,
+        "legacy-v1",
+        &tool,
+        &absent,
+        &absent,
+    );
+    assert_eq!(cli.status.code(), Some(1));
+    let error: Value = serde_json::from_slice(&cli.stdout).unwrap();
+    if supported() {
+        assert!(
+            error["error"]["message"]
+                .as_str()
+                .unwrap()
+                .contains("unqualified-native-verifier-policy")
+        );
+    }
+    assert!(error.get("provenance_verified").is_none());
+    assert!(!marker.exists());
+    assert!(!directory.path().join("target").exists());
+}
+
+#[test]
+/// Parsing requires an explicit catalog version and offers no source/signer/provenance override.
+fn cli_requires_context_kind_and_rejects_claim_overrides() {
+    let cli = std::process::Command::new(env!("CARGO_BIN_EXE_armorer"))
+        .env_clear()
+        .args([
+            "verify-release",
+            "--directory",
+            ".",
+            "--trusted-inputs",
+            ".",
+            "--expect-context-sha256",
+            &"a".repeat(64),
+            "--gh",
+            "gh",
+            "--trusted-root",
+            "root.json",
+            "--cyclonedx",
+            "cyclonedx",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(cli.status.code(), Some(2));
+    assert!(
+        String::from_utf8(cli.stderr)
+            .unwrap()
+            .contains("--context-kind")
+    );
+    assert!(cli.stdout.is_empty());
+    let override_attempt = std::process::Command::new(env!("CARGO_BIN_EXE_armorer"))
+        .env_clear()
+        .args(["verify-release", "--source-commit", &"a".repeat(40)])
+        .output()
+        .unwrap();
+    assert_eq!(override_attempt.status.code(), Some(2));
+    assert!(
+        String::from_utf8(override_attempt.stderr)
+            .unwrap()
+            .contains("--source-commit")
+    );
+    assert!(override_attempt.stdout.is_empty());
 }

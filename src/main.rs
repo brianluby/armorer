@@ -37,6 +37,23 @@ enum Operation {
         #[arg(long)]
         expect_plan_sha256: String,
     },
+    /// Authenticate every release file against independent inputs using pinned offline native verifiers.
+    VerifyRelease {
+        #[arg(long)]
+        directory: PathBuf,
+        #[arg(long)]
+        trusted_inputs: PathBuf,
+        #[arg(long)]
+        expect_context_sha256: String,
+        #[arg(long, value_enum)]
+        context_kind: ContextKind,
+        #[arg(long)]
+        gh: PathBuf,
+        #[arg(long)]
+        trusted_root: PathBuf,
+        #[arg(long)]
+        cyclonedx: PathBuf,
+    },
     /// Explicitly compare independently approved historical bytes; establishes no provenance authentication.
     VerifyHistoricalBytes {
         #[arg(long)]
@@ -57,6 +74,13 @@ enum Operation {
         #[arg(value_enum)]
         kind: SchemaKind,
     },
+}
+
+/// Explicitly select frozen catalog semantics; failures never retry another version.
+#[derive(Clone, ValueEnum)]
+enum ContextKind {
+    LegacyV1,
+    NativeV2,
 }
 
 #[derive(Clone, ValueEnum)]
@@ -84,11 +108,68 @@ enum SchemaKind {
 
 /// Produce JSON and an exit status for the selected operation.
 ///
-/// Successful schema, plan, apply, recovery and historical comparison return 0; check returns 2 because release
+/// Successful schema, plan, apply, recovery, complete release verification and historical comparison return 0; check returns 2 because release
 /// readiness remains blocked. Propagates inspection errors and maps JSON value
 /// conversion failures to `Error::Json`; output is left to the caller.
 fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
     match cli.command {
+        Operation::VerifyRelease {
+            directory,
+            trusted_inputs,
+            expect_context_sha256,
+            context_kind,
+            gh,
+            trusted_root,
+            cyclonedx,
+        } => {
+            use armorer::verification::{
+                context::TrustedReleaseContext, cyclonedx::OfflineSbomValidator,
+                release::AuthenticatedReleaseFiles, sigstore::OfflineVerifier,
+            };
+            // Authenticate independent intent before reading a release or opening executable adapters.
+            let context = match context_kind {
+                ContextKind::LegacyV1 => {
+                    TrustedReleaseContext::open(&trusted_inputs, &expect_context_sha256)?
+                }
+                ContextKind::NativeV2 => {
+                    TrustedReleaseContext::open_native_v2(&trusted_inputs, &expect_context_sha256)?
+                }
+            };
+            let verifier = OfflineVerifier::open(
+                &trusted_inputs.join("verification-policy.json"),
+                &context.policy_identity().sha256,
+                &gh,
+                &trusted_root,
+            )?;
+            let sbom_validator = OfflineSbomValidator::open(&cyclonedx, context.sbom_validator())?;
+            let verified = AuthenticatedReleaseFiles::verify(
+                &directory,
+                &context,
+                &verifier,
+                &sbom_validator,
+            )?;
+            Ok((
+                json!({
+                    "status": "authenticated-release-files",
+                    "cryptographic_release_authenticated": true,
+                    "provenance_verified": true,
+                    "publication_authorized": false,
+                    "slsa_build_level": null,
+                    "context": verified.context_identity(),
+                    "catalog": context.catalog_identity(),
+                    "inputs": context.inputs(),
+                    "inventory": verified.inventory_proof().subject(),
+                    "inventory_bundle": verified.inventory_proof().bundle(),
+                    "verification_policy": verified.inventory_proof().policy(),
+                    "verifier": verified.inventory_proof().verifier(),
+                    "trusted_root": verified.inventory_proof().trusted_root(),
+                    "assets": verified.inventory().assets,
+                    "attestation_bundles_verified": verified.attestations().len() + 1,
+                    "sboms_verified": verified.sboms().len(),
+                }),
+                0,
+            ))
+        }
         Operation::VerifyHistoricalBytes {
             directory,
             policy,

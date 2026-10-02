@@ -16,6 +16,11 @@ armorer schema config
 
 From this checkout use `cargo run --locked -- --repository /path/to/workspace plan`. JSON goes to stdout. `plan` exits 0 for a valid preview, even with unmet requirements. `check` exits 2 when setup requirements remain; this development slice always reports missing release runtime and unverified capabilities. Invalid input/discovery exits 1 with a JSON error. Neither command writes consuming files or contacts GitHub. CLI argument errors follow Clap's conventional stderr output.
 
+The explicit [complete release verifier](docs/verify-release-cli.md) authenticates
+downloaded inventories, every required bundle, exact assets and paired Cargo
+SBOM/graph evidence against an independently approved context. It uses pinned
+offline native adapters and grants no publication or release-level claim.
+
 See [onboarding and boundaries](docs/onboarding.md), [reviewed apply and recovery](docs/apply.md), [version-one contracts](docs/contracts-v1.md), and [contributing](CONTRIBUTING.md).
 
 - [Architecture](ARCHITECTURE.md): Rust CLI, separately versioned trusted workflows, TOML configuration, preservation of customization, final-byte evidence and independent verification.

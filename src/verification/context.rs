@@ -541,6 +541,10 @@ impl TrustedReleaseContext {
     pub fn catalog_identity(&self) -> &ByteIdentity {
         &self.expectations.catalog
     }
+    /// Borrow the exact independent policy identity for constructing the pinned verifier.
+    pub fn policy_identity(&self) -> &ByteIdentity {
+        &self.expectations.verification_policy
+    }
     /// Borrow the independently approved verification policy.
     pub fn policy(&self) -> &VerificationPolicy {
         &self.policy
