@@ -73,6 +73,14 @@ caller workflow, event, repository IDs, resolved source commit, hosted builder a
 run invocation. Signed predicates remain workflow-produced assertions; accepting
 the signer still requires independently reviewed workflow/catalog expectations.
 
+The reader accepts the exact historical build type
+`https://slsa-framework.github.io/github-actions-buildtypes/workflow/v1` and the
+current producer's `https://actions.github.io/buildtypes/workflow/v1`. Similar URLs,
+different versions, absent fields and wrong JSON types fail. The current build
+type requires the exact reusable signer builder URI and internal hosted runner
+claim; it cannot use the older generic runner builder. Historical build-type
+verification keeps its existing exact builder and certificate checks.
+
 The reader recognizes two source-qualified `runDetails.builder.id` forms. The
 genuine 2024 fixture uses `https://github.com/actions/runner/github-hosted`.
 The pinned [actions/attest v4.2.0 source](https://github.com/actions/attest/tree/f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6)
@@ -92,7 +100,11 @@ identities and the lock-matched npm SHA-512 distribution identity. The official
 release tag is v4.2.0 while its package manifest reports 4.1.0; qualification uses
 the immutable action commit and dependency distribution, not that version string.
 The npm version metadata has no `gitHead`; the receipt does not invent one.
-New-format tests cover post-crypto semantics only and cannot manufacture an
+The additive `attest-v4-predicate-source-v1.json` receipt binds the build-type
+constant to that same qualified library source, preserves the previous receipt
+byte for byte and records that no producer execution or catalog approval occurred.
+New-format tests use this source-derived URI and cover post-crypto semantics only;
+they cannot manufacture an
 authenticated proof. An own-repository current-producer signed positive remains
 required before complete producer/consumer or Build L2 acceptance.
 

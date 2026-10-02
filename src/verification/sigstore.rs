@@ -50,7 +50,9 @@ pub fn qualified_native_verifier() -> Result<ByteIdentity> {
 }
 const ISSUER: &str = "https://token.actions.githubusercontent.com";
 const RESULT_TYPE: &str = "application/vnd.dev.sigstore.verificationresult+json;version=0.1";
-const BUILD_TYPE: &str = "https://slsa-framework.github.io/github-actions-buildtypes/workflow/v1";
+const LEGACY_BUILD_TYPE: &str =
+    "https://slsa-framework.github.io/github-actions-buildtypes/workflow/v1";
+const MODERN_BUILD_TYPE: &str = "https://actions.github.io/buildtypes/workflow/v1";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Trigger {
@@ -568,7 +570,7 @@ fn validate_output(
             .predicate
             .get("buildDefinition")
             .ok_or(Error::Json)?;
-        equal_field(definition, "buildType", BUILD_TYPE)?;
+        let build_type = field(definition, "buildType")?;
         let workflow = definition
             .pointer("/externalParameters/workflow")
             .ok_or(Error::Json)?;
@@ -604,6 +606,7 @@ fn validate_output(
         )?;
         let details = statement.predicate.get("runDetails").ok_or(Error::Json)?;
         validate_builder_identity(
+            build_type,
             details.get("builder").ok_or(Error::Json)?,
             github,
             &signer_uri,
@@ -617,10 +620,23 @@ fn validate_output(
     Ok(statement.predicate)
 }
 
-/// Accept only qualified legacy hosted-runner or exact SHA-pinned reusable-workflow builder IDs.
-/// The modern format requires its OIDC-derived hosted claim; certificate hosted checks remain mandatory.
-fn validate_builder_identity(builder: &Value, github: &Value, signer_uri: &str) -> Result<()> {
+/// Match exact source-qualified build types and builders without changing legacy verification rules.
+/// The current build type requires the exact reusable signer and OIDC-derived hosted claim.
+fn validate_builder_identity(
+    build_type: &str,
+    builder: &Value,
+    github: &Value,
+    signer_uri: &str,
+) -> Result<()> {
+    require(
+        matches!(build_type, LEGACY_BUILD_TYPE | MODERN_BUILD_TYPE),
+        "verified-provenance-build-type-mismatch",
+    )?;
     let id = field(builder, "id")?;
+    if build_type == MODERN_BUILD_TYPE {
+        equal_field(builder, "id", signer_uri)?;
+        return equal_field(github, "runner_environment", "github-hosted");
+    }
     if id == signer_uri {
         return equal_field(github, "runner_environment", "github-hosted");
     }
@@ -880,7 +896,12 @@ mod tests {
             expected.run.workflow.path,
             expected.run.workflow.commit
         );
+        let producer: Value = serde_json::from_str(include_str!(
+            "../../tests/fixtures/sigstore/attest-v4-predicate-source-v1.json"
+        ))
+        .unwrap();
         let statement = &mut value[0]["verificationResult"]["statement"];
+        statement["predicate"]["buildDefinition"]["buildType"] = producer["build_type"].clone();
         statement["predicate"]["runDetails"]["builder"]["id"] = signer.clone().into();
         statement["predicate"]["buildDefinition"]["internalParameters"]["github"]["runner_environment"] =
             "github-hosted".into();
@@ -920,6 +941,93 @@ mod tests {
         value[0]["verificationResult"]["signature"]["certificate"]["runnerEnvironment"] =
             "self-hosted".into();
         assert!(check(&value, &signed, &bytes, &expected).is_err());
+    }
+
+    #[test]
+    /// Reject malformed current build types and mixed producer forms after payload equality passes.
+    fn provenance_build_type_is_exact_and_current_type_never_accepts_legacy_builder() {
+        let (original, _, bytes, expected) = fixture();
+        let signer = format!(
+            "https://github.com/{}/{}@{}",
+            expected.run.workflow.repository,
+            expected.run.workflow.path,
+            expected.run.workflow.commit
+        );
+        let mut current = original.clone();
+        current[0]["verificationResult"]["statement"]["predicate"]["buildDefinition"]["buildType"] =
+            MODERN_BUILD_TYPE.into();
+        current[0]["verificationResult"]["statement"]["predicate"]["runDetails"]["builder"]["id"] =
+            signer.into();
+        current[0]["verificationResult"]["statement"]["predicate"]["buildDefinition"]["internalParameters"]
+            ["github"]["runner_environment"] = "github-hosted".into();
+        let signed = current[0]["verificationResult"]["statement"].clone();
+        assert!(check(&current, &signed, &bytes, &expected).is_ok());
+        for wrong in [
+            serde_json::json!(""),
+            serde_json::json!("http://actions.github.io/buildtypes/workflow/v1"),
+            serde_json::json!("https://actions.github.io/buildtypes/workflow/v1/"),
+            serde_json::json!("https://actions.github.io/buildtypes/workflow/v2"),
+            serde_json::json!("https://attacker.example/buildtypes/workflow/v1"),
+            serde_json::json!(true),
+            serde_json::json!(7),
+            serde_json::json!([]),
+            serde_json::json!({}),
+            Value::Null,
+        ] {
+            let mut changed = current.clone();
+            changed[0]["verificationResult"]["statement"]["predicate"]["buildDefinition"]["buildType"] =
+                wrong;
+            let signed = changed[0]["verificationResult"]["statement"].clone();
+            assert!(check(&changed, &signed, &bytes, &expected).is_err());
+        }
+        let mut missing = current.clone();
+        missing[0]["verificationResult"]["statement"]["predicate"]["buildDefinition"]
+            .as_object_mut()
+            .unwrap()
+            .remove("buildType");
+        let signed = missing[0]["verificationResult"]["statement"].clone();
+        assert!(check(&missing, &signed, &bytes, &expected).is_err());
+        current[0]["verificationResult"]["statement"]["predicate"]["runDetails"]["builder"]["id"] =
+            "https://github.com/actions/runner/github-hosted".into();
+        let signed = current[0]["verificationResult"]["statement"].clone();
+        assert!(check(&current, &signed, &bytes, &expected).is_err());
+    }
+
+    #[test]
+    /// Current producer semantics retain exact source, repository IDs and invocation bindings.
+    fn current_provenance_does_not_relax_source_repository_or_run_identity() {
+        let (mut current, _, bytes, expected) = fixture();
+        let predicate = &mut current[0]["verificationResult"]["statement"]["predicate"];
+        predicate["buildDefinition"]["buildType"] = MODERN_BUILD_TYPE.into();
+        predicate["buildDefinition"]["internalParameters"]["github"]["runner_environment"] =
+            "github-hosted".into();
+        predicate["runDetails"]["builder"]["id"] = format!(
+            "https://github.com/{}/{}@{}",
+            expected.run.workflow.repository,
+            expected.run.workflow.path,
+            expected.run.workflow.commit
+        )
+        .into();
+        let signed = current[0]["verificationResult"]["statement"].clone();
+        assert!(check(&current, &signed, &bytes, &expected).is_ok());
+        for pointer in [
+            "/predicate/buildDefinition/resolvedDependencies/0/digest/gitCommit",
+            "/predicate/buildDefinition/internalParameters/github/repository_id",
+            "/predicate/buildDefinition/internalParameters/github/repository_owner_id",
+            "/predicate/buildDefinition/externalParameters/workflow/ref",
+            "/predicate/buildDefinition/externalParameters/workflow/path",
+            "/predicate/runDetails/metadata/invocationId",
+        ] {
+            let mut changed = current.clone();
+            *changed[0]["verificationResult"]["statement"]
+                .pointer_mut(pointer)
+                .unwrap() = "wrong-independent-identity".into();
+            let signed = changed[0]["verificationResult"]["statement"].clone();
+            assert!(
+                check(&changed, &signed, &bytes, &expected).is_err(),
+                "{pointer}"
+            );
+        }
     }
 
     #[test]
