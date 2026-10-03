@@ -56,6 +56,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: cargo test --locked --lib real_pinned_gh_release_attestation_matches_frozen_baseline -- --ignored --test-threads=1
+      - name: Qualify native publication GETs and closed write boundaries
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: cargo test --locked --lib real_native_publication_observations_never_grant_write_authority -- --ignored --nocapture --test-threads=1
       - name: Qualify pinned native complete SBOM validator
         run: python3 -I scripts/qualify-test-sbom-validator.py --output-directory "$RUNNER_TEMP/armorer-fixture-cyclonedx" --github-env
       - name: Validate complete CycloneDX documents and adversarial fixtures

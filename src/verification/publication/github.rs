@@ -1059,4 +1059,94 @@ mod tests {
         let (_, frozen, served) = fixture();
         check(&io::parse::<Value>(&bytes).unwrap(), &frozen, &served).unwrap();
     }
+
+    #[test]
+    #[ignore = "requires independently qualified native gh and existing GET-only authentication"]
+    /// Exercise real fixed-route settings reads and reject all write methods, native substitution and root substitution.
+    fn real_native_publication_observations_never_grant_write_authority() {
+        let executable = PathBuf::from(
+            std::env::var_os("ARMORER_TEST_GH").expect("qualified native gh required"),
+        );
+        let work = private_workspace("armorer-real-publication-observation-").unwrap();
+        let root = work.path().join("test-only-root.json");
+        let root_bytes = include_bytes!("../../../tests/fixtures/sigstore/trusted_root.json");
+        io::write_readonly(&root, root_bytes).unwrap();
+        // This private test policy selects GET routes only. It is neither an independently
+        // approved production policy nor qualification of this fixture as a release-signing root.
+        let value = PublicationPolicy {
+            schema_version: 1,
+            context: ByteIdentity::from_bytes(b"test-only observation intent"),
+            repository_id: 1398918200,
+            owner_id: 3779002,
+            release_attestation_root: ByteIdentity::from_bytes(root_bytes),
+            default_branch: "main".into(),
+            controller_workflow: WorkflowIdentity {
+                repository: "brianluby/armorer".into(),
+                path: ".github/workflows/development.yml".into(),
+                commit: "5c5abeebb73b9d76ecc092a1c2d84956739fa587".into(),
+            },
+            allowed_actor_ids: [3779002].into(),
+            allowed_publisher_ids: [3779002].into(),
+            allowed_approver_ids: [3779002].into(),
+            publish_environment: "armorer-readonly-qualification-v1".into(),
+            publish_environment_id: 1,
+            max_observation_age: 30,
+            expires_at: now().unwrap() + 600,
+        };
+        let policy = TrustedPublicationPolicy {
+            identity: ByteIdentity::from_bytes(&serde_json::to_vec(&value).unwrap()),
+            policy: value,
+        };
+        let owner = PathBuf::from(std::env::var_os("HOME").expect("existing owner HOME required"));
+        let readonly =
+            NativeGithub::open_owner_read_only(&executable, &root, &policy, &owner).unwrap();
+        // This guard precedes process startup, even when a workflow token exists in
+        // the parent. No POST/PATCH reaches GitHub through this read-only client.
+        for (method, route) in [
+            ("POST", "repos/brianluby/armorer/releases"),
+            (
+                "POST",
+                "https://uploads.github.com/repos/brianluby/armorer/releases/1/assets?name=inert",
+            ),
+            ("PATCH", "repos/brianluby/armorer/releases/1"),
+        ] {
+            assert!(
+                readonly
+                    .write(method, route.into(), b"{}", false)
+                    .unwrap_err()
+                    .to_string()
+                    .contains("read-only-publication-client")
+            );
+        }
+        let offered = work.path().join("offered-native");
+        fs::write(&offered, b"unqualified executable bytes").unwrap();
+        assert!(NativeGithub::open_owner_read_only(&offered, &root, &policy, &owner).is_err());
+        let substituted_root = work.path().join("substituted-root.json");
+        fs::write(&substituted_root, b"unapproved root bytes").unwrap();
+        assert!(
+            NativeGithub::open_owner_read_only(&executable, &substituted_root, &policy, &owner)
+                .is_err()
+        );
+        let observer = if std::env::var_os("GH_TOKEN")
+            .or_else(|| std::env::var_os("GITHUB_TOKEN"))
+            .is_some()
+        {
+            NativeGithub::open(&executable, &root, &policy).unwrap()
+        } else {
+            readonly
+        };
+        // Fixed GETs alone are executed. Their unavailable states are retained,
+        // and required attempt/serialization gates remain unproven regardless
+        // of the current repository settings or the test policy's claims.
+        let report = observer.observe_capabilities(&policy).unwrap();
+        assert_eq!(report.repository_id, 1398918200);
+        for name in [
+            "current-attempt-environment-enforcement",
+            "runner-wide-serialization",
+        ] {
+            assert_eq!(report.gates.get(name), Some(&GateState::Unsupported));
+        }
+        assert!(report.require_ready(now().unwrap(), 30).is_err());
+        println!("{}", serde_json::to_string(&report).unwrap());
+    }
 }
