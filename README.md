@@ -6,7 +6,7 @@ release acceptance remains incomplete.
 
 Repeatable secure CI and verifiable releases for Rust repositories.
 
-**Early development:** read-only `check`/`plan` validate explicit Cargo workspace selections. Digest-approved v1 `apply` configures only the pinned toolchain. The explicit version-two `bootstrap` path previews and transactionally provisions all five local CI/build files using reviewed catalog pins and owner-selected policy, with exact recovery. The separate reviewed `upgrade` path migrates stored generated bases, preserves supported customizations, imports individually reviewed targets and supports exact historical rollback. Migration between two accepted catalogs, final-byte verification, protected signing and publication require later integration. No SLSA level is claimed by this slice.
+**Early development:** read-only `check`/`plan` validate explicit Cargo workspace selections. Digest-approved v1 `apply` configures only the pinned toolchain. The explicit version-two `bootstrap` path previews and transactionally provisions all five local CI/build files using reviewed catalog pins and owner-selected policy, with exact recovery. The separate reviewed `upgrade` path migrates stored generated bases, preserves supported customizations, imports individually reviewed targets and supports exact historical rollback. The strict final-byte consumer is implemented and CI verified. Migration between two accepted catalogs, protected signing and operational publication acceptance remain incomplete. No SLSA level is claimed by this slice.
 
 The public MIT repositories are [armorer](https://github.com/brianluby/armorer) for the Rust CLI and [armorer-workflows](https://github.com/brianluby/armorer-workflows) for separately versioned trusted reusable workflows.
 
@@ -28,7 +28,7 @@ offline signature/SBOM adapters. Apple executables additionally require macOS
 whose ticket lookup can use the system cache or network. Verification grants no
 publication or release-level claim.
 
-See [onboarding and boundaries](docs/onboarding.md), [reviewed apply and recovery](docs/apply.md), [version-one contracts](docs/contracts-v1.md), and [contributing](CONTRIBUTING.md).
+Start with [the candidate readiness path](docs/readiness.md). See [onboarding and boundaries](docs/onboarding.md), [reviewed apply and recovery](docs/apply.md), [version-one contracts](docs/contracts-v1.md), and [contributing](CONTRIBUTING.md).
 
 - [Architecture](ARCHITECTURE.md): Rust CLI, separately versioned trusted workflows, TOML configuration, preservation of customization, final-byte evidence and independent verification.
 - [Implementation plan](IMPLEMENTATION_PLAN.md): reviewable slices, owners, estimates, failure tests, pilot adoption and decisions.
