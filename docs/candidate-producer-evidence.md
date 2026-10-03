@@ -1,7 +1,7 @@
 # Bring the whole cargo. Prove who carried it.
 
 Candidate guide: workflow source
-[`853437cb1c9cbb9a60b2186ebb637ce56d3f6b51`](https://github.com/brianluby/armorer-workflows/tree/853437cb1c9cbb9a60b2186ebb637ce56d3f6b51).
+[`e88e25fc46c1bb5298579c5cd49f52d43215b9e1`](https://github.com/brianluby/armorer-workflows/tree/e88e25fc46c1bb5298579c5cd49f52d43215b9e1).
 Armorer's embedded workflow pin remains `772ca83e386c883c88cc3b936d69f8cb3216c91e`.
 These internal interfaces prepare a fixed controller. They are not main CLI
 commands or an accepted protected release procedure.
@@ -123,13 +123,19 @@ parity by omitting those executables. Protected Developer ID finalization,
 notarization, final-byte attestation and strict complete consumer verification
 remain required, alongside immutable publication, recovery and both pilots.
 
-The [scoped workflow review](../reviews/2026-10-02-workflow-prerequisites.md)
-records the two prerequisite/intake hosted runs and local test limitations.
-This additional guide is source-checked against the combined collector and
-policy reader; it adds no new live producer/OIDC/writer qualification receipt,
-complete signed rehearsal or human acceptance. Read the exact candidate
-[combined contract](https://github.com/brianluby/armorer-workflows/blob/853437cb1c9cbb9a60b2186ebb637ce56d3f6b51/docs/combined-handoff-v1.md)
-and [policy contract](https://github.com/brianluby/armorer-workflows/blob/853437cb1c9cbb9a60b2186ebb637ce56d3f6b51/docs/independent-policy-v1.md)
+The [integration review](../reviews/2026-10-03-workflow-integration.md) records
+eight passing local combined-collector tests and 12 policy boundary tests, with
+one real scanner/public-feed control skipped locally. It retains exact hosted
+test/build/policy/transport results and the separate combined caller rehearsal's
+three passing native collection/writer-join jobs. Their nine-selection fixture
+does not supply production mapped-OIDC or own signed release acceptance.
+The [preceding review](../reviews/2026-10-02-workflow-prerequisites.md)
+keeps its historical source and receipts. This guide adds no live private
+producer-OIDC positive, complete signed rehearsal or human acceptance.
+The [final payload guide](candidate-final-payloads.md) follows the fixed
+transformation/inventory order and its unverified result. Read the exact candidate
+[combined contract](https://github.com/brianluby/armorer-workflows/blob/e88e25fc46c1bb5298579c5cd49f52d43215b9e1/docs/combined-handoff-v1.md)
+and [policy contract](https://github.com/brianluby/armorer-workflows/blob/e88e25fc46c1bb5298579c5cd49f52d43215b9e1/docs/independent-policy-v1.md)
 before qualifying an integration.
 
 Earn each proof. Hold the remaining gates. **This is the way.**

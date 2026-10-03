@@ -1,8 +1,8 @@
 # Inspect the handoff before opening the vault
 
 Candidate source: `brianluby/armorer-workflows`
-[`853437cb1c9cbb9a60b2186ebb637ce56d3f6b51`](https://github.com/brianluby/armorer-workflows/tree/853437cb1c9cbb9a60b2186ebb637ce56d3f6b51),
-the head of workflow PR #20, stacked on the prerequisite observer in #19.
+[`e88e25fc46c1bb5298579c5cd49f52d43215b9e1`](https://github.com/brianluby/armorer-workflows/tree/e88e25fc46c1bb5298579c5cd49f52d43215b9e1),
+the head of workflow integration PR #21, preserving the stack through #20.
 The catalog still pins accepted workflow main `772ca83e386c883c88cc3b936d69f8cb3216c91e`.
 This guide prepares review of internal candidate interfaces. Armorer's current
 CLI and generated callers do not expose these operations.
@@ -105,7 +105,7 @@ paths become invalid outside the context manager.
 The upstream combined collector has a smaller current bound: 1–32 selections and
 2–64 artifacts on one page. Its bound governs that composed path. The intake's
 64-selection limit cannot expand the collector or justify subset verification.
-See the [exact combined collector contract](https://github.com/brianluby/armorer-workflows/blob/853437cb1c9cbb9a60b2186ebb637ce56d3f6b51/docs/combined-handoff-v1.md).
+See the [exact combined collector contract](https://github.com/brianluby/armorer-workflows/blob/e88e25fc46c1bb5298579c5cd49f52d43215b9e1/docs/combined-handoff-v1.md).
 
 Apple CLI/service payloads must be thin little-endian ARM64 Mach-O executables
 with a bounded executable entry, the fixed loader and an explicit macOS platform
@@ -118,7 +118,7 @@ notarization result. Library source archives remain opaque.
 The final assembler still rejects unsigned Apple executables. Intake success
 reports `unsigned-apple-payloads-inspected`, retains exact bytes and keeps producer,
 writer, catalog, protected-environment, cryptographic, signing and publication
-authority false. The [exact intake contract](https://github.com/brianluby/armorer-workflows/blob/853437cb1c9cbb9a60b2186ebb637ce56d3f6b51/docs/apple-payload-intake-v1.md)
+authority false. The [exact intake contract](https://github.com/brianluby/armorer-workflows/blob/e88e25fc46c1bb5298579c5cd49f52d43215b9e1/docs/apple-payload-intake-v1.md)
 defines the supported format and file-reader assumptions.
 
 Carry the whole handoff. Accept no missing sibling. **This is the way.**
@@ -126,18 +126,20 @@ Carry the whole handoff. Accept no missing sibling. **This is the way.**
 ## Keep qualification and production evidence separate
 
 At this exact source, all three native jobs pass in the
-[prerequisite qualification run](https://github.com/brianluby/armorer-workflows/actions/runs/37094703044)
-and [unsigned intake run](https://github.com/brianluby/armorer-workflows/actions/runs/37094703046).
+[prerequisite qualification run](https://github.com/brianluby/armorer-workflows/actions/runs/37105406885)
+and [unsigned intake run](https://github.com/brianluby/armorer-workflows/actions/runs/37105406924).
 The first uses an unprivileged workflow token; the second qualifies unsigned
 fixtures and actual native payload shape without executing them. Linux intake
 success does not establish an Apple native positive.
 
-An isolated local export passes 19 capability tests and three tests of the actual
-validator-build step. Those build tests exercise candidate/inherited Cargo
-overrides, scratch-ancestor rejection and pinned-control substitution. The local
-24-test intake suite could not load because the system and bundled Python lack
-`jsonschema`; no local intake success is claimed. Hosted results remain separate
-and are not relabelled as an Armorer own-release rehearsal.
+An immutable local export passes 19 capability tests, three tests of the actual
+validator-build step and all 24 intake tests. A temporary CPython 3.14 environment
+uses the candidate's hash-pinned development wheels; no global dependency or
+consuming repository changes are needed. The build tests exercise candidate/
+inherited Cargo overrides, scratch-ancestor rejection and fixed-control
+substitution. The [integration review](../reviews/2026-10-03-workflow-integration.md)
+preserves the preceding source's import failure and the new distinct results.
+Hosted qualification remains separate from an Armorer own signed rehearsal.
 
 Required next evidence includes accepted controller/context/catalog/root,
 current-attempt protected approval, Developer ID transformation/notarization,

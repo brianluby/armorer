@@ -80,6 +80,13 @@ producer finalization remains separate work.
 
 Let final bytes carry final proof. **This is the way.**
 
+The [candidate payload assembler](candidate-final-payloads.md) measures Linux
+packaging and exact library copying, retains fixed evidence/bundle slots, freezes
+the complete inventory and retains detached inventory provenance last. Its
+`layout-complete-unverified` result establishes no cryptographic authentication
+or permission to publish. Unsigned macOS CLI/service selections still block the
+entire set before staging; source-library qualification cannot replace them.
+
 ## Rehearse before publication
 
 Use a protected rehearsal source and independently approved rehearsal policy.

@@ -25,6 +25,8 @@ For the separate workflow stack, inspect the
 [candidate prerequisite and unsigned intake guide](candidate-workflow-prerequisites.md).
 Follow [candidate producer evidence](candidate-producer-evidence.md) for complete
 same-attempt build/policy collection, advisory freshness and private proof limits.
+Then inspect [final payload assembly](candidate-final-payloads.md) for measured
+transformations, fixed subject slots and detached inventory authentication.
 Its native read-token interface and limits on the complete handoff remain separate
 from protected signing or publication authority.
 
@@ -45,6 +47,7 @@ from protected signing or publication authority.
 | [Credential boundaries](credential-boundaries.md) | Current CI/build and candidate read-token interfaces, planned protected approvals and rotation decisions |
 | [Candidate workflow prerequisites](candidate-workflow-prerequisites.md) | Native configuration states, ephemeral read-token isolation and complete unsigned Apple intake; no signing/publication grant |
 | [Candidate producer evidence](candidate-producer-evidence.md) | Complete build/policy handoffs, final freshness checks and transport versus original private identity proofs |
+| [Candidate final payloads](candidate-final-payloads.md) | Fixed Linux/library assembly, exact retained evidence and acyclic inventory order; layout completion leaves authority false |
 | [Dogfooding](dogfooding.md), [own intent example](../examples/armorer-dogfood/README.md) | Read-only inspection of Armorer itself and remaining complete rehearsal gates |
 | [Documentation coverage](documentation-coverage.md) | Every planned documentation deliverable, present evidence and outstanding acceptance |
 | [Research](../RESEARCH.md) | Dated primary-source research |
@@ -68,7 +71,8 @@ by the [context-ordering continuation](../reviews/2026-10-02-pr21-context-orderi
 and [resolved-feature review](../reviews/2026-10-02-pr21-resolved-features.md), then
 the [evidence and lock continuation](../reviews/2026-10-03-pr21-evidence-and-locks.md).
 The separate [workflow prerequisite review](../reviews/2026-10-02-workflow-prerequisites.md)
-retains the source and qualification boundary behind the new operational preparation.
+and [integration continuation](../reviews/2026-10-03-workflow-integration.md)
+retain the source and qualification boundary behind the operational preparation.
 
 Contributors follow [the contributor guide](../CONTRIBUTING.md) and
 [the writing creed](writing-guide.md). Update behavior guides when behavior

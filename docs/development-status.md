@@ -66,17 +66,28 @@ and production acceptance remain separate from the repaired source.
 ## The separate workflow candidate
 
 Workflow main remains `772ca83e386c883c88cc3b936d69f8cb3216c91e`, matching the
-embedded catalog pin. Workflow PR #20 at `853437cb1c9cbb9a60b2186ebb637ce56d3f6b51`
-is stacked on #19's native prerequisite observer. The
+embedded catalog pin. Workflow integration PR #21 at
+`e88e25fc46c1bb5298579c5cd49f52d43215b9e1` targets that main and preserves the
+stack through #20 at `853437cb1c9cbb9a60b2186ebb637ce56d3f6b51`. Its only changes
+relative to that stack are three fixture-validator references to Armorer
+`56d7380a5534` and seven test-class docstrings. Runtime/schema/pin/action bytes
+remain identical. The
 [candidate workflow guide](candidate-workflow-prerequisites.md) records fixed
 read-only configuration observations, ephemeral read-token isolation and complete
 unsigned Apple intake. The [producer evidence guide](candidate-producer-evidence.md)
 also covers complete build/policy collection, freshness and private proof boundaries.
-Its two distinct prerequisite/intake native qualification runs pass on all
-three supported hosts, while operational authority stays false.
+The [final payload guide](candidate-final-payloads.md) covers Linux/library byte
+transformations and the required unverified inventory/bundle order. The integrated
+source's prerequisite/intake runs and all 12 runtime validation jobs pass across
+the three supported hosts. Local affected-scope suites pass 85 tests, with one
+real scanner/public-feed control skipped. Operational authority stays false.
 
-The [scoped workflow review](../reviews/2026-10-02-workflow-prerequisites.md)
-retains source and local test limitations. These helpers are not integrated into
+The [preceding scoped review](../reviews/2026-10-02-workflow-prerequisites.md)
+retains its original source and dependency limitation. The
+[integration continuation](../reviews/2026-10-03-workflow-integration.md) records
+the fresh environment and exact-head hosted evidence. The separate combined
+caller rehearsal also passes all three native collection/writer-join jobs for
+its fixed nine-selection/eighteen-archive fixture. These helpers are not integrated into
 main's CLI/callers; unsigned intake does not implement protected Developer ID
 signing, notarization or immutable publication. The production administrative-read
 credential binding and current-attempt environment approval remain open.
@@ -108,9 +119,9 @@ Keep every earned protection. **This is the way.**
 
 ## Earn the release
 
-Documentation head `fea6a5eeb58614c2dff6cb1c26e129b568254cfb` passed all three
+Documentation head `375298dfbf87d621c7d88306008fe93d58970746` passed all three
 Development jobs in
-[run 37104507124](https://github.com/brianluby/armorer/actions/runs/37104507124),
+[run 37105227772](https://github.com/brianluby/armorer/actions/runs/37105227772),
 including genuine-signature fixtures, schema checks and workflow audits. That
 receipt covers the documented main runtime and training additions at that exact
 head. It does not accept #21 or qualify a complete signed release.

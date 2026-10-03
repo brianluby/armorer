@@ -10,8 +10,8 @@ Main is `96457ee418439dde097339cfcd374c08f2cc98ad`; the combined candidate is
 `brianluby/armorer-workflows@772ca83e386c883c88cc3b936d69f8cb3216c91e`.
 Candidate guides remain separate from main's commands. Preserve source identities
 when these boundaries change.
-The separately reviewed workflow candidate is
-`853437cb1c9cbb9a60b2186ebb637ce56d3f6b51`; its observer and unsigned intake do
+The separately reviewed workflow integration candidate is
+`e88e25fc46c1bb5298579c5cd49f52d43215b9e1`; its observer and unsigned intake do
 not change the embedded workflow pin or grant protected production authority.
 
 Count what stands. Keep the missing proof visible. **This is the way.**
@@ -34,7 +34,7 @@ Neither word supplies production qualification.
 | Apple approvals and rotation | [Credential boundaries](credential-boundaries.md#review-signing-approval-before-releasing-credentials), [unsigned intake](candidate-workflow-prerequisites.md); complete frozen handoff and decision sequence prepared | Accepted protected signing adapter, exact secret bindings, effective approvals and hosted production rotation/handoff rehearsal |
 | Check/plan/apply examples | [Main CLI](cli-reference.md), [onboarding](onboarding.md), [apply](apply.md); validated read-only discovery, exact preview, digest/ownership/recovery boundaries | No multi-file authority is implied by main's toolchain-only plan |
 | Upgrade/migration examples | [Candidate upgrades](candidate-upgrades.md); all-profile integrated same-catalog migration and preserved customization/reversal tests | Accepted CLI integration and actual two-accepted-catalog migration evidence |
-| Exact-byte verification and per-artifact claims | [Trust contracts](trust-contracts-v1.md), [offline verifier](offline-verifier.md), [candidate complete verifier](candidate-verification.md); independent authority, exact artifact scope and native-v3 resolved root features with no fallback | Own complete genuine signed positive/negative producer/consumer qualification and production authority |
+| Exact-byte verification and per-artifact claims | [Trust contracts](trust-contracts-v1.md), [candidate verifier](candidate-verification.md), [final payloads](candidate-final-payloads.md); independent authority, exact artifact/observation/root-feature scope, fixed measured transformations and detached inventory proof | Own complete genuine signed positive/negative producer/consumer qualification and production authority |
 | Online/offline roots | [Evidence maintenance](evidence-maintenance.md); current primary root-export command, offline transport limits and independent policy/context renewal | Owner-approved production root export/import/renewal and applicable Apple online limits |
 | Explicit historical policy | [Candidate verification](candidate-verification.md#compare-historical-bytes-only-by-explicit-decision); exact source allowlist, weaker result and no modern fallback | Accepted integrated command and independently approved real historical identities |
 | Advisory outage behavior | [Evidence maintenance](evidence-maintenance.md#hold-the-gate-during-an-outage), [candidate producer evidence](candidate-producer-evidence.md); pinned CI fetch gate and candidate complete handoff/source/advisory freshness checks | Qualified authenticated release controller and resumption; unsigned consistency alone cannot establish protected production behavior |
@@ -54,10 +54,10 @@ Earn the last column. **This is the way.**
 
 ## Retained validation boundary
 
-Documentation head `fea6a5eeb58614c2dff6cb1c26e129b568254cfb` passes formatting,
+Documentation head `375298dfbf87d621c7d88306008fe93d58970746` passes formatting,
 strict Clippy, locked build and 95 local tests, with one genuine Sigstore test
 ignored locally. Its Linux x64, Linux ARM and macOS Development jobs all pass in
-[run 37104507124](https://github.com/brianluby/armorer/actions/runs/37104507124),
+[run 37105227772](https://github.com/brianluby/armorer/actions/runs/37105227772),
 including genuine-signature fixtures, schema checks and workflow audits. This
 receipt belongs to [draft #22](https://github.com/brianluby/armorer/pull/22), whose
 main runtime source is unchanged; it supplies no candidate-integration or complete
@@ -98,7 +98,7 @@ the documented 0/2 statuses and four open findings. All 172 copied files match
 the original archive plus supplied config; no build output or consumer mutation
 was created. This is discovery evidence, not a signed release rehearsal.
 
-The expanded guide set passes checks for 47 Markdown files, 313 local links
+The expanded guide set passes checks for 49 Markdown files, 328 local links
 (including 33 heading links), balanced fences and 29 shell blocks. The retained
 parsed dogfood TOML validation is unchanged. This validation
 checks documentation structure and the described current exercise; it does not
@@ -110,13 +110,17 @@ contents-read interfaces. No credential value, provider setting or pilot checkou
 was inspected or changed. Armorer's release list is empty; private vulnerability
 reporting still returns disabled. The pending channel question remains unresolved.
 
-The separate workflow candidate's capability and unsigned intake native runs
-pass on Linux x64, Linux ARM and macOS at exact head `853437cb1c9c`. Local
-capability and validator-build-step suites pass 19 and three tests respectively.
-The 24-test intake suite could not load locally because `jsonschema` is absent;
-no local intake result or complete own signed rehearsal is inferred from hosted
-qualification. The [workflow review](../reviews/2026-10-02-workflow-prerequisites.md)
-records this source boundary and the two distinct runs.
+The preceding workflow candidate's `853437cb1c9c` results and local import failure
+remain in the [dated review](../reviews/2026-10-02-workflow-prerequisites.md).
+The integration successor `e88e25fc46c1` preserves runtime/schema/pin/action bytes
+and updates three fixture-validator references. In a new temporary environment
+using hash-pinned development dependencies, 85 assembly/intake/collector/policy/
+capability/build-step tests pass; one real scanner/public-feed control is skipped.
+Its prerequisite/intake native runs and all 12 runtime-validation jobs pass at
+that exact head. The [integration review](../reviews/2026-10-03-workflow-integration.md)
+retains the distinct combined caller run, whose three native collection/writer-join
+jobs pass for the fixed nine-selection/eighteen-archive fixture; no complete own signed
+rehearsal or production approval is inferred from these scoped qualifications.
 
 ## Next actions require their own evidence
 
