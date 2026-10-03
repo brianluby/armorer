@@ -19,7 +19,10 @@ From this checkout use `cargo run --locked -- --repository /path/to/workspace pl
 The explicit [complete release verifier](docs/verify-release-cli.md) authenticates
 downloaded inventories, every required bundle, exact assets and paired Cargo
 SBOM/graph evidence against an independently approved context. It uses pinned
-offline native adapters and grants no publication or release-level claim.
+offline signature/SBOM adapters. Apple executables additionally require macOS
+[native signature and notarization checks](docs/apple-native-verification-v1.md),
+whose ticket lookup can use the system cache or network. Verification grants no
+publication or release-level claim.
 
 See [onboarding and boundaries](docs/onboarding.md), [reviewed apply and recovery](docs/apply.md), [version-one contracts](docs/contracts-v1.md), and [contributing](CONTRIBUTING.md).
 

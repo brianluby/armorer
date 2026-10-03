@@ -37,7 +37,7 @@ enum Operation {
         #[arg(long)]
         expect_plan_sha256: String,
     },
-    /// Authenticate every release file against independent inputs using pinned offline native verifiers.
+    /// Authenticate the complete release set; Apple executables also require native macOS checks.
     VerifyRelease {
         #[arg(long)]
         directory: PathBuf,
@@ -123,8 +123,9 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
             cyclonedx,
         } => {
             use armorer::verification::{
-                context::TrustedReleaseContext, cyclonedx::OfflineSbomValidator,
-                release::AuthenticatedReleaseFiles, sigstore::OfflineVerifier,
+                apple::VerifiedAppleRelease, context::TrustedReleaseContext,
+                cyclonedx::OfflineSbomValidator, release::AuthenticatedReleaseFiles,
+                sigstore::OfflineVerifier,
             };
             // Authenticate independent intent before reading a release or opening executable adapters.
             let context = match context_kind {
@@ -148,6 +149,7 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
                 &verifier,
                 &sbom_validator,
             )?;
+            let apple = VerifiedAppleRelease::verify(&verified, &context)?;
             Ok((
                 json!({
                     "status": "authenticated-release-files",
@@ -166,6 +168,8 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
                     "assets": verified.inventory().assets,
                     "attestation_bundles_verified": verified.attestations().len() + 1,
                     "sboms_verified": verified.sboms().len(),
+                    "apple_verification": if apple.payloads().is_empty() { "not-required" } else { "native-verified" },
+                    "apple_payloads": apple.payloads(),
                 }),
                 0,
             ))

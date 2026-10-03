@@ -1,6 +1,9 @@
 # Complete release verification from the CLI
 
-`verify-release` exposes the existing inventory-first strict offline consumer.
+`verify-release` authenticates the complete release set with the inventory-first
+strict consumer. Signature/SBOM adapters operate offline; required Apple
+executable checks use macOS Security.framework and may consult the system
+ticket cache or network.
 It authenticates the independent context before opening executable adapters or
 reading a release. It then verifies the inventory before parsing producer claims,
 rehashes every exact declared asset, verifies every required Sigstore bundle,
@@ -44,8 +47,10 @@ semantics and is never a verification fallback.
 Executable paths are offered locations, not pins or generic command inputs. The
 consumer snapshots the executables and root privately, compares their exact
 bytes with independent context/policy and compiled native approvals, checks
-native executable format and invokes only its fixed offline commands with a
-sterile environment. It does not search PATH for replacements, learn source or
+native executable format and invokes the signature/SBOM adapters only through
+their fixed offline commands with a sterile environment. After whole-file
+authentication, required Apple executables also undergo the native macOS
+signature, timestamp, team, runtime and ticket checks described below. It does not search PATH for replacements, learn source or
 signer expectations from bundles, collect tokens, download tools, contact release
 APIs, run Cargo, execute/extract payloads, mutate tags or publish releases. Stable
 filesystem ancestry and no hostile process sharing the consumer's OS account
@@ -81,3 +86,5 @@ Production catalog/root acceptance, qualified final producer integration, the ow
 complete signed non-publishing rehearsal, protected Apple finalization, immutable
 publication, both pilots and human acceptance remain incomplete. This command
 makes the consumer usable without weakening or completing those external gates.
+
+Apple CLI/service selections also require the [native Apple verification v1](apple-native-verification-v1.md) gate on macOS. Required native failures yield no successful complete-release result; library/Linux sets report `apple_verification: not-required`.

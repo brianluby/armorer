@@ -1,4 +1,5 @@
 //! Runtime signature verification, separate from producer contract consistency.
+pub mod apple;
 pub mod bundle;
 pub mod context;
 pub mod cyclonedx;
