@@ -10,8 +10,8 @@ No SLSA level or release authority follows from installing the candidate.
 ## Inspect and configure a project
 
 Build the reviewed CLI checkout with Rust 1.95.0 using `cargo build --locked`.
-Use that checkout's `target/debug/armorer` for the commands below, or a separately
-verified installation of the same candidate. Author `armorer.toml` in a stable
+Run the commands below from that checkout using `./target/debug/armorer`;
+Cargo does not add the built executable to `PATH`. Author `armorer.toml` in a stable
 consuming checkout with explicit repository, packages, binaries, targets and feature
 sets. Start with the [library, CLI or service examples](../examples/bootstrap-v2/README.md)
 and review their [discovery limits](onboarding.md). Armorer does not install tools
@@ -22,8 +22,8 @@ dependency-ban decisions belong to the owner; an example is not approval.
 Place the plan output outside the consuming checkout:
 
 ```sh
-armorer --repository /path/to/project bootstrap check --policy /path/to/reviewed-policy.toml
-armorer --repository /path/to/project bootstrap plan --policy /path/to/reviewed-policy.toml > /path/outside-project/bootstrap-plan.json
+./target/debug/armorer --repository /path/to/project bootstrap check --policy /path/to/reviewed-policy.toml
+./target/debug/armorer --repository /path/to/project bootstrap plan --policy /path/to/reviewed-policy.toml > /path/outside-project/bootstrap-plan.json
 ```
 
 `check` exits 2 while secure-release prerequisites remain. A valid `plan` exits 0
@@ -35,7 +35,7 @@ project or contacts GitHub.
 After independently approving and retaining `plan_sha256`, apply that exact intent:
 
 ```sh
-armorer --repository /path/to/project bootstrap apply --plan /path/outside-project/bootstrap-plan.json --expect-plan-sha256 APPROVED_SHA256
+./target/debug/armorer --repository /path/to/project bootstrap apply --plan /path/outside-project/bootstrap-plan.json --expect-plan-sha256 APPROVED_SHA256
 ```
 
 Follow [bootstrap ownership, repeatability and recovery](bootstrap-v2.md) for the
