@@ -46,6 +46,7 @@ enum Operation {
 
 #[derive(Clone, ValueEnum)]
 enum SchemaKind {
+    VerificationContext,
     CargoGraphV2,
     Config,
     Lock,
@@ -72,6 +73,9 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
     match cli.command {
         Operation::Schema { kind } => {
             let schema = match kind {
+                SchemaKind::VerificationContext => {
+                    schemars::schema_for!(armorer::verification::context::ReleaseExpectations)
+                }
                 SchemaKind::CargoGraphV2 => {
                     schemars::schema_for!(armorer::verification::graph::CargoGraphV2)
                 }

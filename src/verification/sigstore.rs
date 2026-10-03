@@ -82,7 +82,7 @@ pub struct ExpectedAttestation {
 }
 impl ExpectedAttestation {
     /// Check independent context against the approved source, mode, signer and scope policy.
-    fn validate(&self, policy: &VerificationPolicy) -> Result<()> {
+    pub(super) fn validate(&self, policy: &VerificationPolicy) -> Result<()> {
         self.source.validate()?;
         self.run.validate()?;
         self.caller_workflow.validate()?;
@@ -384,7 +384,7 @@ impl OfflineVerifier {
 }
 
 /// Observe current epoch seconds; an unavailable clock cannot bypass review-expiry gates.
-fn wall_time() -> Result<u64> {
+pub(super) fn wall_time() -> Result<u64> {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_secs())

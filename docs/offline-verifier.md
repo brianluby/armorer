@@ -31,15 +31,19 @@ signer SAN must contain its full immutable commit.
 The caller supplies the independently expected subject digest/size. The complete
 consumer must authenticate the inventory first and obtain each subsequent slot's
 byte identity and fixed relationship from that authenticated inventory and its
-independent configuration. The inventory/SBOM graph consumer and final-byte
-producer workflow remain required #8 work; this slice does not supply an
-`armorer verify` command or automatically authenticate a downloaded policy/catalog.
+independent configuration. The inventory-first file consumer is now implemented
+as a library, with complete signed positive qualification and the final-byte
+producer still required for #8 acceptance. This slice does not supply an
+`armorer verify` command or automatically approve a downloaded policy/catalog.
 The [selected Cargo graph v2 reader](cargo-graph-v2.md) adds independently bound
 SBOM graph reconciliation; it is a semantic foundation for the complete consumer,
 not a substitute for authenticating graph and SBOM bytes. The
 [qualified complete CycloneDX validator](complete-sbom-validation.md) adds the
-whole-document schema check, including fields outside the graph. Complete
-inventory authentication and verified-predicate comparison still remain required.
+whole-document schema check, including fields outside the graph. The
+[independently approved inventory-first consumer](authenticated-inventory.md)
+now connects these checks with inventory authentication and verified-predicate
+comparison. Its own complete signed positive rehearsal, qualified platform
+report semantics and final-byte producer remain required acceptance gates.
 
 ## Execution and result checks
 
