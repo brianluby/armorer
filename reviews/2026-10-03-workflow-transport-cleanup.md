@@ -96,3 +96,16 @@ reviewer request was changed.
 
 Earn every boundary. Do not let a green run hide a missing guard.
 **This is the way.**
+
+
+## Terminal receipt after the live observation
+
+The same `b2b9fbc9846d` combined run
+[37108079402](https://github.com/brianluby/armorer-workflows/actions/runs/37108079402)
+now finishes successfully. Exact-head API results show all 33 jobs passing,
+including collection/writer joins on Linux x64, Linux ARM and macOS. This closes
+that candidate's pending native fixture receipt without erasing the live snapshot
+or qualifying a complete own signed release. The caller/runtime/fixture identities
+retain their existing scope; no independent archive-by-archive audit is inferred.
+
+Keep the new verdict with its own source. **This is the way.**

@@ -42,7 +42,7 @@ Neither word supplies production qualification.
 | Post-publication incident/new-version recovery | [Release recovery](release-recovery.md#respond-to-a-published-failure), [incident record](release-incident-template.md); original evidence preserved, corrected version separate | Qualified backend, concrete owner-authorized incident actions and operational exercise |
 | Alias update failure | [Release recovery](release-recovery.md#resume-only-the-authorized-alias-change); separate immutable-release and alias evidence | Accepted alias adapter, newest-stable decision, authorization and exact readback/race tests |
 | Upgrade rollback | [Candidate upgrades](candidate-upgrades.md#recover-an-interruption-or-review-a-reversal); separate reverse approval and journal fault tests | Accepted integration; restored bytes remain distinct from historical authenticity/readiness |
-| Version/support/deprecation policy | [Compatibility](compatibility.md); experimental v0.1, exact runtime/schema boundary, supported metadata targets versus verifier hosts | Maintainer-approved released support/deprecation commitments; no invented support window |
+| Version/support/deprecation policy | [Compatibility](compatibility.md), [support-policy draft](support-policy-draft.md); experimental v0.1, exact runtime/schema boundary, proposed maintenance/deprecation convention and explicit unqualified minimum-system baseline | Maintainer-approved released support/deprecation commitments; no invented support window |
 | Published security policy | [Security draft](security-reporting-draft.md); reporting scope, evidence and privacy prepared | Working private channel and owner acceptance before root SECURITY.md publication |
 | Armorer dogfooding before public release | [Dogfooding](dogfooding.md), [own intent example](../examples/armorer-dogfood/README.md); own-source read-only inspection validated | Accepted hosted own producer/signing/consumer rehearsal and human acceptance; no published release exists at this snapshot |
 
@@ -54,10 +54,10 @@ Earn the last column. **This is the way.**
 
 ## Retained validation boundary
 
-Documentation head `f872f0c1eec363fdd8838f98fd7435b6a3c7791a` passes formatting,
+Documentation head `8f6982006d0a55833b85c54da01964e9834248fa` passes formatting,
 strict Clippy, locked build and 95 local tests, with one genuine Sigstore test
 ignored locally. Its Linux x64, Linux ARM and macOS Development jobs all pass in
-[run 37107732903](https://github.com/brianluby/armorer/actions/runs/37107732903),
+[run 37108554559](https://github.com/brianluby/armorer/actions/runs/37108554559),
 including genuine-signature fixtures, schema checks and workflow audits. This
 receipt belongs to [draft #22](https://github.com/brianluby/armorer/pull/22), whose
 main runtime source is unchanged; it supplies no candidate-integration or complete
@@ -98,7 +98,7 @@ the documented 0/2 statuses and four open findings. All 172 copied files match
 the original archive plus supplied config; no build output or consumer mutation
 was created. This is discovery evidence, not a signed release rehearsal.
 
-The expanded guide set passes checks for 52 Markdown files, 355 local links
+The expanded guide set passes checks for 53 Markdown files, 371 local links
 (including 37 heading links), balanced fences and 29 shell blocks. The retained
 parsed dogfood TOML validation is unchanged. This validation
 checks documentation structure and the described current exercise; it does not
@@ -143,9 +143,17 @@ A separate owned fault control reproduces incomplete exited-leader cleanup in
 shared `QualifiedGhApi`; the capability adapter's actual `response` control
 passes. Successor `b2b9fbc9846d` repairs the shared guard and passes 32 cleanup/
 build/policy/combined transport tests; all 12 runtime jobs and all three jobs in
-each prerequisite/intake run pass. Its separate combined run remains live at the
-retained observation. No genuine native-tool exploitation or complete signed
+each prerequisite/intake run pass. The same combined run `37108079402` now
+finishes successfully with all 33 jobs, including all three native writer joins.
+The earlier live observation stays in its dated review. No genuine native-tool exploitation or complete signed
 release is inferred.
+
+The [support-policy proposal](support-policy-draft.md) prepares current-minor
+versus two-minor maintenance, independent catalog combinations, declared valid
+interfaces, deprecation/migration and exact minimum-system qualification. The
+maintenance-window question is pending; the proposal establishes no accepted
+commitment. The [original acceptance ledger](v01-acceptance.md) now explicitly
+labels its dated tracker snapshot while preserving the original receipt text.
 
 ## Next actions require their own evidence
 

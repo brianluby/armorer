@@ -115,7 +115,9 @@ retains that terminal receipt and a reproduced shared-adapter cleanup fault at
 in an owned timeout control. Successor `b2b9fbc9846d5aa4bf1dbdb8e8618bddad25e23c`
 repairs that shared guard and adds the base-adapter regression in a two-file patch.
 Its 32 affected local tests, separate prerequisite/intake jobs and all 12 runtime
-jobs pass; the earlier joined success supplies no terminal result for its new combined run.
+jobs pass. Its distinct combined run `37108079402` now finishes successfully
+with all 33 jobs and all three native writer joins; preserve the earlier live
+observation separately.
 
 ## Integrate with care
 
@@ -144,9 +146,9 @@ Keep every earned protection. **This is the way.**
 
 ## Earn the release
 
-Documentation head `f872f0c1eec363fdd8838f98fd7435b6a3c7791a` passed all three
+Documentation head `8f6982006d0a55833b85c54da01964e9834248fa` passed all three
 Development jobs in
-[run 37107732903](https://github.com/brianluby/armorer/actions/runs/37107732903),
+[run 37108554559](https://github.com/brianluby/armorer/actions/runs/37108554559),
 including genuine-signature fixtures, schema checks and workflow audits. That
 receipt covers the documented main runtime and training additions at that exact
 head. It does not accept #21 or qualify a complete signed release.

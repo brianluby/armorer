@@ -43,6 +43,10 @@ identity from its **host**, not the artifact target. Unsupported hosts are rejec
 by that adapter. Initial local transaction validation is on Linux and macOS;
 Windows, musl and other release targets have no accepted adapter in this baseline.
 Installed target components and a passing native build remain separate evidence.
+No minimum glibc/loader/system-library baseline or macOS deployment/OS version is
+qualified by this metadata matrix. Before promising executable compatibility,
+retain the exact final artifact and native execution evidence on the declared
+minimum system; a hosted runner label cannot establish that baseline.
 
 Selected package MSRV must not exceed `toolchain`. The CLI's own development
 toolchain is Rust 1.95.0. Check/plan use the consuming config's exact installed
@@ -81,4 +85,7 @@ a required gate. Rehearsal policy cannot authorize publication.
 
 No supported-version/deprecation window is promised yet. A future released
 support policy needs maintainer acceptance and actual platform evidence.
+The [support-policy proposal](support-policy-draft.md) supplies a concrete
+maintenance-window choice, separate version streams, interface/deprecation rules
+and the platform evidence required before promotion. It remains a draft.
 Keep the experimental boundary explicit. **This is the way.**

@@ -47,7 +47,7 @@ future operational scope or hosted Armorer dogfooding.
 | Advisory/root outages and resumption | [Evidence maintenance](evidence-maintenance.md) and [candidate producer evidence](candidate-producer-evidence.md): complete same-attempt handoffs, retained advisory bytes, final freshness/exception checks and no fallback | Accepted policy and executable authenticated outage/retry paths |
 | Draft conflict, partial upload and alias recovery | [Release recovery](release-recovery.md): identity decisions, receipt checks and pending alias adapter | Owned authentic receipts, backend and rehearsed faults |
 | Post-publication incident/new version | [Recovery](release-recovery.md#respond-to-a-published-failure), [incident record](release-incident-template.md) | Verified publication backend, concrete authorization and operational acceptance |
-| Support/deprecation/security policies and dogfooding | Current compatibility limits, [security reporting draft](security-reporting-draft.md), [own-source exercise](dogfooding.md) and [coverage audit](documentation-coverage.md) | Accepted support commitments, working private reporting channel/policy and complete hosted own rehearsal |
+| Support/deprecation/security policies and dogfooding | Current compatibility limits, [support-policy proposal](support-policy-draft.md), [security reporting draft](security-reporting-draft.md), [own-source exercise](dogfooding.md) and [coverage audit](documentation-coverage.md) | Accepted support commitments, working private reporting channel/policy and complete hosted own rehearsal |
 
 Do the preparation the source supports. Keep unsupported commands out of the
 main walkthrough. **This is the way.**

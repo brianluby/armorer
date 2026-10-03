@@ -60,6 +60,12 @@ Synthetic fixtures establish no real signature, Apple acceptance or publication.
 
 ## Keep the record
 
+The [v0.1 acceptance ledger](v01-acceptance.md) preserves its dated tracker
+snapshot; its pending labels are not current source or ticket-status claims.
+Use [the source map](development-status.md) and [documentation coverage](documentation-coverage.md)
+for the current guide boundary. The [support-policy draft](support-policy-draft.md)
+prepares the missing maintenance/deprecation decision without promising a window.
+
 Design decisions live in [the ADR directory](adr/). The retained
 [ticket #2 validation record](trust-contract-validation.md) describes its original
 delivery and remediation checks. Current open-PR review evidence is recorded in

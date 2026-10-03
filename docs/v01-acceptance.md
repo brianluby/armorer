@@ -1,5 +1,12 @@
 # Armorer v0.1 acceptance ledger
 
+> **Historical tracker snapshot, 2026-10-02.** The source and ticket states below
+> preserve that observation. They are not current implementation or live tracker
+> status. Use [the development map](development-status.md) and
+> [documentation coverage](documentation-coverage.md) for the current source and
+> guide boundaries. Later integration/test evidence does not supply tracker
+> closeout or human acceptance. Retain the old receipt. **This is the way.**
+
 Reconciled from live Veans project **16**, epic **#1 / database ID 1304**, on
 2026-10-02. Database IDs below are API identities; `#N` is the project index.
 This ledger records delivery, human acceptance and operational validation separately.
