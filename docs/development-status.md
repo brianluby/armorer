@@ -2,7 +2,7 @@
 
 Source snapshot: **2026-10-02, America/Los_Angeles**, main
 `96457ee418439dde097339cfcd374c08f2cc98ad`. PR API observations were made
-on 2026-10-03 UTC. Six PRs are open. Inspect source ancestry before promoting
+on 2026-10-03 UTC. Seven PRs are open. Inspect source ancestry before promoting
 a feature into the current command guide.
 
 **This is the way.**
@@ -52,24 +52,33 @@ that candidate; they do not accept the entire stack or complete a release.
 | [#18: Complete-release CLI](https://github.com/brianluby/armorer/pull/18) | #17 | Explicit-context verification over the strict offline consumer | [`a5d19efa10b3`](https://github.com/brianluby/armorer/blob/a5d19efa10b3b5596930ad5eedb75ce7c18598a0/docs/verify-release-cli.md) |
 | [#19: Native Apple consumer](https://github.com/brianluby/armorer/pull/19) | #18 | Native Developer ID, team, certificate, hardened runtime, timestamp and ticket checks | [`6c0c3d192360`](https://github.com/brianluby/armorer/blob/6c0c3d192360b9dc983533f427babe323eb0baeb/docs/apple-native-verification-v1.md) |
 | [#20: Preview helper documentation](https://github.com/brianluby/armorer/pull/20) | main | Comments documenting existing preview helpers and regression tests | [`29c8e6fadf7f`](https://github.com/brianluby/armorer/blob/29c8e6fadf7f2c4e98eb67cbae42938e4e8b2b16/tests/preview.rs) |
+| [#21: Combined source](https://github.com/brianluby/armorer/pull/21) | main | Bootstrap, upgrades, preview and strict verification in one tested candidate | [`c815a065fb08`](https://github.com/brianluby/armorer/blob/c815a065fb08dbbdc0321b4a80bed66f12da9f64/docs/source-integration-v1.md) |
+
+Use the separately labelled candidate guides for [bootstrap](candidate-bootstrap.md),
+[upgrades and reversal](candidate-upgrades.md), and
+[complete/historical verification](candidate-verification.md). The complete
+verification candidate has an unresolved artifact-scope defect; its current
+success JSON cannot close the complete-provenance acceptance gate.
 
 ## Integrate with care
 
 The [original review packet](../reviews/2026-10-02-open-prs.md) retains the first
 13-head review and its exact conflict comparisons. The
 [continuation review](../reviews/2026-10-02-pr-review-continuation.md) covers #19,
-#20 and the changed merge boundary. Integration warnings remain relevant until
-tested against a combined candidate. Two proposals still use ADR 0009.
+#20 and the changed merge boundary. The
+[combined-source review](../reviews/2026-10-02-integration-pr21.md) covers #21.
+It reconciles the original structural conflicts and assigns distinct ADRs 0009,
+0010 and 0011 in the candidate. Main still lacks those integrated interfaces.
 
 Retain preview, catalog, bootstrap/upgrade and verification interfaces together.
 Retain each stack's schema, workflow-audit and genuine native integration gates.
-Resolve ADR identities after inspecting the complete integrated set.
+Resolve open source findings before accepting the integrated set.
 
 Keep every earned protection. **This is the way.**
 
 ## Earn the release
 
-All six open heads have passing hosted Rust checks at this snapshot. Several
+All seven open heads have passing hosted Rust checks at this snapshot. Several
 automated reviews failed or skipped work; they supply no approval. The new Apple
 consumer's hosted reference checks do not implement protected Apple production.
 Its online ticket request does not guarantee a fresh service response or
@@ -79,7 +88,9 @@ macOS library source packages do not need Developer ID signing.
 Production context/catalog/root approval, the final-byte producer, a complete own
 signed non-publishing rehearsal, protected Apple finalization, immutable
 publication, both pilots and human acceptance remain separate gates.
-Historical byte matching cannot substitute for authenticated provenance.
+The candidate's platform-evidence lookup must bind each report to its selected
+final artifact before complete-provenance acceptance. Historical byte matching
+cannot substitute for authenticated provenance.
 v0.1 targets SLSA Build L2; L3 stays on the future-version backlog.
 
 Hold each gate until its evidence stands. **This is the way.**

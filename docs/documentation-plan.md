@@ -34,10 +34,10 @@ future operational scope or hosted Armorer dogfooding.
 
 | Planned deliverable | Preparation now | Gate before a supported operator runbook |
 | --- | --- | --- |
-| New/existing adoption for library, CLI and service | Tested local profile exercise and preservation guide | Integrated reviewed policy/provisioning; all profiles/customization paths tested |
-| Upgrade, migration and exact rollback | Link #9's immutable guide | Integrated CLI, versioned schemas and recovery tests |
-| Complete-release and historical verification | Link the stack guides separately | Integrated independent authority and genuine complete positive/negative controls |
-| Native Apple consumer checks | Link #19's exact guide and limits | Accepted macOS integration; production signing remains separate |
+| New/existing adoption for library, CLI and service | [Candidate bootstrap and recovery](candidate-bootstrap.md) at #21's exact head; all three integrated profile regressions and temporary guide procedures pass | Reviewed integration and accepted provisioning; local configuration is not release evidence |
+| Upgrade, migration and exact rollback | [Candidate upgrades](candidate-upgrades.md); integrated CLI and forward/reverse fault tests | Accepted integration; actual migration between two independently accepted catalogs |
+| Complete-release and historical verification | [Candidate verification](candidate-verification.md); explicit context/mode routing | Fix artifact-scope defect; genuine complete positive/negative controls and independent acceptance |
+| Native Apple consumer checks | Exact #21 consumer contract, limits and hosted native receipt | Accepted integration; protected production signing remains separate |
 | Account/visibility matrix and manual settings | Source-checked matrix and manual observation guide | Qualified preflight plus repository/account-specific evidence |
 | Credential names, scopes, approvals and rotation | Preserve explicit ownership/permissions | Reviewed adapters define exact names and scopes |
 | Advisory/root outages and resumption | Explain freshness and independent policy | Accepted policy and executable outage/retry paths |
@@ -47,6 +47,12 @@ future operational scope or hosted Armorer dogfooding.
 
 Do the preparation the source supports. Keep unsupported commands out of the
 main walkthrough. **This is the way.**
+
+The [combined-source review](../reviews/2026-10-02-integration-pr21.md) records
+#21's resolved structural conflicts, ordinary/hosted validation and open trust
+finding. Candidate guides are reviewable preparation. Promote them into the
+current-source walkthrough only after accepted integration and renewed source,
+command and evidence checks. Keep the old receipts.
 
 ## Close each documentation loop
 

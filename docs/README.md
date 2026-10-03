@@ -17,6 +17,11 @@ Read [the bootstrap catalog](bootstrap-catalog.md) to inspect reviewed pins and
 These guides describe the implementation on `main`; the
 [development map](development-status.md) marks work still under PR review.
 
+For the combined PR #21 candidate, inspect [bootstrap and recovery](candidate-bootstrap.md),
+[upgrades and reversal](candidate-upgrades.md), and
+[complete/historical verification](candidate-verification.md). Their source
+headers and open review gates distinguish candidate commands from main.
+
 ## Know the boundaries
 
 | Document | What it establishes |
@@ -42,7 +47,9 @@ Synthetic fixtures establish no real signature, Apple acceptance or publication.
 Design decisions live in [the ADR directory](adr/). The retained
 [ticket #2 validation record](trust-contract-validation.md) describes its original
 delivery and remediation checks. Current open-PR review evidence is recorded in
-[the review packet](../reviews/2026-10-02-open-prs.md).
+[the original review packet](../reviews/2026-10-02-open-prs.md),
+[continuation](../reviews/2026-10-02-pr-review-continuation.md) and
+[combined-source review](../reviews/2026-10-02-integration-pr21.md).
 
 Contributors follow [the contributor guide](../CONTRIBUTING.md) and
 [the writing creed](writing-guide.md). Update behavior guides when behavior
