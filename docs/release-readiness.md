@@ -58,7 +58,10 @@ publication credentials. Trusted attestation jobs need `contents: read`,
 protected boundaries. Immutable-setting inspection needs narrow Administration
 read access. Follow [the credential architecture](../ARCHITECTURE.md#trusted-release-controller-and-credentials).
 
-Exact credential names, approvals and rotation steps belong to reviewed adapters.
+The [credential guide](credential-boundaries.md) records exact current no-secret
+CI/build interfaces and prepares protected approval/rotation duties.
+Exact signing/preflight/publication bindings and provider commands belong to
+reviewed adapters.
 The owner provisions values locally. Never collect values or bypass explicit
 bindings with inherited secret sets.
 
@@ -89,6 +92,8 @@ Draft creation, exact upload, served-byte verification, approval, immutable
 publication and post-publication verification require the future release state
 machine. Schemas, mocks and one successful target cannot establish those outcomes.
 Merging and publication require explicit human authorization.
+The [dogfooding guide](dogfooding.md) supplies Armorer's own read-only inspection
+exercise and the complete hosted rehearsal evidence still required.
 
 ## Preserve evidence on failure
 

@@ -1,10 +1,10 @@
 # Verify the cargo. Hold the trust boundary.
 
-Candidate guide: [PR #21 at `3a21085a5864`](https://github.com/brianluby/armorer/tree/3a21085a5864b8967f6da9e65e8e25850087d6f0).
+Candidate guide: [PR #21 at `aff8c041c410`](https://github.com/brianluby/armorer/tree/aff8c041c410c79674c484fc29b8adbd2ca727b9).
 Main has no complete-release or historical-comparison CLI. These procedures
 describe the reviewed candidate's commands. This successor repairs the earlier
 artifact-scope defect and passes the new scope regression; the
-[successor review](../reviews/2026-10-02-integration-pr21-successor.md) records that
+[successor review](../reviews/2026-10-02-pr21-context-ordering.md) records that
 source boundary. Complete own signed producer/consumer qualification and
 production acceptance remain open.
 
@@ -63,7 +63,7 @@ that gate. Library source packages do not require executable signing. Fixed
 codesign requests an online ticket check, but the system ticket store may supply
 the result; this establishes no fresh-service-response guarantee or authenticated
 producer submission UUID. See the
-[exact native Apple contract](https://github.com/brianluby/armorer/blob/3a21085a5864b8967f6da9e65e8e25850087d6f0/docs/apple-native-verification-v1.md).
+[exact native Apple contract](https://github.com/brianluby/armorer/blob/aff8c041c410c79674c484fc29b8adbd2ca727b9/docs/apple-native-verification-v1.md).
 
 The implemented success report uses `status: authenticated-release-files`,
 `cryptographic_release_authenticated: true` and `provenance_verified: true` with
@@ -108,12 +108,12 @@ signer, provenance or build environment. Actual-clock policy/root/historical
 review validity is checked before and after comparison; the frozen policy's root
 review requirement does not mean this operation uses a signature verifier.
 
-The [source limits and recovery guide](https://github.com/brianluby/armorer/blob/3a21085a5864b8967f6da9e65e8e25850087d6f0/docs/historical-verification.md)
+The [source limits and recovery guide](https://github.com/brianluby/armorer/blob/aff8c041c410c79674c484fc29b8adbd2ca727b9/docs/historical-verification.md)
 define byte/count/time bounds. Keep failed evidence and obtain corrected files or
 a newly independently approved policy. Explicit historical matching never becomes
 a fallback after authenticated verification fails.
 
-The [integration review](../reviews/2026-10-02-integration-pr21-successor.md) records ordinary
+The [integration review](../reviews/2026-10-02-pr21-context-ordering.md) records ordinary
 tests and hosted native checks separately from the missing complete own signed
 producer positive, protected Apple production, immutable publication and pilots.
 v0.1 targets SLSA Build L2. No candidate file report earns that level by itself.

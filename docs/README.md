@@ -36,6 +36,9 @@ headers and open review gates distinguish candidate commands from main.
 | [Platform prerequisites](platform-prerequisites.md) | Source-checked GitHub eligibility, manual settings and observation limits |
 | [Evidence maintenance](evidence-maintenance.md) | Online root preparation, offline authority, expiry/freshness and outage decisions |
 | [Release recovery](release-recovery.md), [incident template](release-incident-template.md) | Draft/conflict/alias and new-version decisions; receipt checks versus pending backend execution |
+| [Credential boundaries](credential-boundaries.md) | Exact current CI/build interface, planned protected approvals and rotation decisions |
+| [Dogfooding](dogfooding.md), [own intent example](../examples/armorer-dogfood/README.md) | Read-only inspection of Armorer itself and remaining complete rehearsal gates |
+| [Documentation coverage](documentation-coverage.md) | Every planned documentation deliverable, present evidence and outstanding acceptance |
 | [Research](../RESEARCH.md) | Dated primary-source research |
 | [Supply-chain assessment](supply-chain-assessment.md) | Optional defenses and publishing-adapter boundaries |
 
@@ -52,7 +55,8 @@ delivery and remediation checks. Current open-PR review evidence is recorded in
 [the original review packet](../reviews/2026-10-02-open-prs.md),
 [continuation](../reviews/2026-10-02-pr-review-continuation.md) and
 [combined-source review](../reviews/2026-10-02-integration-pr21.md) and
-[successor review](../reviews/2026-10-02-integration-pr21-successor.md).
+[successor review](../reviews/2026-10-02-integration-pr21-successor.md), followed
+by the [context-ordering continuation](../reviews/2026-10-02-pr21-context-ordering.md).
 
 Contributors follow [the contributor guide](../CONTRIBUTING.md) and
 [the writing creed](writing-guide.md). Update behavior guides when behavior

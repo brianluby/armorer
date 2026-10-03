@@ -52,7 +52,7 @@ that candidate; they do not accept the entire stack or complete a release.
 | [#18: Complete-release CLI](https://github.com/brianluby/armorer/pull/18) | #17 | Explicit-context verification over the strict offline consumer | [`a5d19efa10b3`](https://github.com/brianluby/armorer/blob/a5d19efa10b3b5596930ad5eedb75ce7c18598a0/docs/verify-release-cli.md) |
 | [#19: Native Apple consumer](https://github.com/brianluby/armorer/pull/19) | #18 | Native Developer ID, team, certificate, hardened runtime, timestamp and ticket checks | [`6c0c3d192360`](https://github.com/brianluby/armorer/blob/6c0c3d192360b9dc983533f427babe323eb0baeb/docs/apple-native-verification-v1.md) |
 | [#20: Preview helper documentation](https://github.com/brianluby/armorer/pull/20) | main | Comments documenting existing preview helpers and regression tests | [`29c8e6fadf7f`](https://github.com/brianluby/armorer/blob/29c8e6fadf7f2c4e98eb67cbae42938e4e8b2b16/tests/preview.rs) |
-| [#21: Combined source](https://github.com/brianluby/armorer/pull/21) | main | Bootstrap, upgrades, preview and strict verification; repaired artifact scope and explicit runtime authority | [`3a21085a5864`](https://github.com/brianluby/armorer/blob/3a21085a5864b8967f6da9e65e8e25850087d6f0/docs/source-integration-v1.md) |
+| [#21: Combined source](https://github.com/brianluby/armorer/pull/21) | main | Bootstrap, upgrades, preview and strict verification; repaired artifact scope and stronger context-first regression | [`aff8c041c410`](https://github.com/brianluby/armorer/blob/aff8c041c410c79674c484fc29b8adbd2ca727b9/docs/source-integration-v1.md) |
 
 Use the separately labelled candidate guides for [bootstrap](candidate-bootstrap.md),
 [upgrades and reversal](candidate-upgrades.md), and
@@ -70,6 +70,8 @@ The [original review packet](../reviews/2026-10-02-open-prs.md) retains the firs
 [combined-source review](../reviews/2026-10-02-integration-pr21.md) covers #21.
 The [successor review](../reviews/2026-10-02-integration-pr21-successor.md) records
 its later repair without rewriting that first snapshot.
+The [test-only continuation](../reviews/2026-10-02-pr21-context-ordering.md)
+records the latest exact context-error ordering regression.
 It reconciles the original structural conflicts and assigns distinct ADRs 0009,
 0010 and 0011 in the candidate. Main still lacks those integrated interfaces.
 
@@ -81,11 +83,12 @@ Keep every earned protection. **This is the way.**
 
 ## Earn the release
 
-Open #15–20 retain passing hosted Rust checks. #21's successor local suite passes
-205 ordinary tests plus eight doctests; seven native integrations remain ignored
-locally. All three native hosted Rust jobs in
-[run 37100465930](https://github.com/brianluby/armorer/actions/runs/37100465930)
-now report success at `3a21085a5864`. Several
+Open #15–20 retain passing hosted Rust checks. #21's source-repair local suite at
+`3a21085a5864` passes 205 ordinary tests plus eight doctests; seven native
+integrations remain ignored locally. Its later test-only head `aff8c041c410`
+passes both integrated CLI tests locally. All three native hosted Rust jobs in
+[run 37101218059](https://github.com/brianluby/armorer/actions/runs/37101218059)
+report success at that latest head. Several
 automated reviews failed or skipped work; they supply no approval. The new Apple
 consumer's hosted reference checks do not implement protected Apple production.
 Its online ticket request does not guarantee a fresh service response or

@@ -8,6 +8,8 @@ This map follows [the implementation plan's documentation requirements](../IMPLE
 and ticket [#14, database ID 1317](https://kanban.luby.us/tasks/1317).
 It is a local delivery plan, not a tracker status update or ticket closeout.
 The [development map](development-status.md) identifies the source boundary.
+The [requirement-by-requirement audit](documentation-coverage.md) records guide
+coverage, validation and the exact outstanding acceptance evidence.
 
 ## Guides for the current source
 
@@ -26,6 +28,7 @@ The [development map](development-status.md) identifies the source boundary.
 | Prepare for release gates | [Release readiness](release-readiness.md) | Required evidence and open producer/publication/pilot gates |
 | Inspect account/visibility and manual settings | [Platform prerequisites](platform-prerequisites.md) | Current GitHub documentation; manual read-only settings sample; no authenticated preflight claim |
 | Renew evidence and prepare failure decisions | [Evidence maintenance](evidence-maintenance.md), [release recovery](release-recovery.md), [incident template](release-incident-template.md) | Current consistency/freshness checks plus explicitly labelled backend design; no remote recovery claim |
+| Prepare credential ownership and own adoption | [Credential boundaries](credential-boundaries.md), [dogfooding](dogfooding.md) | Pinned no-secret CI/build interface and own-source read-only inspection; protected adapters/rehearsal still pending |
 | Contribute in the creed | [Contributing](../CONTRIBUTING.md), [writing guide](writing-guide.md) | Pinned checks, all schemas and accurate Mandalorian prose |
 
 These guides cover the current boundary. They do not complete ticket #14's
@@ -40,11 +43,11 @@ future operational scope or hosted Armorer dogfooding.
 | Complete-release and historical verification | [Candidate verification](candidate-verification.md); explicit context/mode routing and repaired subject binding at `3a21085a5864` | Genuine complete positive/negative controls and independent acceptance |
 | Native Apple consumer checks | Exact #21 consumer contract, limits and hosted native receipt | Accepted integration; protected production signing remains separate |
 | Account/visibility matrix and manual settings | Source-checked matrix and manual observation guide | Qualified preflight plus repository/account-specific evidence |
-| Credential names, scopes, approvals and rotation | Preserve explicit ownership/permissions | Reviewed adapters define exact names and scopes |
+| Credential names, scopes, approvals and rotation | [Credential guide](credential-boundaries.md): exact current no-secret interfaces, planned boundaries and rotation record | Reviewed protected adapters define exact names/scopes and qualify provider setup/rotation |
 | Advisory/root outages and resumption | [Evidence maintenance](evidence-maintenance.md): online preparation, offline import, clock boundaries and no fallback | Accepted policy and executable authenticated outage/retry paths |
 | Draft conflict, partial upload and alias recovery | [Release recovery](release-recovery.md): identity decisions, receipt checks and pending alias adapter | Owned authentic receipts, backend and rehearsed faults |
 | Post-publication incident/new version | [Recovery](release-recovery.md#respond-to-a-published-failure), [incident record](release-incident-template.md) | Verified publication backend, concrete authorization and operational acceptance |
-| Support/deprecation/security policies and dogfooding | Current compatibility limits, reproducer guidance and [security reporting draft](security-reporting-draft.md) | Accepted support commitments, a working private reporting channel/policy and hosted Armorer rehearsal |
+| Support/deprecation/security policies and dogfooding | Current compatibility limits, [security reporting draft](security-reporting-draft.md), [own-source exercise](dogfooding.md) and [coverage audit](documentation-coverage.md) | Accepted support commitments, working private reporting channel/policy and complete hosted own rehearsal |
 
 Do the preparation the source supports. Keep unsupported commands out of the
 main walkthrough. **This is the way.**

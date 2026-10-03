@@ -80,9 +80,19 @@ Preserve the last approved bytes and the new failure separately. Do not update
 timestamps, widen freshness ceilings, remove required tools or convert an error
 into an available observation to make a check pass.
 
-The planned release controller must block advisory outages or data outside accepted
-freshness. Current semantic tests enforce evidence consistency/freshness; they
-do not implement a live fetcher or rehearse service outages. Optional reporting
+The pinned reusable CI already freshly fetches advisory/registry/replacement
+feeds, stops on fetch failure and runs offline cargo-deny with a fixed one-day
+RustSec fetch-age ceiling. Its
+[exact CI guide](https://github.com/brianluby/armorer-workflows/blob/772ca83e386c883c88cc3b936d69f8cb3216c91e/docs/ci.md)
+and [runtime](https://github.com/brianluby/armorer-workflows/blob/772ca83e386c883c88cc3b936d69f8cb3216c91e/armorer_runtime/ci.py#L161)
+describe that implemented gate. An outage there is a failed CI attempt; fix the
+feed/prerequisite and rerun in a fresh attempt. A policy exception cannot turn
+unavailable data into a successful fresh observation.
+
+The planned release controller must retain that fail-closed advisory requirement
+and authenticate its release evidence. Armorer's local semantic tests enforce
+evidence consistency/freshness; they do not exercise the reusable workflow's
+live fetcher or establish production release readiness. Optional reporting
 capabilities remain governed by explicit independent policy. Reporting success
 cannot satisfy a required capability.
 
