@@ -25,6 +25,7 @@ The [development map](development-status.md) identifies the source boundary.
 | Verify a scoped attestation | [Offline verifier](offline-verifier.md) | Library API; independent policy/roots; genuine native qualification separate |
 | Prepare for release gates | [Release readiness](release-readiness.md) | Required evidence and open producer/publication/pilot gates |
 | Inspect account/visibility and manual settings | [Platform prerequisites](platform-prerequisites.md) | Current GitHub documentation; manual read-only settings sample; no authenticated preflight claim |
+| Renew evidence and prepare failure decisions | [Evidence maintenance](evidence-maintenance.md), [release recovery](release-recovery.md), [incident template](release-incident-template.md) | Current consistency/freshness checks plus explicitly labelled backend design; no remote recovery claim |
 | Contribute in the creed | [Contributing](../CONTRIBUTING.md), [writing guide](writing-guide.md) | Pinned checks, all schemas and accurate Mandalorian prose |
 
 These guides cover the current boundary. They do not complete ticket #14's
@@ -36,21 +37,23 @@ future operational scope or hosted Armorer dogfooding.
 | --- | --- | --- |
 | New/existing adoption for library, CLI and service | [Candidate bootstrap and recovery](candidate-bootstrap.md) at #21's exact head; all three integrated profile regressions and temporary guide procedures pass | Reviewed integration and accepted provisioning; local configuration is not release evidence |
 | Upgrade, migration and exact rollback | [Candidate upgrades](candidate-upgrades.md); integrated CLI and forward/reverse fault tests | Accepted integration; actual migration between two independently accepted catalogs |
-| Complete-release and historical verification | [Candidate verification](candidate-verification.md); explicit context/mode routing | Fix artifact-scope defect; genuine complete positive/negative controls and independent acceptance |
+| Complete-release and historical verification | [Candidate verification](candidate-verification.md); explicit context/mode routing and repaired subject binding at `3a21085a5864` | Genuine complete positive/negative controls and independent acceptance |
 | Native Apple consumer checks | Exact #21 consumer contract, limits and hosted native receipt | Accepted integration; protected production signing remains separate |
 | Account/visibility matrix and manual settings | Source-checked matrix and manual observation guide | Qualified preflight plus repository/account-specific evidence |
 | Credential names, scopes, approvals and rotation | Preserve explicit ownership/permissions | Reviewed adapters define exact names and scopes |
-| Advisory/root outages and resumption | Explain freshness and independent policy | Accepted policy and executable outage/retry paths |
-| Draft conflict, partial upload and alias recovery | Retain state-machine requirements | Owned receipts, backend and rehearsed faults |
-| Post-publication incident/new version | Preserve immutable-release rule | Verified publication backend and operational acceptance |
+| Advisory/root outages and resumption | [Evidence maintenance](evidence-maintenance.md): online preparation, offline import, clock boundaries and no fallback | Accepted policy and executable authenticated outage/retry paths |
+| Draft conflict, partial upload and alias recovery | [Release recovery](release-recovery.md): identity decisions, receipt checks and pending alias adapter | Owned authentic receipts, backend and rehearsed faults |
+| Post-publication incident/new version | [Recovery](release-recovery.md#respond-to-a-published-failure), [incident record](release-incident-template.md) | Verified publication backend, concrete authorization and operational acceptance |
 | Support/deprecation/security policies and dogfooding | Current compatibility limits, reproducer guidance and [security reporting draft](security-reporting-draft.md) | Accepted support commitments, a working private reporting channel/policy and hosted Armorer rehearsal |
 
 Do the preparation the source supports. Keep unsupported commands out of the
 main walkthrough. **This is the way.**
 
-The [combined-source review](../reviews/2026-10-02-integration-pr21.md) records
-#21's resolved structural conflicts, ordinary/hosted validation and open trust
-finding. Candidate guides are reviewable preparation. Promote them into the
+The [original combined-source review](../reviews/2026-10-02-integration-pr21.md)
+records #21's structural resolution and trust finding. The
+[successor review](../reviews/2026-10-02-integration-pr21-successor.md) records its
+source fix, regressions and remaining acceptance gates. Candidate guides are
+reviewable preparation. Promote them into the
 current-source walkthrough only after accepted integration and renewed source,
 command and evidence checks. Keep the old receipts.
 

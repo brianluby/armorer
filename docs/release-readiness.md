@@ -97,6 +97,10 @@ For local writes, retain the original digest/journal and follow
 the failed stage and source/policy/byte identities. Review independently approved
 replacement inputs before retrying. Expired root policy or failed authenticity
 cannot silently downgrade into historical mode.
+Use [evidence maintenance](evidence-maintenance.md) for root preparation, clock
+boundaries and outage decisions. Use [release recovery](release-recovery.md) and
+the [incident record](release-incident-template.md) to prepare draft/conflict/alias
+or corrected-version decisions while the publication backend remains incomplete.
 
 Under planned policy, advisory outages or databases outside accepted freshness
 block release. Owned identical drafts may resume only missing identical uploads

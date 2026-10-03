@@ -1,6 +1,6 @@
 # Change the armor. Retain the old plates.
 
-Candidate guide: [PR #21 at `c815a065fb08`](https://github.com/brianluby/armorer/tree/c815a065fb08dbbdc0321b4a80bed66f12da9f64).
+Candidate guide: [PR #21 at `3a21085a5864`](https://github.com/brianluby/armorer/tree/3a21085a5864b8967f6da9e65e8e25850087d6f0).
 Use the exact candidate binary, an isolated consumer and independently reviewed
 policy. These commands are absent from the current main CLI. Begin with
 [candidate bootstrap](candidate-bootstrap.md) for the example paths and policy.
@@ -121,8 +121,8 @@ and reconcile that binding before enabling CI. `configured` stays false for
 historical reversal and uncommitted recovery. Restored bytes establish no
 historical authenticity or safe fallback after failed signature verification.
 
-The [exact source guide](https://github.com/brianluby/armorer/blob/c815a065fb08dbbdc0321b4a80bed66f12da9f64/docs/upgrades.md)
-and [integration review](../reviews/2026-10-02-integration-pr21.md) retain detailed
+The [exact source guide](https://github.com/brianluby/armorer/blob/3a21085a5864b8967f6da9e65e8e25850087d6f0/docs/upgrades.md)
+and [integration review](../reviews/2026-10-02-integration-pr21-successor.md) retain detailed
 contracts, fault-test evidence and the missing two-accepted-catalog gate.
 
 Keep both approvals. Keep every receipt. **This is the way.**
