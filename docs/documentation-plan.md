@@ -31,6 +31,10 @@ coverage, validation and the exact outstanding acceptance evidence.
 | Prepare credential ownership and own adoption | [Credential boundaries](credential-boundaries.md), [dogfooding](dogfooding.md) | Pinned no-secret CI/build interface and own-source read-only inspection; protected adapters/rehearsal still pending |
 | Contribute in the creed | [Contributing](../CONTRIBUTING.md), [writing guide](writing-guide.md) | Pinned checks, all schemas and accurate Mandalorian prose |
 
+The [candidate contributor repair](../reviews/2026-10-03-pr23-schema-guide.md)
+validates #23's corrected 24-schema procedure. It remains a separate draft against
+#21's integration branch; main's 14-schema contributor procedure remains current.
+
 These guides cover the current boundary. They do not complete ticket #14's
 future operational scope or hosted Armorer dogfooding.
 

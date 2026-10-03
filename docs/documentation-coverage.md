@@ -90,6 +90,15 @@ The [evidence and lock continuation](../reviews/2026-10-03-pr21-evidence-and-loc
 retains that new receipt; it does not erase the earlier failure, fix the remaining
 contributor typo or qualify a complete own signed release.
 
+The [contributor repair record](../reviews/2026-10-03-pr23-schema-guide.md)
+qualifies draft #23 at `715a6ece2e90c826b2a647419177515413f2c7bb` against the
+unchanged #21 base. The original literal schema command exits 2; the corrected
+command exits 0 and exports all 24 schemas with identical bytes. Staging is cleaned
+in both cases. All 221 local tests pass with seven explicit native skips, and all
+three hosted platform jobs pass in run `37110189255`. The fix remains a draft
+against the integration branch; #21's typo is not yet resolved by integration.
+Main's 14-schema procedure and the earlier finding receipts remain unchanged.
+
 The new own-source inspection exports documentation head
 `b2c50c216830cc8f1c9e3627e7b292f09220354a`, whose runtime source matches main,
 copies only explicit training intent into the temporary project, and validates
@@ -98,11 +107,15 @@ the documented 0/2 statuses and four open findings. All 172 copied files match
 the original archive plus supplied config; no build output or consumer mutation
 was created. This is discovery evidence, not a signed release rehearsal.
 
-The expanded guide set passes checks for 53 Markdown files, 371 local links
+The preceding expanded guide set passes checks for 53 Markdown files, 371 local links
 (including 37 heading links), balanced fences and 29 shell blocks. The retained
 parsed dogfood TOML validation is unchanged. This validation
 checks documentation structure and the described current exercise; it does not
 exercise a missing protected release adapter.
+After adding the contributor repair record, the new check covers 54 Markdown
+files, 375 local links (including 38 heading links), balanced fences and the same
+29 shell blocks. The new record preserves the original failing command and labels
+the proposed fix separately from integration acceptance.
 
 Pinned workflow source was read through GitHub's API, including its separately
 pinned nested CI workflow. The credential guide records the actual no-secret,

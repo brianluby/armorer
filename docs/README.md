@@ -76,6 +76,9 @@ delivery and remediation checks. Current open-PR review evidence is recorded in
 by the [context-ordering continuation](../reviews/2026-10-02-pr21-context-ordering.md)
 and [resolved-feature review](../reviews/2026-10-02-pr21-resolved-features.md), then
 the [evidence and lock continuation](../reviews/2026-10-03-pr21-evidence-and-locks.md).
+The [contributor repair record](../reviews/2026-10-03-pr23-schema-guide.md)
+retains the failing literal command and #23's validated 24-schema correction;
+the draft fix remains separate from #21's current source.
 The separate [workflow prerequisite review](../reviews/2026-10-02-workflow-prerequisites.md)
 and [integration continuation](../reviews/2026-10-03-workflow-integration.md)
 retain the source and qualification boundary behind the operational preparation.
