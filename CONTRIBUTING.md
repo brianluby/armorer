@@ -72,7 +72,7 @@ contracts, label proposed PR behavior, and preserve dated validation receipts.
 
 Work is tracked in [Veans project 16](https://kanban.luby.us/projects/16/61) under
 [epic #1](https://kanban.luby.us/tasks/1304). Distinguish project indexes from
-database IDs and read back tracker writes. Merges and publication require explicit
-human authorization. v0.1 targets SLSA Build L2; L3 stays future work.
+database IDs and read back tracker writes. Merging PRs and publishing releases
+require explicit human authorization. v0.1 targets SLSA Build L2; L3 stays future work.
 
 Protect the work. Earn the claim. **This is the way.**
