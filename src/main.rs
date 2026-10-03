@@ -27,7 +27,19 @@ enum Operation {
     Catalog,
 
     /// Preview changes without writing repository files (JSON).
-    Plan,
+    Plan {
+        /// Include exact before/proposed text and complete diffs in a review envelope.
+        #[arg(long)]
+        preview: bool,
+    },
+    /// Show exact before/proposed bytes and diffs without writing consumer files.
+    Preview {
+        /// Optionally review this saved v1 plan against current repository state.
+        #[arg(long, requires = "expect_plan_sha256")]
+        plan: Option<PathBuf>,
+        #[arg(long, requires = "plan")]
+        expect_plan_sha256: Option<String>,
+    },
     /// Apply a reviewed plan; the digest must be supplied independently.
     Apply {
         #[arg(long)]
@@ -67,7 +79,7 @@ enum SchemaKind {
 
 /// Produce JSON and an exit status for the selected operation.
 ///
-/// Schema, plan, apply and recovery return status 0; check returns 2 because release
+/// Schema, plan, preview, apply and recovery return status 0; check returns 2 because release
 /// readiness remains blocked. Propagates inspection errors and maps JSON value
 /// conversion failures to `Error::Json`; output is left to the caller.
 fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
@@ -138,7 +150,30 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
             .map_err(|_| Error::Json)?,
             0,
         )),
-        Operation::Plan => Ok((
+        Operation::Preview {
+            plan,
+            expect_plan_sha256,
+        } => {
+            let preview = match (plan, expect_plan_sha256) {
+                (Some(path), Some(expected)) => {
+                    let plan = armorer::apply::load_plan(&path, &expected)?;
+                    armorer::preview::preview_plan(&cli.repository, &plan)?
+                }
+                (None, None) => armorer::preview::preview(&cli.repository)?,
+                _ => {
+                    return Err(Error::Transaction(
+                        "saved preview requires a plan and digest",
+                    ));
+                }
+            };
+            Ok((serde_json::to_value(preview).map_err(|_| Error::Json)?, 0))
+        }
+        Operation::Plan { preview: true } => Ok((
+            serde_json::to_value(armorer::preview::preview(&cli.repository)?)
+                .map_err(|_| Error::Json)?,
+            0,
+        )),
+        Operation::Plan { preview: false } => Ok((
             serde_json::to_value(inspect(&cli.repository, "plan")?).map_err(|_| Error::Json)?,
             0,
         )),

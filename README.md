@@ -32,3 +32,7 @@ Inspired by the Armorer's craft: forge protection into the tools projects begin 
 `armorer catalog` exposes the reviewed bootstrap tool/workflow authority without
 network access or consuming files. See [catalog source and limits](docs/bootstrap-catalog.md).
 Project policy and transactional provisioning remain separate required integration.
+
+`armorer plan --preview` (also `armorer preview`) shows exact current/proposed bytes and complete diffs while
+retaining the approval-bound v1 plan. See [review and apply](docs/apply.md) and
+the [v0.1 acceptance ledger](docs/v01-acceptance.md) for delivered scope and gates.
