@@ -36,7 +36,10 @@ producer workflow remain required #8 work; this slice does not supply an
 `armorer verify` command or automatically authenticate a downloaded policy/catalog.
 The [selected Cargo graph v2 reader](cargo-graph-v2.md) adds independently bound
 SBOM graph reconciliation; it is a semantic foundation for the complete consumer,
-not a substitute for authenticating graph and SBOM bytes.
+not a substitute for authenticating graph and SBOM bytes. The
+[qualified complete CycloneDX validator](complete-sbom-validation.md) adds the
+whole-document schema check, including fields outside the graph. Complete
+inventory authentication and verified-predicate comparison still remain required.
 
 ## Execution and result checks
 

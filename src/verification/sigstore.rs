@@ -418,7 +418,7 @@ fn validate_root_transport(bytes: &[u8]) -> Result<()> {
 }
 
 /// Check supported native headers after authenticating the complete official executable bytes.
-fn native_executable(path: &Path) -> Result<()> {
+pub(super) fn native_executable(path: &Path) -> Result<()> {
     let mut header = [0_u8; 32];
     io::regular(path, io::MAX_VERIFIER)?.read_exact(&mut header)?;
     let supported = if cfg!(all(target_os = "linux", target_arch = "x86_64")) {
@@ -618,10 +618,10 @@ fn validate_output(
 }
 
 #[derive(Clone, Copy)]
-struct Limits {
-    timeout: Duration,
-    stdout: usize,
-    stderr: usize,
+pub(super) struct Limits {
+    pub(super) timeout: Duration,
+    pub(super) stdout: usize,
+    pub(super) stderr: usize,
 }
 impl Default for Limits {
     /// Use fixed production time and output limits for every native invocation.
@@ -649,7 +649,7 @@ impl Drop for Running {
 }
 
 /// Drain both bounded streams while enforcing the pinned child exit status and deadline.
-fn run_process(mut command: Command, limits: Limits) -> Result<Vec<u8>> {
+pub(super) fn run_process(mut command: Command, limits: Limits) -> Result<Vec<u8>> {
     let child = command
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

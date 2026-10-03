@@ -43,6 +43,10 @@ jobs:
         run: python3 -I scripts/qualify-test-verifier.py --output-directory "$RUNNER_TEMP/armorer-fixture-gh" --github-env
       - name: Verify genuine signatures and adversarial fixtures
         run: cargo test --locked --test real_sigstore -- --ignored --test-threads=1
+      - name: Qualify pinned native complete SBOM validator
+        run: python3 -I scripts/qualify-test-sbom-validator.py --output-directory "$RUNNER_TEMP/armorer-fixture-cyclonedx" --github-env
+      - name: Validate complete CycloneDX documents and adversarial fixtures
+        run: cargo test --locked --test real_cyclonedx -- --ignored --test-threads=1
       - name: Build
         run: cargo build --locked
       - name: Verify committed schemas
