@@ -822,4 +822,57 @@ mod tests {
         assert_eq!(io::read_bounded(&path, MAX_BINARY as u64).unwrap(), bytes);
         // The compiled fixture is never executed; '-' uses no Developer ID certificate or keychain secret.
     }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    #[ignore = "requires the pin-qualified public Apple reference and native ticket lookup; run explicitly in native qualification"]
+    /// Accept a genuinely notarized reference and reject wrong team/certificate and tampering without executing it.
+    fn real_public_developer_id_reference_and_native_adversaries() {
+        let offered = std::env::var_os("ARMORER_TEST_APPLE_REFERENCE")
+            .expect("qualified inert Apple reference required");
+        let bytes = io::read_bounded(Path::new(&offered), 32 * 1024 * 1024).unwrap();
+        assert_eq!(bytes.len(), 11_571_456);
+        assert_eq!(
+            crate::digest(&bytes),
+            "5e7b3040ed2e772715b6fa19f6269b3b45f6705c769e29a6aceeb9ad7bd62caa"
+        );
+        let directory = tempfile::Builder::new()
+            .prefix("armorer-apple-reference-")
+            .tempdir()
+            .unwrap();
+        let path = directory.path().join("payload.macho");
+        io::write_readonly(&path, &bytes).unwrap();
+        let certificate = "912d20cb0e38fc959b701cbbbfc4aced91d04c4d78c67dd4ac1ef1fcc80f7952";
+        assert_eq!(
+            native(&path, &bytes, "DVH6X33J83", certificate).unwrap(),
+            1_790_809_791
+        );
+        assert_eq!(
+            native(&path, &bytes, "FIXTURE123", certificate)
+                .unwrap_err()
+                .to_string(),
+            invalid("apple-developer-id-signature-invalid").to_string()
+        );
+        assert_eq!(
+            native(&path, &bytes, "DVH6X33J83", &"0".repeat(64))
+                .unwrap_err()
+                .to_string(),
+            invalid("apple-cms-leaf-certificate-mismatch").to_string()
+        );
+        let mut tampered = bytes.clone();
+        tampered[4096] ^= 1;
+        let changed = directory.path().join("tampered.macho");
+        io::write_readonly(&changed, &tampered).unwrap();
+        assert_eq!(
+            native(&changed, &tampered, "DVH6X33J83", certificate)
+                .unwrap_err()
+                .to_string(),
+            invalid("apple-developer-id-signature-invalid").to_string()
+        );
+        assert_eq!(io::read_bounded(&path, MAX_BINARY as u64).unwrap(), bytes);
+        assert_eq!(
+            io::read_bounded(&changed, MAX_BINARY as u64).unwrap(),
+            tampered
+        );
+    }
 }

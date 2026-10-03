@@ -42,6 +42,12 @@ jobs:
       - name: Reject genuine hardened ad-hoc Apple signatures
         if: runner.os == 'macOS'
         run: cargo test --locked real_hardened_adhoc_signature_cannot_satisfy_developer_id -- --ignored --test-threads=1
+      - name: Stage pin-matched public Apple reference without execution
+        if: runner.os == 'macOS'
+        run: python3 -I scripts/qualify-test-apple-reference.py --output-directory "$RUNNER_TEMP/armorer-apple-reference" --github-env
+      - name: Verify genuine Developer ID ticket and native adversaries
+        if: runner.os == 'macOS'
+        run: cargo test --locked real_public_developer_id_reference_and_native_adversaries -- --ignored --test-threads=1
       - name: Qualify pinned native signature verifier
         run: python3 -I scripts/qualify-test-verifier.py --output-directory "$RUNNER_TEMP/armorer-fixture-gh" --github-env
       - name: Verify genuine signatures and adversarial fixtures

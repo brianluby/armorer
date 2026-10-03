@@ -87,9 +87,23 @@ executed and uses no Developer ID identity or notarization submission:
 cargo test --locked real_hardened_adhoc_signature_cannot_satisfy_developer_id -- --ignored --test-threads=1
 ```
 
-Hosted macOS 15 qualification, a genuine approved Developer ID/notarized positive,
-protected Apple producer finalization, final-byte signing of the complete Armorer
-release, independent source review and human acceptance remain required. This
+A separately pinned public Momus v0.3.1 executable supplies a genuine native
+reference positive. Its final archive's provenance was independently verified
+against source `d64edff1b47982a408ffca4a551d4d83cdc06740`, tag `v0.3.1` and reusable
+signer `290feb94f125b7525302a46e1a37ff5eaefd3465` with the retained offline root.
+The reference pins archive/executable digests, public signer certificate DER,
+team `DVH6X33J83` and authenticated timestamp. macOS CI downloads only the fixed
+archive, rehashes both identities, writes an inert private snapshot and requires
+the actual native backend to accept it. Wrong team, wrong certificate and
+tampered signed bytes must fail, with no execution. The legacy reference archive
+contains README/license files; its explicit fixture-only reader does not change
+Armorer's production single-leaf archive parser or construct a complete release
+proof. The fixture does not constitute Momus adoption or an Armorer producer
+rehearsal. Fixture source review and hosted macOS 15 qualification remain pending.
+
+Hosted macOS 15 qualification, protected Apple producer finalization, final-byte
+signing and independent verification of the complete own Armorer release,
+independent source review and human acceptance remain required. This
 candidate alone does not complete tickets #8/#9, authorize publication, or
 establish SLSA Build L2. Existing v1 schemas and historical receipts are preserved.
 
