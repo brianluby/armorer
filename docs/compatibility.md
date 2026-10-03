@@ -4,7 +4,7 @@ Keep the runtime, contracts and workflow pins together. Reject a mismatch before
 changing the repository. **This is the way.**
 
 This is the compatibility boundary of main source
-`96457ee418439dde097339cfcd374c08f2cc98ad`, not a promise of long-term support.
+`5e8e2b7fd84a4b6a39650278ae14dbc7cae0afce`, not a promise of long-term support.
 Contracts remain experimental before the v0.1 release. Cargo's package metadata
 currently names Armorer `0.1.0`; that version string establishes no published
 release, platform qualification or SLSA achievement.
@@ -25,7 +25,7 @@ ownership or intent changes. Reformatting plan JSON does not alter its typed
 digest, but changes to fields do. Duplicate JSON keys are rejected. Editing the
 stored digest is not a migration or approval.
 
-All 14 CLI schema names are in [the command reference](cli-reference.md).
+All 27 CLI schema names are in [the command reference](cli-reference.md).
 Schemas establish structure. Semantic validation, upstream authentication and
 hosted execution have separate gates.
 
@@ -59,7 +59,8 @@ Select the target. Prove the build on its own host. **This is the way.**
 Armorer and `armorer-workflows` are versioned independently. The embedded
 [bootstrap catalog](bootstrap-catalog.md) binds one reviewed workflow commit and
 target-qualified tool distributions. Its renderer supplies locks and fixed
-unprivileged caller text; current main does not transactionally adopt those files.
+unprivileged caller text; the separately approved [bootstrap](bootstrap-v2.md)
+transaction provisions those files without changing version-one apply semantics.
 A syntactically valid lock does not prove that every supplied pin belongs to the
 catalog or that its upstream distribution was authenticated.
 
@@ -71,10 +72,10 @@ its own catalog, version or historical exception. The
 
 ## Review an upgrade deliberately
 
-Current main has no upgrade or downgrade CLI. The proposed bootstrap/upgrade and
-native-context v2 interfaces are linked at exact commits in
-[the development map](development-status.md). They do not reinterpret a v1
-toolchain plan as permission for multi-file mutation.
+Main provides [bootstrap](bootstrap-v2.md) and [reviewed upgrade/import/rollback](upgrades.md)
+commands. Their independently approved packets do not reinterpret a v1 toolchain
+plan as permission for multi-file mutation. Native contexts v1, v2 and v3 have
+explicit frozen meanings; verification never retries a weaker context after failure.
 
 Before adopting a future version, review its compatibility/catalog changes,
 owned generated bases, exact previews and recovery path. Preserve the original

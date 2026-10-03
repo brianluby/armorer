@@ -4,7 +4,7 @@ One workspace can forge several deliverables. Name each one. Select its package,
 target and features. Keep its evidence separate. **This is the way.**
 
 This guide covers local inspection at main source
-`96457ee418439dde097339cfcd374c08f2cc98ad`. Full adoption, packaging and release
+`5e8e2b7fd84a4b6a39650278ae14dbc7cae0afce`. Full adoption, packaging and release
 acceptance remain separate gates in [the development map](development-status.md).
 
 ## Choose a profile
@@ -32,7 +32,7 @@ from the Armorer checkout in a POSIX shell:
 
 ```sh
 armorer_binary="$PWD/target/debug/armorer"
-armorer_profile_root="$(mktemp -d /tmp/armorer-profiles.XXXXXX)"
+armorer_profile_root="$(mktemp -d /tmp/armorer-profiles.XXXXXX)" || exit 1
 cp -R examples/profile-workspace/. "$armorer_profile_root/"
 "$armorer_binary" --repository "$armorer_profile_root" plan \
   > "$armorer_profile_root-plan.json"
@@ -89,6 +89,8 @@ On current main, differing unowned toolchain files and legacy `rust-toolchain`
 produce conflicts. Identical files remain unowned. There is no force/adopt flag.
 Preserve the custom bytes, resolve the desired toolchain deliberately, then review
 a fresh plan. Follow [apply and recovery](apply.md) for the toolchain-only change.
-Managed workflow imports and reviewed multi-file upgrades remain integration work.
+Use [bootstrap](bootstrap-v2.md) for five-file provisioning and
+[reviewed upgrades](upgrades.md) for explicit managed-file imports and migration.
+Two-accepted-catalog migration and full release adoption remain operational gates.
 
 Preserve the craft already in the repository. **This is the way.**

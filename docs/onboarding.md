@@ -16,7 +16,7 @@ dependencies. Inspection does not build or execute it.
 
 ```sh
 armorer_binary="$PWD/target/debug/armorer"
-armorer_training_root="$(mktemp -d /tmp/armorer-training.XXXXXX)"
+armorer_training_root="$(mktemp -d /tmp/armorer-training.XXXXXX)" || exit 1
 mkdir "$armorer_training_root/src"
 cat > "$armorer_training_root/Cargo.toml" <<'TOML'
 [package]
@@ -75,7 +75,7 @@ intent. Approval still requires your review. The training source stays inert.
 1. Install rustup and the exact toolchain declared in `armorer.toml`. Armorer never installs consuming tools during check/plan. The CLI builds with Rust 1.95.0.
 2. Author configuration using [the example](../examples/armorer.toml) and [contracts](contracts-v1.md). Select packages, binaries, targets and features explicitly; omit binary for libraries.
 3. Run `armorer --repository /path/to/workspace plan` and review findings and proposed content. Run `check` for a failing setup gate; it exits 2 while requirements remain.
-4. Optionally review and retain a plan digest, then use [transactional apply](apply.md) to configure the toolchain. Check/plan stay read-only. Track missing settings, credentials and reviewed pins as setup work; this slice does not contact GitHub, request secrets or configure GitHub settings.
+4. Review and retain a plan digest, then use [v1 transactional apply](apply.md) for toolchain-only setup or [version-two bootstrap](bootstrap-v2.md) to provision callers, catalog-backed lock and explicit policy. Check/plan stay read-only. Track missing settings, credentials and reviewed pins as setup work; this slice does not contact GitHub, request secrets or configure GitHub settings.
 
 For all three profiles, follow [the complete workspace exercise](profiles.md).
 Keep [compatibility](compatibility.md), [platform prerequisites](platform-prerequisites.md)
@@ -93,7 +93,7 @@ The local rustup installation and OS are trusted. This is not an OS sandbox agai
 
 Check/plan leave no consumer changes to recover. Apply uses a durable journal and explicit recovery; follow [the recovery procedure](apply.md) after interrupted writes. Review JSON error codes; TOML errors omit input values. The operating-system temporary directory must resolve outside the consuming workspace and have no ancestor `.cargo/config` or `.cargo/config.toml`; unsafe placement is rejected before snapshot creation. Use an external temporary directory with no inherited Cargo configuration when rerunning. Ancestor configuration is checked for presence without opening its contents. For other discovery failures, inspect manifests using trusted installed Cargo in a context you control, correct unsupported selections/paths/toolchains and rerun. Armorer prints no credentials or arbitrary Cargo stderr.
 
-Workflow/tool upgrades, authenticated GitHub checks, signing credential-name setup, hosted rehearsals, release verification and failed-draft recovery belong to later slices and require operational documentation before publication. Toolchain apply cannot authorize releases or claim SLSA compliance.
+Use [reviewed upgrades](upgrades.md), [complete release verification](verify-release-cli.md) and [owned-draft inspection/recovery](owned-draft-controller-v1.md) for the accepted implementation paths. Protected signing, effective publication prerequisites and complete operational rehearsals remain incomplete. Follow [the readiness path](readiness.md) and [current acceptance ledger](v01-acceptance.md) for their exact gates. Toolchain apply cannot authorize releases or claim SLSA compliance.
 
 Read [error and finding codes](cli-reference.md) when inspection stops. Name the
 limitation. Hold the gate. **This is the way.**

@@ -31,9 +31,10 @@ coverage, validation and the exact outstanding acceptance evidence.
 | Prepare credential ownership and own adoption | [Credential boundaries](credential-boundaries.md), [dogfooding](dogfooding.md) | Pinned no-secret CI/build interface and own-source read-only inspection; protected adapters/rehearsal still pending |
 | Contribute in the creed | [Contributing](../CONTRIBUTING.md), [writing guide](writing-guide.md) | Pinned checks, all schemas and accurate Mandalorian prose |
 
-The [candidate contributor repair](../reviews/2026-10-03-pr23-schema-guide.md)
-validates #23's corrected 24-schema procedure. It remains a separate draft against
-#21's integration branch; main's 14-schema contributor procedure remains current.
+The [historical contributor repair](../reviews/2026-10-03-pr23-schema-guide.md)
+records #23's 24-schema fix. The accepted procedure now stages all 27 schemas;
+#23 is closed as superseded. Bootstrap, upgrade and complete verification are
+accepted implementations; their production/operational gates remain open.
 
 These guides cover the current boundary. They do not complete ticket #14's
 future operational scope or hosted Armorer dogfooding.
@@ -43,9 +44,9 @@ future operational scope or hosted Armorer dogfooding.
 | Planned deliverable | Preparation now | Gate before a supported operator runbook |
 | --- | --- | --- |
 | New/existing adoption for library, CLI and service | [Candidate bootstrap and recovery](candidate-bootstrap.md) at #21's exact head; all three integrated profile regressions and temporary guide procedures pass | Reviewed integration and accepted provisioning; local configuration is not release evidence |
-| Upgrade, migration and exact rollback | [Candidate upgrades](candidate-upgrades.md); integrated CLI and forward/reverse fault tests | Accepted integration; actual migration between two independently accepted catalogs |
+| Upgrade, migration and exact rollback | [Candidate upgrades](candidate-upgrades.md); integrated CLI and forward/reverse fault tests | Operational qualification; actual migration between two independently accepted catalogs |
 | Complete-release and historical verification | [Candidate verification](candidate-verification.md) at `56d7380a5534`; [final payload assembly](candidate-final-payloads.md) at workflow `4cdf5d786aeb`; exact subject/observation/root-feature authority and detached inventory proof order | Genuine complete positive/negative controls and independent acceptance |
-| Native Apple consumer checks | Exact #21 consumer contract, limits and hosted native receipt; [candidate unsigned workflow intake](candidate-workflow-prerequisites.md) | Accepted integration; protected production signing remains separate |
+| Native Apple consumer checks | Exact #21 consumer contract, limits and hosted native receipt; [candidate unsigned workflow intake](candidate-workflow-prerequisites.md) | Operational qualification; protected production signing remains separate |
 | Account/visibility matrix and manual settings | Source-checked matrix, manual observation guide and [candidate native prerequisite reads](candidate-workflow-prerequisites.md) | Accepted preflight integration, production scoped identity and repository/account-specific evidence |
 | Credential names, scopes, approvals and rotation | [Credential guide](credential-boundaries.md), [producer startup](candidate-producer-startup.md): current no-secret interfaces, exact candidate Python/Node/runtime/OIDC names, original-proof lifetimes, planned boundaries and rotation record | Reviewed protected adapters define production names/scopes and qualify provider setup/rotation |
 | Advisory/root outages and resumption | [Evidence maintenance](evidence-maintenance.md) and [candidate producer evidence](candidate-producer-evidence.md): complete same-attempt handoffs, retained advisory bytes, final freshness/exception checks and no fallback | Accepted policy and executable authenticated outage/retry paths |
@@ -77,3 +78,8 @@ database ID. A local guide establishes no tracker closure, human acceptance or
 published release.
 
 Make the guide earn the reader's trust. **This is the way.**
+
+The [accepted source map](development-status.md) and [live acceptance ledger](v01-acceptance.md)
+separate merged implementation from the remaining operational gates. Preserve the
+[preceding documentation snapshot](../reviews/2026-10-03-documentation-plan-before-reconciliation.txt)
+and existing dated review receipts. PR #26 remains under separate human review.

@@ -8,7 +8,7 @@ Armorer is building repeatable secure CI and verifiable releases for Rust reposi
 
 ## What stands today
 
-On current `main`, read-only `check` and `plan` validate explicit Cargo workspace selections. `preview` shows exact before/after text and complete diffs. Digest-approved `apply` configures `rust-toolchain.toml` transactionally; `recover` handles interrupted writes. `catalog` exposes the embedded reviewed bootstrap authority. Library APIs verify individual attestation slots through pinned offline `gh`. Multi-file provisioning, upgrades and the complete-release consumer remain separate integration work. Follow [the development map](docs/development-status.md) for exact source and PR boundaries.
+Read-only `check` and `plan` validate explicit Cargo workspace selections; `preview` shows exact before/after text and complete diffs. Version-one `apply` manages the toolchain. The accepted version-two `bootstrap` path provisions all five local CI/build files from reviewed catalog pins and owner-selected policy. `upgrade` preserves stored generated bases, exposes conflicts and supports explicit imports and rollback. The strict complete-release consumer verifies independent context, authenticated inventories, exact assets and paired SBOM/graph evidence. Native Apple executable verification requires macOS. Follow [the source map](docs/development-status.md) and [acceptance ledger](docs/v01-acceptance.md) for accepted heads and operational gates.
 
 **v0.1 targets SLSA Build L2. Current main claims no SLSA level.** L3 belongs to a future-version backlog item. Configuration, hosted CI, release rehearsal, publication and verified provenance each need separate evidence.
 
@@ -52,7 +52,11 @@ Follow [your first inspection](docs/onboarding.md) for a complete local exercise
 | Verify an individual attestation through the library | [Offline verifier](docs/offline-verifier.md) |
 | Understand configuration, locks and plan digests | [Version-one contracts](docs/contracts-v1.md) |
 | Understand release trust and evidence | [Trust contracts](docs/trust-contracts-v1.md) |
-| Follow proposed features | [Development map](docs/development-status.md) |
+| Provision all five local files | [Bootstrap and recovery](docs/bootstrap-v2.md) |
+| Review upgrades, imports and rollback | [Upgrades](docs/upgrades.md) |
+| Verify complete or historical release bytes | [Complete verifier](docs/verify-release-cli.md), [explicit historical policy](docs/historical-verification.md) |
+| Inspect owned-draft publication gates | [Controller](docs/owned-draft-controller-v1.md) |
+| Review accepted source and remaining work | [Development map](docs/development-status.md) |
 | Contribute code or documentation | [Contributing](CONTRIBUTING.md), [writing creed](docs/writing-guide.md) |
 
 The [documentation index](docs/README.md) also leads to architecture, ADRs, research, the [v0.1 acceptance ledger](docs/v01-acceptance.md) and retained validation records.

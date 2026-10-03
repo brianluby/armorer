@@ -1,0 +1,92 @@
+{
+  "$defs": {
+    "ApprovalKind": {
+      "description": "Draft staging and public publication are distinct, independently approved actions.",
+      "enum": [
+        "stage-draft",
+        "publish-draft"
+      ],
+      "type": "string"
+    },
+    "ByteIdentity": {
+      "additionalProperties": false,
+      "description": "An exact byte identity, independent of a filename or producer claim.",
+      "properties": {
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size": {
+          "format": "uint64",
+          "maximum": 1073741824,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sha256",
+        "size"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Human approval claims must be authenticated by an independent digest before they become a permit.",
+  "properties": {
+    "approved_at": {
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "approver_id": {
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "expires_at": {
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "kind": {
+      "$ref": "#/$defs/ApprovalKind"
+    },
+    "plan": {
+      "$ref": "#/$defs/ByteIdentity"
+    },
+    "release_id": {
+      "format": "uint64",
+      "minimum": 0,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "schema_version": {
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "served_bytes": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ByteIdentity"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "schema_version",
+    "kind",
+    "plan",
+    "approver_id",
+    "approved_at",
+    "expires_at"
+  ],
+  "title": "PublicationApproval",
+  "type": "object"
+}

@@ -10,12 +10,15 @@
 //! ```
 
 pub mod apply;
+pub mod bootstrap;
 pub mod catalog;
+pub mod ci_policy;
 pub mod config;
 pub mod discovery;
 pub mod plan;
 pub mod preview;
 pub mod trust;
+pub mod upgrade;
 pub mod verification;
 
 use std::path::{Component, Path, PathBuf};

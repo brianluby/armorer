@@ -2,10 +2,9 @@
 
 Use this guide when trusted roots, policy reviews, advisory databases or capability
 observations need renewal. It covers current contract checks and preparation for
-the proposed release controller. Main verifies individual evidence slots through
-the [offline library API](offline-verifier.md); the
-[candidate complete verifier](candidate-verification.md) has its own exact source
-boundary. Neither interface provides a root-update or advisory-fetch command.
+the implemented release controller, whose native writes remain gated. Main
+verifies individual evidence slots through the [offline library API](offline-verifier.md)
+and complete sets through the [complete verifier](verify-release-cli.md). Neither interface provides a root-update or advisory-fetch command.
 
 Keep authority outside the offered claim. **This is the way.**
 
@@ -17,7 +16,7 @@ path. Preserve earlier exports and their approvals.
 
 ```sh
 qualified_gh=/path/to/qualified/gh
-root_packet=$(mktemp -d)
+root_packet=$(mktemp -d) || exit 1
 "$qualified_gh" attestation trusted-root \
   > "$root_packet/trusted-root.candidate.jsonl"
 root_export_status=$?
@@ -75,8 +74,8 @@ requirement, and required coverage must retain the exact approved `exception_ids
 Renewing an observation or changing exception use therefore needs renewed
 independent requirements/context approval. A producer cannot freshen its label
 or attach a merely allowed exception to an exception-free coverage requirement.
-This tightening is candidate behavior; main's earlier validator has its own source
-boundary.
+This tightening is included in accepted main through #21. The dated candidate
+guide retains its original source and validation boundary.
 
 Keep units, source and uncertainty with every observation.
 **This is the way.**

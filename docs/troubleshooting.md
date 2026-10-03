@@ -4,9 +4,10 @@ Read the failure. Preserve the evidence. Correct the input that failed.
 **This is the way.**
 
 Use this guide for current local inspection, preview and toolchain transactions.
-It follows main source `96457ee418439dde097339cfcd374c08f2cc98ad`.
+It follows main source `5e8e2b7fd84a4b6a39650278ae14dbc7cae0afce`.
 [The CLI reference](cli-reference.md) lists commands and stable error categories.
-Complete release/draft recovery remains a separate implementation gate.
+Use the [complete verifier](verify-release-cli.md) and [owned-draft controller](owned-draft-controller-v1.md)
+for their separate error/recovery contracts; native publication remains gated.
 
 ## Start with the exit status
 

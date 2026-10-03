@@ -1,5 +1,11 @@
 # Seal the cargo before you attest it
 
+This is a retained implementation walkthrough at the immutable source below.
+The source/workflow integrations were subsequently merged. Use the
+[current source map](development-status.md) and [acceptance ledger](v01-acceptance.md)
+for command availability and remaining gates. The candidate label identifies
+this guide's original qualification boundary.
+
 Candidate source: workflow integration
 [`4cdf5d786aebb637c7b41afe53c4d19a8be08ffa`](https://github.com/brianluby/armorer-workflows/tree/4cdf5d786aebb637c7b41afe53c4d19a8be08ffa).
 The embedded catalog still pins workflow main `772ca83e386c883c88cc3b936d69f8cb3216c91e`.

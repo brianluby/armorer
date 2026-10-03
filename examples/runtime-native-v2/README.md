@@ -1,0 +1,6 @@
+Synthetic structural examples only. They use inert 128-byte format headers and synthetic tool identities. The inherited v1 config/lock hashes are placeholders for this example; these files are not an approved semantic context, production catalog, working runtime or signed release. Integration tests construct complete exact independent authorities instead. No example authorizes execution, signing, publication or SLSA claims.
+
+`context-v3.json` illustrates the explicit independently approved resolved root
+feature map over the unchanged native catalog-v2 format. It is synthetic; see the
+[successor guide](../../docs/resolved-root-features-v3.md) before preparing an
+actual source-reviewed approval context.

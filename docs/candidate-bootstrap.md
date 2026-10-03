@@ -1,5 +1,11 @@
 # Equip the candidate. Keep the approval.
 
+This is a retained implementation walkthrough at the immutable source below.
+The source/workflow integrations were subsequently merged. Use the
+[current source map](development-status.md) and [acceptance ledger](v01-acceptance.md)
+for command availability and remaining gates. The candidate label identifies
+this guide's original qualification boundary.
+
 Candidate guide: [PR #21 at `56d7380a5534`](https://github.com/brianluby/armorer/tree/56d7380a5534583b7973b5eedc55a1223b46b60e).
 These commands are absent from the main source in the
 [development map](development-status.md). Use a binary built from that exact

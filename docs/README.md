@@ -17,10 +17,11 @@ Read [the bootstrap catalog](bootstrap-catalog.md) to inspect reviewed pins and
 These guides describe the implementation on `main`; the
 [development map](development-status.md) marks work still under PR review.
 
-For the combined PR #21 candidate, inspect [bootstrap and recovery](candidate-bootstrap.md),
-[upgrades and reversal](candidate-upgrades.md), and
-[complete/historical verification](candidate-verification.md). Their source
-headers and open review gates distinguish candidate commands from main.
+For accepted main commands, use [bootstrap and recovery](bootstrap-v2.md),
+[upgrades and reversal](upgrades.md), [complete verification](verify-release-cli.md)
+and [explicit historical policy](historical-verification.md). The `candidate-*`
+guides retain their original immutable qualification boundaries; integrations
+are now accepted, while the operational gates in the ledger remain open.
 For the separate workflow stack, inspect the
 [candidate prerequisite and unsigned intake guide](candidate-workflow-prerequisites.md).
 Follow [candidate producer evidence](candidate-producer-evidence.md) for complete
@@ -71,7 +72,7 @@ prepares the missing maintenance/deprecation decision without promising a window
 
 Design decisions live in [the ADR directory](adr/). The retained
 [ticket #2 validation record](trust-contract-validation.md) describes its original
-delivery and remediation checks. Current open-PR review evidence is recorded in
+delivery and remediation checks. Historical PR review evidence is recorded in
 [the original review packet](../reviews/2026-10-02-open-prs.md),
 [continuation](../reviews/2026-10-02-pr-review-continuation.md) and
 [combined-source review](../reviews/2026-10-02-integration-pr21.md) and
@@ -80,8 +81,8 @@ by the [context-ordering continuation](../reviews/2026-10-02-pr21-context-orderi
 and [resolved-feature review](../reviews/2026-10-02-pr21-resolved-features.md), then
 the [evidence and lock continuation](../reviews/2026-10-03-pr21-evidence-and-locks.md).
 The [contributor repair record](../reviews/2026-10-03-pr23-schema-guide.md)
-retains the failing literal command and #23's validated 24-schema correction;
-the draft fix remains separate from #21's current source.
+retains the failing literal command and #23's validated 24-schema correction.
+The current contributor procedure stages all 27 schemas; #23 is superseded.
 The separate [workflow prerequisite review](../reviews/2026-10-02-workflow-prerequisites.md)
 and [integration continuation](../reviews/2026-10-03-workflow-integration.md)
 retain the source and qualification boundary behind the operational preparation.

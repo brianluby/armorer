@@ -1,5 +1,11 @@
 # Verify the cargo. Hold the trust boundary.
 
+This is a retained implementation walkthrough at the immutable source below.
+The source/workflow integrations were subsequently merged. Use the
+[current source map](development-status.md) and [acceptance ledger](v01-acceptance.md)
+for command availability and remaining gates. The candidate label identifies
+this guide's original qualification boundary.
+
 Candidate guide: [PR #21 at `56d7380a5534`](https://github.com/brianluby/armorer/tree/56d7380a5534583b7973b5eedc55a1223b46b60e).
 Main has no complete-release or historical-comparison CLI. These procedures
 describe the reviewed candidate's commands. This successor repairs the earlier
@@ -188,8 +194,8 @@ The [feature-authority review](../reviews/2026-10-02-pr21-resolved-features.md) 
 the preceding head's focused tests and failed ARM receipt. The
 [latest review](../reviews/2026-10-03-pr21-evidence-and-locks.md) records the evidence
 and lock repairs, affected-scope validation and remaining contributor-guide typo
-separately from the missing complete own signed
-producer positive, protected Apple production, immutable publication and pilots.
+separately from these open gates: a complete signed rehearsal of Armorer's own
+producer/consumer flow, protected Apple production, immutable publication and pilots.
 v0.1 targets SLSA Build L2. No candidate file report earns that level by itself.
 
 Keep the source. Keep the limits. **This is the way.**

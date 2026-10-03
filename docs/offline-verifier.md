@@ -34,9 +34,19 @@ signer SAN must contain its full immutable commit.
 The caller supplies the independently expected subject digest/size. The complete
 consumer must authenticate the inventory first and obtain each subsequent slot's
 byte identity and fixed relationship from that authenticated inventory and its
-independent configuration. The inventory/SBOM graph consumer and final-byte
-producer workflow remain required #8 work; this slice does not supply an
-`armorer verify` command or automatically authenticate a downloaded policy/catalog.
+independent configuration. The inventory-first file consumer is now implemented
+as a library, with complete signed positive qualification and the final-byte
+producer still required for #8 acceptance. This slice does not supply an
+`armorer verify` command or automatically approve a downloaded policy/catalog.
+The [selected Cargo graph v2 reader](cargo-graph-v2.md) adds independently bound
+SBOM graph reconciliation; it is a semantic foundation for the complete consumer,
+not a substitute for authenticating graph and SBOM bytes. The
+[qualified complete CycloneDX validator](complete-sbom-validation.md) adds the
+whole-document schema check, including fields outside the graph. The
+[independently approved inventory-first consumer](authenticated-inventory.md)
+now connects these checks with inventory authentication and verified-predicate
+comparison. Its own complete signed positive rehearsal, qualified platform
+report semantics and final-byte producer remain required acceptance gates.
 
 One slot earns one scoped proof. The whole release needs every required gate.
 **This is the way.**
@@ -68,6 +78,41 @@ name and SHA-256 digest. SLSA predicates must additionally agree on build type,
 caller workflow, event, repository IDs, resolved source commit, hosted builder and
 run invocation. Signed predicates remain workflow-produced assertions; accepting
 the signer still requires independently reviewed workflow/catalog expectations.
+
+The reader accepts the exact historical build type
+`https://slsa-framework.github.io/github-actions-buildtypes/workflow/v1` and the
+current producer's `https://actions.github.io/buildtypes/workflow/v1`. Similar URLs,
+different versions, absent fields and wrong JSON types fail. The current build
+type requires the exact reusable signer builder URI and internal hosted runner
+claim; it cannot use the older generic runner builder. Historical build-type
+verification keeps its existing exact builder and certificate checks.
+
+The reader recognizes two source-qualified `runDetails.builder.id` forms. The
+genuine 2024 fixture uses `https://github.com/actions/runner/github-hosted`.
+The pinned [actions/attest v4.2.0 source](https://github.com/actions/attest/tree/f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6)
+locks `@actions/attest` 3.2.0; its
+[SSRI-pinned official distribution](https://registry.npmjs.org/@actions/attest/-/attest-3.2.0.tgz)
+derives the builder URI from OIDC `job_workflow_ref`. That modern URI must equal
+the independently approved reusable signer repository, path and full commit.
+Modern provenance must also contain the OIDC-derived
+`internalParameters.github.runner_environment: "github-hosted"`. The older form
+may omit that internal field, but any supplied value must agree. Both forms
+always require the verified certificate's hosted runner, exact signer URI/digest,
+source/caller/run and all other existing checks. Moving refs, caller identities,
+wrong workflow pins, missing modern runner claims and self-hosted runners fail.
+
+`tests/fixtures/sigstore/attest-v4-producer-source.json` records actual Git blob
+identities and the lock-matched npm SHA-512 distribution identity. The official
+release tag is v4.2.0 while its package manifest reports 4.1.0; qualification uses
+the immutable action commit and dependency distribution, not that version string.
+The npm version metadata has no `gitHead`; the receipt does not invent one.
+The additive `attest-v4-predicate-source-v1.json` receipt binds the build-type
+constant to that same qualified library source, preserves the previous receipt
+byte for byte and records that no producer execution or catalog approval occurred.
+New-format tests use this source-derived URI and cover post-crypto semantics only;
+they cannot manufacture an
+authenticated proof. An own-repository current-producer signed positive remains
+required before complete producer/consumer or Build L2 acceptance.
 
 Public-good fixtures pass real offline verification. The private backend supplies
 `--no-public-good` and requires a `private` visibility certificate; this slice
@@ -110,8 +155,9 @@ review. The offline call does not fetch or silently refresh roots. Offline key
 material has no built-in expiry and cannot reveal revocations since it was
 exported; Armorer's policy review expiry is a separate gate. See
 [GitHub's offline root guidance](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/verify-attestations-offline).
-Historical byte compatibility is a separate future consumer operation, never a
-fallback from an authentication error in this adapter.
+Historical byte compatibility uses the separate explicit
+[`verify-historical-bytes` operation](historical-verification.md), never a fallback
+from an authentication error in this adapter.
 
 ## Authentic integration evidence
 

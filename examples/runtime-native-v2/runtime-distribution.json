@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "version": "0.1.0",
+  "source": {
+    "repository": "fixture/armorer",
+    "commit": "dddddddddddddddddddddddddddddddddddddddd",
+    "git_ref": "refs/heads/main"
+  },
+  "compiler": "1.95.0",
+  "cargo_lock": {
+    "sha256": "1e207d22d7958f396ce0857431aca402c73b4f9dca8eb6ac297c7b56d1822bb2",
+    "size": 28
+  },
+  "build_workflow": {
+    "repository": "fixture/armorer",
+    "commit": "dddddddddddddddddddddddddddddddddddddddd",
+    "path": ".github/workflows/development.yml"
+  },
+  "authentication_record": {
+    "sha256": "940666e506b6cb5a45f18f9404b0cdd4a7e821c4418077749f3448191e323de0",
+    "size": 41
+  },
+  "distribution": {
+    "sha256": "ba39e534b50119d98fce3c979e25b6927d0a44ab21a9d478d299936c6b12b0ea",
+    "size": 10240
+  },
+  "members": {
+    "x86_64-unknown-linux-gnu": {
+      "name": "armorer--x86_64-unknown-linux-gnu",
+      "bytes": {
+        "sha256": "3b4256406c1a0ab4c192fc3585ed4999b6cbb9c0cab17123db0cac720998d5d1",
+        "size": 128
+      }
+    },
+    "aarch64-unknown-linux-gnu": {
+      "name": "armorer--aarch64-unknown-linux-gnu",
+      "bytes": {
+        "sha256": "0f0a188ccc3cf7c8250ef8f6ab859754b0a64bd5d1d2a54690f6d45eac3c01b6",
+        "size": 128
+      }
+    },
+    "aarch64-apple-darwin": {
+      "name": "armorer--aarch64-apple-darwin",
+      "bytes": {
+        "sha256": "3dd31c962342e6e844327105e547a7933537b1087795b80a9560091c75af9bd0",
+        "size": 128
+      }
+    }
+  }
+}

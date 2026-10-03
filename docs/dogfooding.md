@@ -20,7 +20,7 @@ supported targets, with package defaults and no extra features.
 ```sh
 armorer_binary="$PWD/target/debug/armorer"
 dogfood_source_commit=$(git rev-parse HEAD)
-dogfood_root=$(mktemp -d)
+dogfood_root=$(mktemp -d) || exit 1
 mkdir "$dogfood_root/project"
 git archive --format=tar --output="$dogfood_root/source.tar" HEAD
 tar -xf "$dogfood_root/source.tar" -C "$dogfood_root/project"

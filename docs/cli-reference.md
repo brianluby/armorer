@@ -91,9 +91,11 @@ authentication are separate requirements.
 | Local setup | `config`, `lock`, `plan` |
 | Artifact trust | `release-inventory`, `verification-policy`, `artifact-evidence`, `evidence-requirements` |
 | Capability and catalog | `capability-config`, `catalog`, `capability-observation` |
-| Lifecycle and publication | `lifecycle-record`, `github-receipt`, `publish-set`, `registry-receipt` |
+| Lifecycle and publication | `lifecycle-record`, `github-receipt`, `publish-set`, `registry-receipt`, `publication-policy`, `publication-plan`, `publication-approval` |
+| Bootstrap and upgrades | `ci-policy`, `bootstrap-plan`, `upgrade-plan`, `upgrade-rollback` |
+| Graph and native contexts | `cargo-graph-v2`, `verification-context`, `native-catalog-v2`, `runtime-distribution-v1`, `verification-context-v2`, `verification-context-v3` |
 
-There are 14 schema names on main. JSON examples under
+There are 27 schema names on main. JSON examples under
 [trust-v1](../examples/trust-v1/README.md) are synthetic contract fixtures.
 
 ## Read the exit status
@@ -135,10 +137,25 @@ selections and unsafe inputs stop the operation with an error instead.
 | `toolchain-conflict` | Resolve the preserved customization and review a fresh plan |
 | `transaction-recovery-required` | Retain the unfinished journal and follow explicit recovery |
 
-No `init`, `upgrade` or `verify-release` command is available on main at source
-`96457ee418439dde097339cfcd374c08f2cc98ad`. The offline verifier is a library API
-for individual evidence slots. It does not expose complete-release CLI verification.
-Proposed interfaces in the architecture and branch documentation describe later work.
+## Provision, migrate and verify through separate contracts
+
+Main also provides the following explicit interfaces:
+
+| Command | Subcommands / guide |
+| --- | --- |
+| `bootstrap` | `plan`, `check`, `apply`, `recover`; [five-file procedure](bootstrap-v2.md) |
+| `upgrade` | `plan`, `apply`, `recover`, `rollback-plan`, `rollback-apply`; [reviewed migration](upgrades.md) |
+| `verify-release` | Independently approved context, exact assets and required bundles; [complete verifier](verify-release-cli.md) |
+| `verify-historical-bytes` | Explicit independently approved historical policy; [weaker byte comparison](historical-verification.md) |
+| `publication` | `plan`, `inspect`, `stage`, `publish`, `recover-published`; [owned-draft controller and native limits](owned-draft-controller-v1.md) |
+
+Run each command with `--help` for its exact input flags. Bootstrap and upgrade
+packets never authorize version-one apply. Verification failures do not select
+historical comparison or a weaker context. Native publication writes remain
+blocked by unsupported required approval and runner serialization gates.
+There is no `init` command. The original offline library API remains available.
+Use the reviewed checkout's `./target/debug/armorer`; building does not install
+the executable on PATH.
 
 Name the limitation. Hold the gate. **This is the way.**
 

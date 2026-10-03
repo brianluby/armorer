@@ -1,0 +1,53 @@
+{
+  "version": "0.33.1",
+  "source_commit": "b3cfa4b0edc356dad07e0b6e7ab6da0a94af0246",
+  "tag": "v0.33.1",
+  "source_blobs": {
+    "src/cyclonedx/Commands/ValidateCommand.cs": "338614d34cc41b382567a9c3b1d93863b8f64edb",
+    "src/cyclonedx/cyclonedx.csproj": "69b604729a39191a568f9f9391b8b81062673c13"
+  },
+  "distributions": [
+    {
+      "platform": "linux-x86_64",
+      "name": "cyclonedx-linux-x64",
+      "url": "https://github.com/CycloneDX/cyclonedx-cli/releases/download/v0.33.1/cyclonedx-linux-x64",
+      "bytes": {
+        "sha256": "bfc8b2538da86fe239bc53658bbb63c1c8c510a293c1e6891aa5bea5d3c58746",
+        "size": 80337458
+      }
+    },
+    {
+      "platform": "linux-aarch64",
+      "name": "cyclonedx-linux-arm64",
+      "url": "https://github.com/CycloneDX/cyclonedx-cli/releases/download/v0.33.1/cyclonedx-linux-arm64",
+      "bytes": {
+        "sha256": "b2e9fdf9665ef49868a2ec012171c6e785dcd69745bc5869e53e4f4bfb096a5f",
+        "size": 87752084
+      }
+    },
+    {
+      "platform": "macos-aarch64",
+      "name": "cyclonedx-osx-arm64",
+      "url": "https://github.com/CycloneDX/cyclonedx-cli/releases/download/v0.33.1/cyclonedx-osx-arm64",
+      "bytes": {
+        "sha256": "750c148780154833f6401f9067d08c5a4c31567b6ee3c26c062c3a95c62d741c",
+        "size": 86373536
+      }
+    }
+  ],
+  "qualification": "primary tag/source and publisher metadata plus independently rehashed distributions",
+  "executed": false,
+  "license": "Apache-2.0",
+  "schema_library": {
+    "repository": "CycloneDX/cyclonedx-dotnet-library",
+    "version": "12.1.2",
+    "commit": "66d9850b39b32d9b0b42d5af2392af016d08572e",
+    "source_blobs": {
+      "src/CycloneDX.Core/Json/Validator.cs": "59e59473715e0f0bdb8063f4cfac0ad082a7a920",
+      "src/CycloneDX.Core/CycloneDX.Core.csproj": "c8f001442b204d024cfbbd16ba17146fd10b538c",
+      "src/CycloneDX.Core/Schemas/bom-1.5.schema.json": "3ecc1dcdb47557297687b30795b24815ad7aa09e",
+      "src/CycloneDX.Core/Schemas/spdx.schema.json": "1e49a6d9e58dd87f1a03ded4c12f34f37bd991cc",
+      "src/CycloneDX.Core/Schemas/jsf-0.82.schema.json": "f46bfb1e52731ad1280123ff3e2bd29bd18d4bc2"
+    }
+  }
+}

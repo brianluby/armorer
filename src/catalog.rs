@@ -81,6 +81,7 @@ pub fn reviewed() -> Result<AuthenticatedCatalog> {
 }
 
 impl AuthenticatedCatalog {
+    /// Read the embedded catalog tool entries after the catalog authority has been authenticated.
     pub fn tools(&self) -> &BTreeMap<String, Tool> {
         &self.tools
     }
@@ -94,6 +95,11 @@ impl AuthenticatedCatalog {
     /// Propagates read-only configuration validation and serialization failures.
     pub fn render_lock(&self, root: &Path) -> Result<String> {
         let (_, bytes) = load_config(root)?;
+        self.lock_for_config_sha256(&digest(&bytes))
+    }
+
+    /// Render fixed pins for a digest already bound to the approved configuration.
+    pub(crate) fn lock_for_config_sha256(&self, config_sha256: &str) -> Result<String> {
         let tools = self
             .tools
             .iter()
@@ -111,7 +117,7 @@ impl AuthenticatedCatalog {
             .collect();
         let lock = Lock {
             schema_version: 1,
-            config_sha256: digest(&bytes),
+            config_sha256: config_sha256.into(),
             runtime_version: env!("CARGO_PKG_VERSION").into(),
             workflows: WorkflowPin {
                 repository: WORKFLOW_REPOSITORY.into(),
@@ -120,6 +126,23 @@ impl AuthenticatedCatalog {
             tools,
         };
         toml::to_string_pretty(&lock).map_err(|_| Error::Toml)
+    }
+
+    /// Fixed bootstrap file set for an already validated configuration and policy.
+    pub(crate) fn bootstrap_files(
+        &self,
+        config_sha256: &str,
+        toolchain: &str,
+        policy: &str,
+    ) -> Result<BTreeMap<String, String>> {
+        let mut files = self.caller_workflows();
+        files.insert(".armorer/ci-policy.toml".into(), policy.into());
+        files.insert(
+            "armorer.lock".into(),
+            self.lock_for_config_sha256(config_sha256)?,
+        );
+        files.insert("rust-toolchain.toml".into(), format!("[toolchain]\nchannel = \"{}\"\nprofile = \"minimal\"\ncomponents = [\"clippy\", \"rustfmt\"]\n", toolchain));
+        Ok(files)
     }
 
     /// Fixed unprivileged callers. Existing custom workflows remain separate.

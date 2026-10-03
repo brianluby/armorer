@@ -72,7 +72,7 @@ identities. Verify the exact archived executable, expected Developer ID team,
 hardened runtime, timestamp and Apple acceptance. Attest after all mutations.
 Library `.crate` source packages need no Developer ID executable chain.
 
-Proposed #19 checks verify bounded standalone Mach-O bytes through Apple APIs
+The accepted [native Apple consumer](apple-native-verification-v1.md) verifies bounded standalone Mach-O bytes through Apple APIs
 and request an online ticket check. Audit results allow cached or network ticket
 evidence. They promise no fresh revocation evidence, offline acceptance, stapled
 standalone executable or authenticated producer submission log. Protected
@@ -96,8 +96,9 @@ platforms and required feature cases. Pilots need fresh isolated adoption and
 independent consumer results.
 
 Draft creation, exact upload, served-byte verification, approval, immutable
-publication and post-publication verification require the future release state
-machine. Schemas, mocks and one successful target cannot establish those outcomes.
+publication and post-publication verification use the [owned-draft controller](owned-draft-controller-v1.md).
+Its native writes remain blocked by unsupported required approval and runner
+serialization gates; actual provider transition/race qualification remains open. Schemas, mocks and one successful target cannot establish those outcomes.
 Merging and publication require explicit human authorization.
 The [dogfooding guide](dogfooding.md) supplies Armorer's own read-only inspection
 exercise and the complete hosted rehearsal evidence still required.

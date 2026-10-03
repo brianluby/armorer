@@ -3,10 +3,11 @@
 Design-stage operator guide for partial uploads, conflicts, alias failure and
 post-publication incidents. The current
 [publication contracts](trust-contracts-v1.md#github-and-future-registry-receipts)
-validate receipt consistency and retry identity. Main and the combined candidate
-have no publication, upload-resume or alias-update CLI. Backend execution,
-remote race checks and fault qualification remain required before this becomes
-a supported executable recovery runbook.
+validate receipt consistency and retry identity. Main has an [owned-draft controller](owned-draft-controller-v1.md)
+with planning, inspection, staging, publication and ambiguous-publication recovery
+interfaces. Required native approval and runner serialization are unsupported and
+block writes. Actual provider race/fault qualification and Apple parity remain
+operational gates; no alias-update CLI is provided.
 
 Preserve the identity before deciding the next action.
 **This is the way.**

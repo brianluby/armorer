@@ -173,6 +173,7 @@ mod tests {
     use super::*;
 
     #[test]
+    /// Check complete replacement hunks for absent, empty, unchanged and newline-sensitive text.
     fn complete_hunks_preserve_empty_crlf_unicode_and_final_newline() {
         assert_eq!(diff("file", Some("same\n"), "same\n"), "");
         assert_eq!(
@@ -194,6 +195,7 @@ mod tests {
     }
 
     #[test]
+    /// Reject changed or missing preimages before unreviewed contents can reach the preview.
     fn changed_preimages_are_rejected_before_content_is_rendered() {
         let root = tempfile::tempdir().unwrap();
         std::fs::write(root.path().join("file"), "unreviewed").unwrap();

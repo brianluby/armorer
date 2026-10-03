@@ -1,0 +1,347 @@
+{
+  "schema_version": 2,
+  "previous_catalog": {
+    "sha256": "7a5439c86ab71fe88826be99cff78bd22545bbde22a2a1c9554a458717edaccd",
+    "size": 1188
+  },
+  "runtime": {
+    "schema_version": 1,
+    "version": "0.1.0",
+    "source": {
+      "repository": "fixture/armorer",
+      "commit": "dddddddddddddddddddddddddddddddddddddddd",
+      "git_ref": "refs/heads/main"
+    },
+    "compiler": "1.95.0",
+    "cargo_lock": {
+      "sha256": "1e207d22d7958f396ce0857431aca402c73b4f9dca8eb6ac297c7b56d1822bb2",
+      "size": 28
+    },
+    "build_workflow": {
+      "repository": "fixture/armorer",
+      "commit": "dddddddddddddddddddddddddddddddddddddddd",
+      "path": ".github/workflows/development.yml"
+    },
+    "authentication_record": {
+      "sha256": "940666e506b6cb5a45f18f9404b0cdd4a7e821c4418077749f3448191e323de0",
+      "size": 41
+    },
+    "distribution": {
+      "sha256": "ba39e534b50119d98fce3c979e25b6927d0a44ab21a9d478d299936c6b12b0ea",
+      "size": 10240
+    },
+    "members": {
+      "x86_64-unknown-linux-gnu": {
+        "name": "armorer--x86_64-unknown-linux-gnu",
+        "bytes": {
+          "sha256": "3b4256406c1a0ab4c192fc3585ed4999b6cbb9c0cab17123db0cac720998d5d1",
+          "size": 128
+        }
+      },
+      "aarch64-unknown-linux-gnu": {
+        "name": "armorer--aarch64-unknown-linux-gnu",
+        "bytes": {
+          "sha256": "0f0a188ccc3cf7c8250ef8f6ab859754b0a64bd5d1d2a54690f6d45eac3c01b6",
+          "size": 128
+        }
+      },
+      "aarch64-apple-darwin": {
+        "name": "armorer--aarch64-apple-darwin",
+        "bytes": {
+          "sha256": "3dd31c962342e6e844327105e547a7933537b1087795b80a9560091c75af9bd0",
+          "size": 128
+        }
+      }
+    }
+  },
+  "adapters": [
+    {
+      "id": "rust-native",
+      "capability": "dependency-policy",
+      "config_versions": [
+        1
+      ],
+      "runtime_versions": [
+        "0.1.0"
+      ],
+      "workflow": {
+        "repository": "fixture/workflows",
+        "path": ".github/workflows/release.yml",
+        "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "pins": [
+        {
+          "name": "rustc--x86_64-unknown-linux-gnu",
+          "version": "0.5.9",
+          "kind": "tool",
+          "format": "tar-xz",
+          "distribution": {
+            "sha256": "dd1de1529100a5294b08b17a7b6151012f71a13b313bd9f17ffa3846ad1e0bca",
+            "size": 47
+          },
+          "authentication_record": {
+            "sha256": "ebe75d7f2013f4ec5f5efa29945cf7f36aa4a12ec039ff10aca38a1d7c40bd25",
+            "size": 29
+          },
+          "material": {
+            "material": "native-member",
+            "target": "x86_64-unknown-linux-gnu",
+            "name": "rustc",
+            "bytes": {
+              "sha256": "894949da8abae88f31e15b5bce2e223ef96c437ab532aca502b6101e403059e2",
+              "size": 50
+            }
+          }
+        },
+        {
+          "name": "rustc--aarch64-unknown-linux-gnu",
+          "version": "0.5.9",
+          "kind": "tool",
+          "format": "tar-xz",
+          "distribution": {
+            "sha256": "6dd2c5c384c5f51524646dbf999c2646f7b6ccef093b901745d2a069f8523f0a",
+            "size": 48
+          },
+          "authentication_record": {
+            "sha256": "ebe75d7f2013f4ec5f5efa29945cf7f36aa4a12ec039ff10aca38a1d7c40bd25",
+            "size": 29
+          },
+          "material": {
+            "material": "native-member",
+            "target": "aarch64-unknown-linux-gnu",
+            "name": "rustc",
+            "bytes": {
+              "sha256": "e0e90f520746e4b99f61949704f44141bd259db62fe601a772ac3b74d7ed25ab",
+              "size": 51
+            }
+          }
+        },
+        {
+          "name": "rustc--aarch64-apple-darwin",
+          "version": "0.5.9",
+          "kind": "tool",
+          "format": "tar-xz",
+          "distribution": {
+            "sha256": "a6edec1acf74f084416f9e8bf4f6ee7b5870b17a6b2435f885e638293f934089",
+            "size": 43
+          },
+          "authentication_record": {
+            "sha256": "ebe75d7f2013f4ec5f5efa29945cf7f36aa4a12ec039ff10aca38a1d7c40bd25",
+            "size": 29
+          },
+          "material": {
+            "material": "native-member",
+            "target": "aarch64-apple-darwin",
+            "name": "rustc",
+            "bytes": {
+              "sha256": "887431d0798b857d20664a237a26a59d7b325b527523a590873b40d9809a4141",
+              "size": 46
+            }
+          }
+        }
+      ],
+      "review": {
+        "owner": "fixture-reviewer",
+        "rationale": "Synthetic contract example only",
+        "reviewed_at": 1790870300,
+        "expires_at": 1790956800,
+        "record": {
+          "sha256": "770a16aed54d5e374d972847792f06af668bd9e28eef33b477782bfb163076f3",
+          "size": 23
+        }
+      }
+    },
+    {
+      "id": "cargo-cyclonedx",
+      "capability": "cargo-sbom",
+      "config_versions": [
+        1
+      ],
+      "runtime_versions": [
+        "0.1.0"
+      ],
+      "workflow": {
+        "repository": "fixture/workflows",
+        "path": ".github/workflows/release.yml",
+        "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "pins": [
+        {
+          "name": "cargo-cyclonedx--x86_64-unknown-linux-gnu",
+          "version": "0.5.9",
+          "kind": "tool",
+          "format": "tar-xz",
+          "distribution": {
+            "sha256": "d9b86e5eb34556c7c9fa126c44a16d84b6d58a3eea02ad7ac2b8b6b2c56c154e",
+            "size": 57
+          },
+          "authentication_record": {
+            "sha256": "ebe75d7f2013f4ec5f5efa29945cf7f36aa4a12ec039ff10aca38a1d7c40bd25",
+            "size": 29
+          },
+          "material": {
+            "material": "native-member",
+            "target": "x86_64-unknown-linux-gnu",
+            "name": "cargo-cyclonedx",
+            "bytes": {
+              "sha256": "36902b4bbba15f5048cb591a926a824c039682fa7d5410aa2eee2a12fa31e484",
+              "size": 60
+            }
+          }
+        },
+        {
+          "name": "cargo-cyclonedx--aarch64-unknown-linux-gnu",
+          "version": "0.5.9",
+          "kind": "tool",
+          "format": "tar-xz",
+          "distribution": {
+            "sha256": "4d1a92558a281e2bc440238b4713e6f93706133362a8ff2778d00e3c0d12480c",
+            "size": 58
+          },
+          "authentication_record": {
+            "sha256": "ebe75d7f2013f4ec5f5efa29945cf7f36aa4a12ec039ff10aca38a1d7c40bd25",
+            "size": 29
+          },
+          "material": {
+            "material": "native-member",
+            "target": "aarch64-unknown-linux-gnu",
+            "name": "cargo-cyclonedx",
+            "bytes": {
+              "sha256": "b5803a7c400e92176c5945b919f817f457775da9c8f76772028251df7453e221",
+              "size": 61
+            }
+          }
+        },
+        {
+          "name": "cargo-cyclonedx--aarch64-apple-darwin",
+          "version": "0.5.9",
+          "kind": "tool",
+          "format": "tar-xz",
+          "distribution": {
+            "sha256": "a9d257ea022166dfb5372f223609f94a5744b8e6613b27a1de7fca5e2fce5658",
+            "size": 53
+          },
+          "authentication_record": {
+            "sha256": "ebe75d7f2013f4ec5f5efa29945cf7f36aa4a12ec039ff10aca38a1d7c40bd25",
+            "size": 29
+          },
+          "material": {
+            "material": "native-member",
+            "target": "aarch64-apple-darwin",
+            "name": "cargo-cyclonedx",
+            "bytes": {
+              "sha256": "4a3c15a85d4355b973b32fb667561aefc58c57a3315ef590bea22ba2afffc66e",
+              "size": 56
+            }
+          }
+        }
+      ],
+      "review": {
+        "owner": "fixture-reviewer",
+        "rationale": "Synthetic contract example only",
+        "reviewed_at": 1790870300,
+        "expires_at": 1790956800,
+        "record": {
+          "sha256": "770a16aed54d5e374d972847792f06af668bd9e28eef33b477782bfb163076f3",
+          "size": 23
+        }
+      }
+    },
+    {
+      "id": "github-sigstore",
+      "capability": "platform-attestations",
+      "config_versions": [
+        1
+      ],
+      "runtime_versions": [
+        "0.1.0"
+      ],
+      "workflow": {
+        "repository": "fixture/workflows",
+        "path": ".github/workflows/release.yml",
+        "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "pins": [
+        {
+          "name": "gh--x86_64-unknown-linux-gnu",
+          "version": "0.5.9",
+          "kind": "tool",
+          "format": "tar-xz",
+          "distribution": {
+            "sha256": "c9d2eafc4df12dd7c52f6b0453b35e23c10806a7ec741faa38b4fd5b983e05a3",
+            "size": 44
+          },
+          "authentication_record": {
+            "sha256": "ebe75d7f2013f4ec5f5efa29945cf7f36aa4a12ec039ff10aca38a1d7c40bd25",
+            "size": 29
+          },
+          "material": {
+            "material": "native-member",
+            "target": "x86_64-unknown-linux-gnu",
+            "name": "gh",
+            "bytes": {
+              "sha256": "9d3773f81177697d3367edf9b310b07d6b0c26c91c637acc2d8c924452f15f58",
+              "size": 47
+            }
+          }
+        },
+        {
+          "name": "gh--aarch64-unknown-linux-gnu",
+          "version": "0.5.9",
+          "kind": "tool",
+          "format": "tar-xz",
+          "distribution": {
+            "sha256": "fdb870fadf4644381f796cac8c41a1613529f8ad72f8765f36990d6a2bf78883",
+            "size": 45
+          },
+          "authentication_record": {
+            "sha256": "ebe75d7f2013f4ec5f5efa29945cf7f36aa4a12ec039ff10aca38a1d7c40bd25",
+            "size": 29
+          },
+          "material": {
+            "material": "native-member",
+            "target": "aarch64-unknown-linux-gnu",
+            "name": "gh",
+            "bytes": {
+              "sha256": "6592ad05423df58048ca80d5f8ee3f1d69a908c9764007fff964428a9445e24b",
+              "size": 48
+            }
+          }
+        },
+        {
+          "name": "gh--aarch64-apple-darwin",
+          "version": "0.5.9",
+          "kind": "tool",
+          "format": "tar-xz",
+          "distribution": {
+            "sha256": "45b7a6f7180a9e429bca91e5189505533f7af14faceb18b43c9bd12dae7ba48d",
+            "size": 40
+          },
+          "authentication_record": {
+            "sha256": "ebe75d7f2013f4ec5f5efa29945cf7f36aa4a12ec039ff10aca38a1d7c40bd25",
+            "size": 29
+          },
+          "material": {
+            "material": "native-member",
+            "target": "aarch64-apple-darwin",
+            "name": "gh",
+            "bytes": {
+              "sha256": "d4238519a1666ca3c441314089f16d9bad056bffdcf3f6ecdf0c10b81a04fbf8",
+              "size": 43
+            }
+          }
+        }
+      ],
+      "review": {
+        "owner": "fixture-reviewer",
+        "rationale": "Synthetic contract example only",
+        "reviewed_at": 1790870300,
+        "expires_at": 1790956800,
+        "record": {
+          "sha256": "770a16aed54d5e374d972847792f06af668bd9e28eef33b477782bfb163076f3",
+          "size": 23
+        }
+      }
+    }
+  ]
+}

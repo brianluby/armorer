@@ -3,9 +3,11 @@
 Inspect the plan. Keep your approval. Change only what the plan binds.
 **This is the way.**
 
-This development slice applies only `rust-toolchain.toml`. Custom workflow and
-license-policy files stay untouched. Catalog-backed provisioning, pin upgrades,
-GitHub capability checks, credentials, signing and publication are separate gates.
+The version-one `apply` command manages only `rust-toolchain.toml`. Custom
+workflow and license-policy files stay untouched by that operation. Use the
+separate [version-two bootstrap](bootstrap-v2.md) for five-file provisioning and
+[reviewed upgrades](upgrades.md) for workflow/tool migration. Production capability
+enforcement, credentials, signing and publication retain their own gates.
 Applying a toolchain does not make the repository fully configured or CI verified.
 
 ## Approve exact intent

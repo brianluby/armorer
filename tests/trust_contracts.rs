@@ -23,44 +23,55 @@ use std::{
 
 const NOW: u64 = 1_790_870_400;
 const CASES: &[&str] = &["linux-cli", "library", "workspace-service", "macos-final"];
+/// Locate the frozen profile example without using consuming repository paths.
 fn root(name: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("examples/trust-v1")
         .join(name)
 }
+/// Deserialize an explicitly named frozen trust example for contract tests.
 fn read<T: DeserializeOwned>(name: &str, file: &str) -> T {
     serde_json::from_slice(&std::fs::read(root(name).join(format!("{file}.json"))).unwrap())
         .unwrap()
 }
+/// Load the independently supplied configuration for the selected profile.
 fn config(name: &str) -> Config {
     toml::from_str(&std::fs::read_to_string(root(name).join("armorer.toml")).unwrap()).unwrap()
 }
+/// Measure the exact committed catalog bytes used by the example.
 fn catalog_bytes(name: &str) -> ByteIdentity {
     ByteIdentity::from_bytes(&std::fs::read(root(name).join("catalog.json")).unwrap())
 }
+/// Load the Linux CLI inventory used by isolated adversarial mutations.
 fn inventory() -> ReleaseInventory {
     read("linux-cli", "release-inventory")
 }
+/// Load the independent Linux CLI verification policy.
 fn policy() -> VerificationPolicy {
     read("linux-cli", "verification-policy")
 }
+/// Load the Linux CLI producer evidence before applying a single adversary.
 fn evidence() -> ArtifactEvidence {
     read("linux-cli", "artifact-evidence")
 }
+/// Load independent evidence expectations separately from producer records.
 fn requirements() -> EvidenceRequirements {
     read("linux-cli", "evidence-requirements")
 }
+/// Reconstruct every synthetic inventory asset as its expected exact fixture bytes.
 fn bytes(i: &ReleaseInventory) -> BTreeMap<String, Vec<u8>> {
     i.assets
         .iter()
         .map(|a| (a.name.clone(), format!("fixture:{}", a.name).into_bytes()))
         .collect()
 }
+/// Check an offered inventory against fixed configuration, policy and input identity.
 fn validate(i: &ReleaseInventory, expected: &InputIdentity) -> armorer::Result<()> {
     i.validate_against(&config("linux-cli"), &policy(), expected, NOW)
 }
 
 #[test]
+/// Validate complete positive profile fixtures against exact config, lock, catalog and release contracts.
 fn positive_profile_examples_bind_exact_config_lock_and_complete_chain() {
     for name in CASES {
         let c = config(name);
@@ -111,6 +122,7 @@ fn positive_profile_examples_bind_exact_config_lock_and_complete_chain() {
 }
 
 #[test]
+/// Reject altered distributable or SBOM bytes and mismatched inventory sizes.
 fn rejects_tampered_artifact_and_sbom_bytes_and_wrong_sizes() {
     let i = inventory();
     for role in [
@@ -132,6 +144,7 @@ fn rejects_tampered_artifact_and_sbom_bytes_and_wrong_sizes() {
 }
 
 #[test]
+/// Reject incomplete, expanded, duplicated or cyclic release inventories.
 fn rejects_missing_extra_duplicate_assets_and_cycles() {
     let original = inventory();
     for index in 0..original.assets.len() {
@@ -161,6 +174,7 @@ fn rejects_missing_extra_duplicate_assets_and_cycles() {
 }
 
 #[test]
+/// Keep optional diagnostics separate from required assets and bind their provenance.
 fn optional_diagnostics_cannot_replace_baseline_or_omit_their_own_provenance() {
     let original = inventory();
     let specs = expected_assets(&config("linux-cli"), &policy()).unwrap();
@@ -196,6 +210,7 @@ fn optional_diagnostics_cannot_replace_baseline_or_omit_their_own_provenance() {
 }
 
 #[test]
+/// Reject producer substitutions for independently approved source and signer identities.
 fn independently_reviewed_source_and_signer_cannot_be_replaced_by_release_claims() {
     let original = inventory();
     for mutation in [
@@ -271,6 +286,7 @@ fn independently_reviewed_source_and_signer_cannot_be_replaced_by_release_claims
 }
 
 #[test]
+/// Reject unsafe trigger, fork, source and dispatch identities.
 fn rejects_unauthorized_events_forks_source_and_dispatch_refs() {
     let source = inventory().inputs.source;
     let context = TriggerContext {
@@ -322,6 +338,7 @@ fn rejects_unauthorized_events_forks_source_and_dispatch_refs() {
 }
 
 #[test]
+/// Reject unsigned substitution, Apple identity drift, failed notarization and broken step chains.
 fn macos_chain_rejects_unsigned_final_substitution_wrong_team_and_failed_notary() {
     let name = "macos-final";
     let i: ReleaseInventory = read(name, "release-inventory");
@@ -359,6 +376,7 @@ fn macos_chain_rejects_unsigned_final_substitution_wrong_team_and_failed_notary(
 }
 
 #[test]
+/// Reject tool pin, coverage scope, freshness and enforcement drift.
 fn tool_policy_scope_freshness_and_outcomes_cannot_be_weakened_by_producer() {
     let e = evidence();
     let i = inventory();
@@ -386,6 +404,7 @@ fn tool_policy_scope_freshness_and_outcomes_cannot_be_weakened_by_producer() {
 }
 
 #[test]
+/// Require an explicit historical source and exact approved asset bytes.
 fn historical_policy_requires_explicit_exact_source_and_byte_allowlist() {
     let p: VerificationPolicy = serde_json::from_slice(
         &std::fs::read(root("").join("historical-verification-policy.json")).unwrap(),
@@ -418,6 +437,7 @@ fn historical_policy_requires_explicit_exact_source_and_byte_allowlist() {
 }
 
 #[test]
+/// Keep unavailable, unknown, errored and reporting capabilities from satisfying required gates.
 fn capability_unknown_unsupported_error_and_reporting_fail_required_gate() {
     let original: CapabilityObservation = read("linux-cli", "capability-observation");
     for availability in [
@@ -486,6 +506,7 @@ fn capability_unknown_unsupported_error_and_reporting_fail_required_gate() {
 }
 
 #[test]
+/// Reject conflicting draft retry identities and absent publication receipts.
 fn conflicting_github_retry_identity_and_missing_publication_receipts_are_rejected() {
     let receipt: GithubReceipt = read("linux-cli", "github-receipt");
     receipt.same_owned_retry(&receipt).unwrap();
@@ -513,6 +534,7 @@ fn conflicting_github_retry_identity_and_missing_publication_receipts_are_reject
 }
 
 #[test]
+/// Validate explicit registry progress, dependency ordering, byte identity and retry conflicts.
 fn registry_partial_dag_index_lag_wrong_bytes_and_retry_conflicts_are_explicit() {
     let set: PublishSet = read("linux-cli", "publish-set");
     let mut receipt: RegistryReceipt = read("linux-cli", "registry-receipt");
@@ -544,6 +566,7 @@ fn registry_partial_dag_index_lag_wrong_bytes_and_retry_conflicts_are_explicit()
 }
 
 #[test]
+/// Reject unsupported commands, offered URLs and custom predicate values during parsing.
 fn unknown_commands_urls_and_custom_predicates_never_deserialize() {
     let mut value = serde_json::to_value(policy()).unwrap();
     value["signers"][0]["predicate"] = "https://attacker.invalid/predicate".into();
@@ -557,6 +580,7 @@ fn unknown_commands_urls_and_custom_predicates_never_deserialize() {
 }
 
 #[test]
+/// Compare generated version-one schemas with their exact committed bytes.
 fn generated_schemas_match_all_committed_version_one_schemas() {
     let kinds = [
         "config",
@@ -589,6 +613,7 @@ fn generated_schemas_match_all_committed_version_one_schemas() {
 }
 
 #[test]
+/// Reject ambiguous, expanded, indirect and oversized trust records before use.
 fn strict_loader_rejects_duplicate_map_keys_unknown_fields_symlinks_and_size_limit() {
     let temp = tempfile::tempdir().unwrap();
     let path = temp.path().join("contract.json");
@@ -616,6 +641,7 @@ fn strict_loader_rejects_duplicate_map_keys_unknown_fields_symlinks_and_size_lim
 }
 
 #[test]
+/// Reject expired reviews, nonwaivable exceptions and stale database evidence.
 fn expired_review_nonwaivable_exception_and_stale_database_fail_closed() {
     let mut p = policy();
     p.review.expires_at = NOW;
@@ -651,6 +677,7 @@ fn expired_review_nonwaivable_exception_and_stale_database_fail_closed() {
 }
 
 #[test]
+/// Require separate publication receipts and a current immutable-release setting.
 fn complete_publication_snapshot_requires_separate_receipts_and_current_setting() {
     let mut receipt: GithubReceipt = read("linux-cli", "github-receipt");
     receipt.state = GithubState::ProvenanceVerified;
@@ -669,6 +696,7 @@ fn complete_publication_snapshot_requires_separate_receipts_and_current_setting(
 }
 
 #[test]
+/// Require detached inventory authentication without embedding its own digest cycle.
 fn detached_inventory_authentication_is_required_without_creating_a_hash_cycle() {
     let i = inventory();
     let serialized = serde_json::to_vec(&i).unwrap();
@@ -691,6 +719,7 @@ fn detached_inventory_authentication_is_required_without_creating_a_hash_cycle()
 }
 
 #[test]
+/// Keep branch and rehearsal lifecycle records from authorizing stable publication.
 fn branch_lifecycle_and_rehearsal_identity_cannot_authorize_release_publication() {
     let mut i = inventory();
     i.inputs.source.git_ref = "refs/heads/main".into();
@@ -715,6 +744,7 @@ fn branch_lifecycle_and_rehearsal_identity_cannot_authorize_release_publication(
 }
 
 #[test]
+/// Derive distinct assets for each workspace package, target and feature selection.
 fn workspace_derived_assets_keep_each_package_target_and_feature_case_separate() {
     let c = config("workspace");
     c.validate(&root("workspace")).unwrap();
@@ -736,6 +766,7 @@ fn workspace_derived_assets_keep_each_package_target_and_feature_case_separate()
 }
 
 #[test]
+/// Reject substituted catalog identities and unsupported evidence versions.
 fn catalog_binding_and_unknown_schema_versions_fail_closed() {
     let c: Catalog = read("linux-cli", "catalog");
     let i = inventory();
@@ -759,6 +790,7 @@ fn catalog_binding_and_unknown_schema_versions_fail_closed() {
 }
 
 #[test]
+/// Bind each capability observation to its explicitly named capability.
 fn capability_observation_cannot_satisfy_a_different_capability() {
     let observation: CapabilityObservation = read("linux-cli", "capability-observation");
     observation
@@ -783,6 +815,7 @@ fn capability_observation_cannot_satisfy_a_different_capability() {
 }
 
 #[test]
+/// Reject catalog byte substitutions against independently approved capability configuration.
 fn capability_config_rejects_independent_catalog_digest_and_size_substitution() {
     let c = config("linux-cli");
     let i = inventory();
@@ -808,6 +841,7 @@ fn capability_config_rejects_independent_catalog_digest_and_size_substitution() 
 }
 
 #[test]
+/// Admit registry byte evidence only in verified or explicit conflict states.
 fn registry_byte_evidence_requires_verified_or_conflict_state() {
     let set: PublishSet = read("linux-cli", "publish-set");
     let base: RegistryReceipt = read("linux-cli", "registry-receipt");
@@ -839,6 +873,7 @@ fn registry_byte_evidence_requires_verified_or_conflict_state() {
 }
 
 #[test]
+/// Reject nonstable tag references at every release authorization gate.
 fn all_release_gates_reject_nonstable_tag_refs() {
     for invalid in [
         "refs/tags/not-semver",
@@ -866,4 +901,87 @@ fn all_release_gates_reject_nonstable_tag_refs() {
         receipt.inputs.source.git_ref = invalid.into();
         assert!(receipt.validate(NOW, 300).is_err());
     }
+}
+
+/// Preserve independently approved observation times even when producer freshness checks pass.
+#[test]
+fn producer_cannot_refresh_independently_approved_tool_observation_time() {
+    use armorer::trust::evidence::InputKind;
+    let c = config("linux-cli");
+    let i = inventory();
+    for kind in [InputKind::Tool, InputKind::Database] {
+        let mut e = evidence();
+        let mut r = requirements();
+        e.tools[0].kind = kind;
+        r.tools[0].kind = kind;
+        e.tools[0].max_age_seconds = Some(60);
+        r.tools[0].max_age_seconds = Some(60);
+        e.tools[0].observed_at = NOW - 30;
+        r.tools[0].observed_at = NOW - 30;
+        e.validate_against_requirements(&c, &i, &r, NOW).unwrap();
+        // Same pins and authenticated record, but an independent observation is stale.
+        r.tools[0].observed_at = NOW - 61;
+        e.validate_release_chain(&c, &i, &r.inputs, &r.catalog, None, NOW)
+            .unwrap();
+        assert_eq!(
+            e.validate_against_requirements(&c, &i, &r, NOW)
+                .unwrap_err()
+                .to_string(),
+            "invalid configuration: evidence-tool-pin-mismatch"
+        );
+        // The timestamp cannot change even when both observations are still fresh.
+        r.tools[0].observed_at = NOW - 31;
+        assert_eq!(
+            e.validate_against_requirements(&c, &i, &r, NOW)
+                .unwrap_err()
+                .to_string(),
+            "invalid configuration: evidence-tool-pin-mismatch"
+        );
+    }
+}
+
+/// Bind use of each reviewed exception to its independently approved coverage record.
+#[test]
+fn producer_cannot_attach_allowed_exceptions_to_exception_free_coverage() {
+    use armorer::trust::evidence::Exception;
+    let c = config("linux-cli");
+    let i = inventory();
+    let mut e = evidence();
+    let mut r = requirements();
+    // Dependency policy permits explicitly reviewed exceptions, unlike trust checks.
+    e.coverage[0].capability = CapabilityId::DependencyPolicy;
+    r.required_coverage[0].capability = CapabilityId::DependencyPolicy;
+    let exception = Exception {
+        id: "reviewed-dependency-rule".into(),
+        capability: CapabilityId::DependencyPolicy,
+        tool: e.tools[0].name.clone(),
+        rule: "reviewed-rule".into(),
+        tool_version: e.tools[0].version.clone(),
+        subject: e.coverage[0].tested_subject.clone(),
+        policy: ByteIdentity::from_bytes(b"independent policy"),
+        review: r.review.clone(),
+        positive_control: ByteIdentity::from_bytes(b"retained positive control"),
+    };
+    e.exceptions.push(exception.clone());
+    r.allowed_exceptions.push(exception.clone());
+    e.validate_against_requirements(&c, &i, &r, NOW).unwrap();
+    e.coverage[0].exception_ids.push(exception.id.clone());
+    // The exception itself is valid and allowed: only its unapproved use is rejected.
+    e.validate_release_chain(&c, &i, &r.inputs, &r.catalog, None, NOW)
+        .unwrap();
+    assert_eq!(
+        e.validate_against_requirements(&c, &i, &r, NOW)
+            .unwrap_err()
+            .to_string(),
+        "invalid configuration: required-coverage-not-enforced"
+    );
+    r.required_coverage[0].exception_ids.push(exception.id);
+    e.validate_against_requirements(&c, &i, &r, NOW).unwrap();
+    e.coverage[0].exception_ids.clear();
+    assert_eq!(
+        e.validate_against_requirements(&c, &i, &r, NOW)
+            .unwrap_err()
+            .to_string(),
+        "invalid configuration: required-coverage-not-enforced"
+    );
 }
