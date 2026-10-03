@@ -1,11 +1,11 @@
-# Candidate onboarding and release readiness
+# Onboarding and release readiness
 
-The current candidate can inspect Rust workspaces, provision unprivileged CI/build
+The accepted source can inspect Rust workspaces, provision unprivileged CI/build
 callers, preview reviewed upgrades and verify complete release evidence. Protected
 Apple finalization, native publication enforcement, production trust catalogs and
 both adoption rehearsals remain incomplete. Use the
 [acceptance ledger](v01-acceptance.md) to identify exact candidate heads and receipts.
-No SLSA level or release authority follows from installing the candidate.
+No SLSA level or release authority follows from installing the CLI.
 
 ## Inspect and configure a project
 
@@ -59,7 +59,7 @@ trust and freshness boundaries. An independently reviewed
 state. Required Apple executables additionally need the supported macOS
 [native signature/team/hardened-runtime/timestamp/notarization checks](apple-native-verification-v1.md).
 Linux cannot confer those Apple checks. Public reference fixtures establish scoped
-verifier behavior; an own complete signed producer positive remains required.
+verifier behavior; a complete signed rehearsal of Armorer's own producer/consumer flow remains required.
 
 ## Before signing or publication
 
@@ -92,7 +92,7 @@ new reviewed candidate when source or authority changes.
 | Published | Separately authorized provider transition and verified immutable release/served asset identities |
 | Provenance verified | Independently approved context/roots and real signed evidence matching the exact final bytes |
 
-The candidate has scoped local and hosted CI receipts. Full release rehearsal,
+The accepted implementation has scoped local and hosted CI receipts. Full release rehearsal,
 publication validation, own signed Armorer dogfooding and the dependent Momus and
 rusty-brain pilots remain open. Complete the ledger's required review and human
 acceptance gates before promoting a candidate to an accepted release baseline.

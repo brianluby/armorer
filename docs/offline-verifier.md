@@ -1,5 +1,8 @@
 # Offline evidence-slot verification
 
+Know the subject. Bring independent policy. Trust only the proof that survives
+every comparison. **This is the way.**
+
 The `verification::sigstore::OfflineVerifier` library authenticates one exact
 artifact/evidence slot using GitHub CLI **2.102.0**, source commit
 `fc4b137cdef0a6bd28fd461b7cf9c84a5812a8cd`. It produces a private-constructor
@@ -44,6 +47,9 @@ whole-document schema check, including fields outside the graph. The
 now connects these checks with inventory authentication and verified-predicate
 comparison. Its own complete signed positive rehearsal, qualified platform
 report semantics and final-byte producer remain required acceptance gates.
+
+One slot earns one scoped proof. The whole release needs every required gate.
+**This is the way.**
 
 ## Execution and result checks
 
@@ -139,6 +145,8 @@ streams are bounded while being read. Frozen v1 contract loaders retain their
 against a malicious process with the same OS account modifying private snapshots
 or directory ancestry. It checks regular-file identity during open and rehashes
 all verification snapshots after the child exits.
+
+Keep the limitations with the result. **This is the way.**
 
 Root transport accepts one bounded JSON object or at most 32 JSONL root objects;
 duplicate keys, arrays, missing or malformed records fail. Root updates require

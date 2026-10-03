@@ -1,6 +1,13 @@
 # Experimental version-one contracts
 
-This slice establishes typed config, pin-lock and preview shapes for review. They remain experimental until v0.1 ships. The proposed [release trust freeze](trust-contracts-v1.md) adds separate inventory, verification policy, per-artifact evidence, capability/catalog and receipt contracts. Signing, cryptographic verification and publication remain later implementations; schemas are not trust verification.
+Name your intent. Bind the bytes. Preserve the work already forged.
+**This is the way.**
+
+These typed config, pin-lock and preview interfaces remain experimental until
+v0.1 ships. The [release trust contracts](trust-contracts-v1.md) add separate
+inventory, verification policy, per-artifact evidence, capability/catalog and
+receipt interfaces. Main also supplies an [individual offline attestation
+verifier](offline-verifier.md). Schemas alone authenticate no release.
 
 ## Intent: armorer.toml
 
@@ -14,12 +21,23 @@ Feature sets contain `default_features` and package-local declared features. All
 
 The [lock schema](../schemas/lock-v1.json) contains schema version, config digest, runtime version, workflow pin and tools map. Workflow pins require a repository and full lowercase 40-character Git SHA. Tools require exact stable versions and 64-character distribution SHA-256 digests. The config digest binds **exact TOML bytes**, including comments. Runtime compatibility is exact in this slice.
 
-Parsing validates syntax and config binding only. The loader returns the exact bytes it validated, and the plan hashes those bytes without reopening the lock. Hash syntax does not authenticate upstream bytes or identity. Check/plan report `pins-not-authenticated`. There is no resolved catalog, lock generation or upgrade mechanism yet. Do not populate placeholder hashes to satisfy checks.
+Parsing validates syntax and config binding only. The loader returns the exact bytes it validated, and the plan hashes those bytes without reopening the lock. Hash syntax does not authenticate upstream bytes or identity. Check/plan report `pins-not-authenticated`. The [embedded bootstrap catalog](bootstrap-catalog.md) and library lock renderer establish a separate reviewed source authority; check/plan do not generate, adopt or authenticate a consuming lock against it. The [upgrade CLI](upgrades.md) uses its own reviewed contract; it does not extend this v1 plan. Do not populate placeholder hashes to satisfy checks.
+
+A digest names bytes. Review establishes which bytes you trust.
+**This is the way.**
 
 ## Deterministic preview
 
 The [plan schema](../schemas/plan-v1.json) reports schema/runtime version, mode, validated intent including selected deliverables/features, config/optional lock digests, ownership state digest, license/legacy-toolchain preimages, relative inputs, sorted metadata, proposed changes, findings and capability state. `plan_sha256` binds compact typed JSON with that digest field blank. Plans are bounded to 1 MiB and exclude temporary paths, timestamps and random IDs. Inputs hash Cargo manifests/locks; `.rs` records indicate **path presence only** to bind implicit target discovery. They do not hash source or constitute release source evidence.
 
-The preview proposes `rust-toolchain.toml` with existing/proposed digests. Different unowned contents or legacy `rust-toolchain` produce `conflict`; matching contents are `unchanged`, missing contents are `create`. An owned file matching its recorded base can be refreshed through a reviewed `update` plan. Matching preexisting files remain unowned. No workflow calls are generated before a reviewed implementation exists. [Transactional apply](apply.md) requires an independently approved digest and fresh regeneration, preserves customization, and records durable before/after evidence for explicit recovery. Workflow/tool catalog upgrades remain a separate slice.
+The preview proposes `rust-toolchain.toml` with existing/proposed digests. Different unowned contents or legacy `rust-toolchain` produce `conflict`; matching contents are `unchanged`, missing contents are `create`. An owned file matching its recorded base can be refreshed through a reviewed `update` plan. Matching preexisting files remain unowned. The catalog's library caller renderer does not extend this plan's mutation scope. [Transactional apply](apply.md) requires an independently approved digest and fresh regeneration, preserves customization, and records durable before/after evidence for explicit recovery. Workflow/tool catalog upgrades use the separate [upgrade contract](upgrades.md).
+
+`plan --preview` and `preview` wrap the unchanged v1 plan in an exact review view.
+It contains full current/proposed UTF-8 text and complete replacement diffs,
+including legacy blockers. The saved-plan view checks the retained digest and
+fresh preimages. Apply still takes the v1 plan itself. Oversized or non-UTF-8
+review text fails explicitly; no truncated view can authorize a replacement.
 
 `state = "configuration-valid"` means local intent passed validation. It does not mean configured, CI verified, release rehearsed, published or provenance verified. `capability_state = "unknown"` blocks secure readiness. Later states require evidence from their own gates.
+
+Earn each state with its own proof. **This is the way.**
