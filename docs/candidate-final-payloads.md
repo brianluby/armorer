@@ -1,7 +1,7 @@
 # Seal the cargo before you attest it
 
 Candidate source: workflow integration
-[`e88e25fc46c1bb5298579c5cd49f52d43215b9e1`](https://github.com/brianluby/armorer-workflows/tree/e88e25fc46c1bb5298579c5cd49f52d43215b9e1).
+[`3fac9a1cef3d9a5c4ac6f5c79c99d9255f63200a`](https://github.com/brianluby/armorer-workflows/tree/3fac9a1cef3d9a5c4ac6f5c79c99d9255f63200a).
 The embedded catalog still pins workflow main `772ca83e386c883c88cc3b936d69f8cb3216c91e`.
 This internal assembler prepares a byte layout for the strict consumer. It
 provides no main CLI command, signing adapter or publication operation.
@@ -114,12 +114,12 @@ or library subset cannot supply missing Apple parity or complete own-release
 acceptance. Publication, owned draft retry, served-byte checks and pilots still
 need their separately qualified adapters and evidence.
 
-The [integration review](../reviews/2026-10-03-workflow-integration.md) records
+The preceding `e88e25fc46c1` [integration review](../reviews/2026-10-03-workflow-integration.md) records
 19 passing local assembly tests, including exact byte transformations, inventory
 ordering, mutation, limits, cleanup and synthetic layout completion. It also
 retains the separate intake/policy/collector and hosted validation boundaries.
 These are not a genuine signed own-release positive. Read the
-[exact assembly contract](https://github.com/brianluby/armorer-workflows/blob/e88e25fc46c1bb5298579c5cd49f52d43215b9e1/docs/final-payload-v1.md)
+[exact assembly contract](https://github.com/brianluby/armorer-workflows/blob/3fac9a1cef3d9a5c4ac6f5c79c99d9255f63200a/docs/final-payload-v1.md)
 before qualifying a controller.
 
 Complete bytes first. Earn authentic proof next. **This is the way.**

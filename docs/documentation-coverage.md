@@ -11,7 +11,7 @@ Main is `96457ee418439dde097339cfcd374c08f2cc98ad`; the combined candidate is
 Candidate guides remain separate from main's commands. Preserve source identities
 when these boundaries change.
 The separately reviewed workflow integration candidate is
-`e88e25fc46c1bb5298579c5cd49f52d43215b9e1`; its observer and unsigned intake do
+`3fac9a1cef3d9a5c4ac6f5c79c99d9255f63200a`; its observer and unsigned intake do
 not change the embedded workflow pin or grant protected production authority.
 
 Count what stands. Keep the missing proof visible. **This is the way.**
@@ -54,10 +54,10 @@ Earn the last column. **This is the way.**
 
 ## Retained validation boundary
 
-Documentation head `77356344a813f8ad71be8d2a0aac3a445d928876` passes formatting,
+Documentation head `c2cc95b31b509511b9c803a0fc9fe4a5a0e7e273` passes formatting,
 strict Clippy, locked build and 95 local tests, with one genuine Sigstore test
 ignored locally. Its Linux x64, Linux ARM and macOS Development jobs all pass in
-[run 37106073975](https://github.com/brianluby/armorer/actions/runs/37106073975),
+[run 37106974827](https://github.com/brianluby/armorer/actions/runs/37106974827),
 including genuine-signature fixtures, schema checks and workflow audits. This
 receipt belongs to [draft #22](https://github.com/brianluby/armorer/pull/22), whose
 main runtime source is unchanged; it supplies no candidate-integration or complete
@@ -98,8 +98,8 @@ the documented 0/2 statuses and four open findings. All 172 copied files match
 the original archive plus supplied config; no build output or consumer mutation
 was created. This is discovery evidence, not a signed release rehearsal.
 
-The expanded guide set passes checks for 50 Markdown files, 337 local links
-(including 35 heading links), balanced fences and 29 shell blocks. The retained
+The expanded guide set passes checks for 51 Markdown files, 346 local links
+(including 37 heading links), balanced fences and 29 shell blocks. The retained
 parsed dogfood TOML validation is unchanged. This validation
 checks documentation structure and the described current exercise; it does not
 exercise a missing protected release adapter.
@@ -127,6 +127,14 @@ source-checks dedicated read/runtime/OIDC names and issuer/mapped/writer origina
 handle expiry. Local Node v22.22.3 passes 11 issuer tests, 12 mapped tests and one
 writer test script containing 35 protocol groups. Synthetic issuer/service data
 and owned subprocesses do not establish live protected producer acceptance.
+
+The [cleanup successor review](../reviews/2026-10-03-workflow-cleanup.md) verifies
+48 affected tests at `9d857a80f094`, including actual exited-leader descendants
+and execution of the workflow's schema code. Its all-host prerequisite/intake and
+12-job runtime receipts pass; the combined caller fails Linux x64/ARM collection.
+The earlier successful joined fixture cannot qualify that failed attempt.
+Successor `3fac9a1cef3d` passes 12 issuer and 13 mapped Node tests locally,
+including startup-transport rejection before OIDC credential reads/HTTP.
 
 ## Next actions require their own evidence
 

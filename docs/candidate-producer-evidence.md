@@ -1,7 +1,7 @@
 # Bring the whole cargo. Prove who carried it.
 
 Candidate guide: workflow source
-[`e88e25fc46c1bb5298579c5cd49f52d43215b9e1`](https://github.com/brianluby/armorer-workflows/tree/e88e25fc46c1bb5298579c5cd49f52d43215b9e1).
+[`3fac9a1cef3d9a5c4ac6f5c79c99d9255f63200a`](https://github.com/brianluby/armorer-workflows/tree/3fac9a1cef3d9a5c4ac6f5c79c99d9255f63200a).
 Armorer's embedded workflow pin remains `772ca83e386c883c88cc3b936d69f8cb3216c91e`.
 These internal interfaces prepare a fixed controller. They are not main CLI
 commands or an accepted protected release procedure.
@@ -123,7 +123,7 @@ parity by omitting those executables. Protected Developer ID finalization,
 notarization, final-byte attestation and strict complete consumer verification
 remain required, alongside immutable publication, recovery and both pilots.
 
-The [integration review](../reviews/2026-10-03-workflow-integration.md) records
+The preceding `e88e25fc46c1` [integration review](../reviews/2026-10-03-workflow-integration.md) records
 eight passing local combined-collector tests and 12 policy boundary tests, with
 one real scanner/public-feed control skipped locally. It retains exact hosted
 test/build/policy/transport results and the separate combined caller rehearsal's
@@ -134,8 +134,8 @@ keeps its historical source and receipts. This guide adds no live private
 producer-OIDC positive, complete signed rehearsal or human acceptance.
 The [final payload guide](candidate-final-payloads.md) follows the fixed
 transformation/inventory order and its unverified result. Read the exact candidate
-[combined contract](https://github.com/brianluby/armorer-workflows/blob/e88e25fc46c1bb5298579c5cd49f52d43215b9e1/docs/combined-handoff-v1.md)
-and [policy contract](https://github.com/brianluby/armorer-workflows/blob/e88e25fc46c1bb5298579c5cd49f52d43215b9e1/docs/independent-policy-v1.md)
+[combined contract](https://github.com/brianluby/armorer-workflows/blob/3fac9a1cef3d9a5c4ac6f5c79c99d9255f63200a/docs/combined-handoff-v1.md)
+and [policy contract](https://github.com/brianluby/armorer-workflows/blob/3fac9a1cef3d9a5c4ac6f5c79c99d9255f63200a/docs/independent-policy-v1.md)
 before qualifying an integration.
 
 Earn each proof. Hold the remaining gates. **This is the way.**
@@ -175,3 +175,22 @@ do not supply an authorized live protected OIDC producer or current-attempt
 environment approval.
 
 Keep the original proof. Watch every clock. **This is the way.**
+
+
+## Retain the failed collection attempt
+
+At the reviewed successor `9d857a80f094`, the
+[combined rehearsal](https://github.com/brianluby/armorer-workflows/actions/runs/37106718935)
+finishes with failure. All nine build jobs and their policy/CI siblings pass,
+but Linux x64 and ARM fail at the collection/writer-binding qualification step;
+macOS collection passes. No all-host joined handoff is established by that run.
+The preceding `e88e25fc46c1` success keeps its own source/run identity.
+
+Keep the failed attempt and inspect the fixed phase/code or retained receipt.
+Do not widen source/job/byte/freshness expectations or remove a target to force
+collection through. A new attempt needs a complete new binding; successful build
+or policy siblings cannot substitute for failed collection. The
+[cleanup review](../reviews/2026-10-03-workflow-cleanup.md) records the verified
+step outcomes without attributing an unproven root cause.
+
+Keep the failure visible. Earn the whole handoff again. **This is the way.**

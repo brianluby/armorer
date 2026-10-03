@@ -89,7 +89,7 @@ effective current-attempt approvals and rotation remain unqualified.
 ## Match the candidate helper's exact read interface
 
 These interfaces belong to workflow candidate
-[`e88e25fc46c1bb5298579c5cd49f52d43215b9e1`](https://github.com/brianluby/armorer-workflows/tree/e88e25fc46c1bb5298579c5cd49f52d43215b9e1).
+[`3fac9a1cef3d9a5c4ac6f5c79c99d9255f63200a`](https://github.com/brianluby/armorer-workflows/tree/3fac9a1cef3d9a5c4ac6f5c79c99d9255f63200a).
 They are not generated main callers or production signing-secret definitions.
 Use the fixed helper's declared name; a similarly named variable does not supply
 the same interface.
@@ -131,6 +131,17 @@ within platform/local provisioning. The
 records source checks and synthetic test scope. Actual protected signing,
 administrative-read App bindings and publication setup still require their
 accepted production adapters.
+
+At successor `3fac9a1cef3d`, the OIDC helper rejects any presence of
+`NODE_OPTIONS`, `NODE_EXTRA_CA_CERTS`, `NODE_TLS_REJECT_UNAUTHORIZED` or
+`NODE_USE_ENV_PROXY`, including an empty value, before credential access or HTTP.
+Some transport overrides take effect when Node starts; deleting them inside the
+running helper cannot undo startup changes. Start the fixed helper from its
+reviewed clean launcher. Do not remove the rejection or switch TLS/proxy settings
+to make an issuer request pass. This environment guard does not authenticate the
+launcher or repair arbitrary code already running in the process.
+The [successor review](../reviews/2026-10-03-workflow-cleanup.md#reject-startup-transport-overrides)
+records synthetic issuer/mapped tests; production OIDC acceptance remains open.
 
 Name the interface. Keep the credential inside it. **This is the way.**
 

@@ -66,7 +66,7 @@ and production acceptance remain separate from the repaired source.
 ## The separate workflow candidate
 
 Workflow main remains `772ca83e386c883c88cc3b936d69f8cb3216c91e`, matching the
-embedded catalog pin. Workflow integration PR #21 at
+embedded catalog pin. The preceding workflow integration PR #21 at
 `e88e25fc46c1bb5298579c5cd49f52d43215b9e1` targets that main and preserves the
 stack through #20 at `853437cb1c9cbb9a60b2186ebb637ce56d3f6b51`. Its only changes
 relative to that stack are three fixture-validator references to Armorer
@@ -91,6 +91,24 @@ its fixed nine-selection/eighteen-archive fixture. These helpers are not integra
 main's CLI/callers; unsigned intake does not implement protected Developer ID
 signing, notarization or immutable publication. The production administrative-read
 credential binding and current-attempt environment approval remain open.
+
+The reviewed successor `9d857a80f0943ecd06870f89d6bbde968a207625` changes seven
+files: source/controller/worker process-group cleanup, a nonempty policy-schema
+CI check, two regression suites and one caller-pin documentation correction.
+Schemas, tool pins, action wrappers, lock and rehearsal callers are unchanged.
+Its affected local suites pass 48 tests; four actual descendant regressions fail
+against the predecessor and pass at the successor. All prerequisite/intake jobs
+and all 12 runtime-validation jobs pass at the new head. Its combined caller run
+fails Linux x64/ARM collection while macOS passes, despite successful build/policy
+siblings. The [cleanup review](../reviews/2026-10-03-workflow-cleanup.md) retains
+these exact outcomes; the prior combined success does not qualify this run.
+The next reviewed successor `3fac9a1cef3d9a5c4ac6f5c79c99d9255f63200a` changes
+only the issuer helper and its two Node test files. It rejects four inherited
+startup transport variables before OIDC credential reads/HTTP. Review and local
+compatibility evidence are in the same continuation; each new hosted run retains
+its own result. All three prerequisite and unsigned-intake jobs pass at
+`3fac9a1cef3d`; runtime-validation and combined runs were queued at the retained
+observation. No combined positive is inferred.
 
 ## Integrate with care
 
@@ -119,9 +137,9 @@ Keep every earned protection. **This is the way.**
 
 ## Earn the release
 
-Documentation head `77356344a813f8ad71be8d2a0aac3a445d928876` passed all three
+Documentation head `c2cc95b31b509511b9c803a0fc9fe4a5a0e7e273` passed all three
 Development jobs in
-[run 37106073975](https://github.com/brianluby/armorer/actions/runs/37106073975),
+[run 37106974827](https://github.com/brianluby/armorer/actions/runs/37106974827),
 including genuine-signature fixtures, schema checks and workflow audits. That
 receipt covers the documented main runtime and training additions at that exact
 head. It does not accept #21 or qualify a complete signed release.
