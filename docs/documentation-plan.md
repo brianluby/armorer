@@ -14,13 +14,17 @@ The [development map](development-status.md) identifies the source boundary.
 | Reader's duty | Guide | Validation boundary |
 | --- | --- | --- |
 | Begin a safe inspection | [Onboarding](onboarding.md) | Temporary CLI fixture; unchanged consumer inputs and expected findings |
+| Inspect every profile and preserve an existing project | [Profiles](profiles.md), [training workspace](../examples/profile-workspace/README.md) | Two packages, library/CLI/service, four target selections, explicit service features; read-only inspection |
 | Choose commands and interpret results | [CLI reference](cli-reference.md) | Current help, errors and finding codes |
+| Correct failed inspection or local transaction | [Troubleshooting](troubleshooting.md) | Current error categories, feature/path/preview bounds and preserved recovery evidence |
+| Know version and host boundaries | [Compatibility](compatibility.md) | Exact v1/runtime rules, target selections versus native verifier hosts; no invented support window |
 | Review, apply and recover | [Apply and recovery](apply.md) | v1 toolchain-only transaction, exact preview and retained digest/journal |
 | Understand intent and preview identity | [Local contracts](contracts-v1.md) | Current types, schemas and semantic rules |
 | Inspect bootstrap authority | [Catalog](bootstrap-catalog.md) | Embedded identity and library rendering; no automatic adoption |
 | Understand release evidence | [Trust contracts](trust-contracts-v1.md), [examples](../examples/trust-v1/README.md) | Structural/semantic interfaces; synthetic labels retained |
 | Verify a scoped attestation | [Offline verifier](offline-verifier.md) | Library API; independent policy/roots; genuine native qualification separate |
 | Prepare for release gates | [Release readiness](release-readiness.md) | Required evidence and open producer/publication/pilot gates |
+| Inspect account/visibility and manual settings | [Platform prerequisites](platform-prerequisites.md) | Current GitHub documentation; manual read-only settings sample; no authenticated preflight claim |
 | Contribute in the creed | [Contributing](../CONTRIBUTING.md), [writing guide](writing-guide.md) | Pinned checks, all schemas and accurate Mandalorian prose |
 
 These guides cover the current boundary. They do not complete ticket #14's
@@ -30,16 +34,16 @@ future operational scope or hosted Armorer dogfooding.
 
 | Planned deliverable | Preparation now | Gate before a supported operator runbook |
 | --- | --- | --- |
-| New/existing adoption for library, CLI and service | Preserve profile fixtures and explicit selections | Integrated reviewed policy/provisioning; all profiles/customization paths tested |
+| New/existing adoption for library, CLI and service | Tested local profile exercise and preservation guide | Integrated reviewed policy/provisioning; all profiles/customization paths tested |
 | Upgrade, migration and exact rollback | Link #9's immutable guide | Integrated CLI, versioned schemas and recovery tests |
 | Complete-release and historical verification | Link the stack guides separately | Integrated independent authority and genuine complete positive/negative controls |
 | Native Apple consumer checks | Link #19's exact guide and limits | Accepted macOS integration; production signing remains separate |
-| Account/visibility matrix and manual settings | List observations in readiness guide | Qualified preflight plus current primary-source account/plan evidence |
+| Account/visibility matrix and manual settings | Source-checked matrix and manual observation guide | Qualified preflight plus repository/account-specific evidence |
 | Credential names, scopes, approvals and rotation | Preserve explicit ownership/permissions | Reviewed adapters define exact names and scopes |
 | Advisory/root outages and resumption | Explain freshness and independent policy | Accepted policy and executable outage/retry paths |
 | Draft conflict, partial upload and alias recovery | Retain state-machine requirements | Owned receipts, backend and rehearsed faults |
 | Post-publication incident/new version | Preserve immutable-release rule | Verified publication backend and operational acceptance |
-| Support/deprecation/security policies and dogfooding | Keep experimental scope explicit | Accepted commitments/reporting channel and hosted Armorer rehearsal |
+| Support/deprecation/security policies and dogfooding | Current compatibility limits, reproducer guidance and [security reporting draft](security-reporting-draft.md) | Accepted support commitments, a working private reporting channel/policy and hosted Armorer rehearsal |
 
 Do the preparation the source supports. Keep unsupported commands out of the
 main walkthrough. **This is the way.**

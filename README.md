@@ -43,7 +43,10 @@ Follow [your first inspection](docs/onboarding.md) for a complete local exercise
 | Your task | Your guide |
 | --- | --- |
 | Inspect a Rust workspace | [Onboarding](docs/onboarding.md) |
+| Select a library, CLI or service | [Profiles and workspace walkthrough](docs/profiles.md) |
 | Find commands, exit statuses and finding codes | [CLI reference](docs/cli-reference.md) |
+| Resolve a stopped inspection or transaction | [Troubleshooting](docs/troubleshooting.md) |
+| Check contract and platform support | [Compatibility](docs/compatibility.md), [platform prerequisites](docs/platform-prerequisites.md) |
 | Apply a plan or recover a transaction | [Apply and recovery](docs/apply.md) |
 | Inspect the bootstrap authority | [Catalog source and limits](docs/bootstrap-catalog.md) |
 | Verify an individual attestation through the library | [Offline verifier](docs/offline-verifier.md) |

@@ -77,6 +77,10 @@ intent. Approval still requires your review. The training source stays inert.
 3. Run `armorer --repository /path/to/workspace plan` and review findings and proposed content. Run `check` for a failing setup gate; it exits 2 while requirements remain.
 4. Optionally review and retain a plan digest, then use [transactional apply](apply.md) to configure the toolchain. Check/plan stay read-only. Track missing settings, credentials and reviewed pins as setup work; this slice does not contact GitHub, request secrets or configure GitHub settings.
 
+For all three profiles, follow [the complete workspace exercise](profiles.md).
+Keep [compatibility](compatibility.md), [platform prerequisites](platform-prerequisites.md)
+and [troubleshooting](troubleshooting.md) close when bringing an existing project.
+
 ## Know what discovery sees
 
 Armorer makes a temporary snapshot of Cargo manifests/locks and empty Rust source paths. It uses installed pinned rustup Cargo/compiler with `cargo metadata --no-deps --offline --locked --format-version 1`, isolated Cargo home and cleared environment. Unix subprocess PATH is limited to the installed toolchain and standard system utility directories. Repository `.cargo`, compiler wrappers and credential providers are excluded. Discovery does not run build scripts, compile source or resolve dependency graphs. Escaping manifest paths and symlinks are rejected. Native `links` and build-script declarations are reported.

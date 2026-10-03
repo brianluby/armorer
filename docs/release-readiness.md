@@ -49,6 +49,8 @@ signing/publication environments, hosted runners and current immutable settings.
 Unavailable observations and HTTP 403 cannot satisfy required capabilities.
 Main check/plan do not run GitHub preflight or alter settings. Supported account
 combinations need qualified preflight and current platform evidence before adoption.
+Use [the platform preparation guide](platform-prerequisites.md) for the current
+GitHub eligibility matrix and manual observation steps.
 
 Build jobs execute Cargo/build scripts with read access and no signing, OIDC or
 publication credentials. Trusted attestation jobs need `contents: read`,

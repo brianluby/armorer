@@ -141,3 +141,6 @@ for individual evidence slots. It does not expose complete-release CLI verificat
 Proposed interfaces in the architecture and branch documentation describe later work.
 
 Name the limitation. Hold the gate. **This is the way.**
+
+Follow [troubleshooting](troubleshooting.md) for a stopped inspection or transaction,
+and [compatibility](compatibility.md) before changing contract/runtime versions.
