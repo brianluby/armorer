@@ -213,6 +213,17 @@ fn integrated_verification_commands_preserve_context_first_rejection() {
     fs::write(root.path().join("unchanged"), b"consumer bytes").unwrap();
     let before = snapshot(root.path());
     let zero = "0".repeat(64);
+    let trusted = tempfile::tempdir().unwrap();
+    let unapproved = b"unapproved bytes that are deliberately not JSON";
+    for name in [
+        armorer::verification::context::CONTEXT_NAME,
+        armorer::verification::context::NATIVE_CONTEXT_NAME,
+    ] {
+        fs::write(trusted.path().join(name), unapproved).unwrap();
+    }
+    let trusted_before = snapshot(trusted.path());
+    let policy = tempfile::NamedTempFile::new().unwrap();
+    fs::write(policy.path(), unapproved).unwrap();
     for kind in ["legacy-v1", "native-v2"] {
         let result = cli(
             root.path(),
@@ -221,7 +232,7 @@ fn integrated_verification_commands_preserve_context_first_rejection() {
                 "--directory",
                 "/nonexistent/offered-release",
                 "--trusted-inputs",
-                "/nonexistent/approved-inputs",
+                trusted.path().to_str().unwrap(),
                 "--expect-context-sha256",
                 &zero,
                 "--context-kind",
@@ -235,7 +246,13 @@ fn integrated_verification_commands_preserve_context_first_rejection() {
             ],
             1,
         );
-        assert!(result.get("error").is_some());
+        assert_eq!(
+            result["error"],
+            serde_json::json!({
+                "code": "invalid-config",
+                "message": "invalid configuration: unapproved-release-context"
+            })
+        );
     }
     let result = cli(
         root.path(),
@@ -244,7 +261,7 @@ fn integrated_verification_commands_preserve_context_first_rejection() {
             "--directory",
             "/nonexistent/offered-release",
             "--policy",
-            "/nonexistent/approved-policy",
+            policy.path().to_str().unwrap(),
             "--expect-policy-sha256",
             &zero,
             "--source-repository",
@@ -256,6 +273,14 @@ fn integrated_verification_commands_preserve_context_first_rejection() {
         ],
         1,
     );
-    assert!(result.get("error").is_some());
+    assert_eq!(
+        result["error"],
+        serde_json::json!({
+            "code": "invalid-config",
+            "message": "invalid configuration: unapproved-historical-policy"
+        })
+    );
     assert_eq!(snapshot(root.path()), before);
+    assert_eq!(snapshot(trusted.path()), trusted_before);
+    assert_eq!(fs::read(policy.path()).unwrap(), unapproved);
 }
