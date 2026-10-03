@@ -2,7 +2,9 @@
 
 Source snapshot: **2026-10-02, America/Los_Angeles**, main
 `96457ee418439dde097339cfcd374c08f2cc98ad`. PR API observations were made
-on 2026-10-03 UTC. Seven PRs are open. Inspect source ancestry before promoting
+on 2026-10-03 UTC. Seven implementation PRs (#15–21) are open. The separate
+[documentation draft #22](https://github.com/brianluby/armorer/pull/22) supplies
+these field guides and review records. Inspect source ancestry before promoting
 a feature into the current command guide.
 
 **This is the way.**
@@ -82,6 +84,13 @@ Resolve open source findings before accepting the integrated set.
 Keep every earned protection. **This is the way.**
 
 ## Earn the release
+
+Documentation head `6af9a20ca68a98c36a05b70a730a595a04a74c23` passed all three
+Development jobs in
+[run 37102251043](https://github.com/brianluby/armorer/actions/runs/37102251043),
+including genuine-signature fixtures, schema checks and workflow audits. That
+receipt covers the documented main runtime and training additions at that exact
+head. It does not accept #21 or qualify a complete signed release.
 
 Open #15–20 retain passing hosted Rust checks. #21's source-repair local suite at
 `3a21085a5864` passes 205 ordinary tests plus eight doctests; seven native

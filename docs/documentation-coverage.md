@@ -51,8 +51,14 @@ Earn the last column. **This is the way.**
 
 ## Retained validation boundary
 
-Main's unchanged Rust source has the earlier formatting, strict Clippy, locked
-build and 95-test receipt. The source-repair candidate at `3a21085a5864` passes
+Documentation head `6af9a20ca68a98c36a05b70a730a595a04a74c23` passes formatting,
+strict Clippy, locked build and 95 local tests, with one genuine Sigstore test
+ignored locally. Its Linux x64, Linux ARM and macOS Development jobs all pass in
+[run 37102251043](https://github.com/brianluby/armorer/actions/runs/37102251043),
+including genuine-signature fixtures, schema checks and workflow audits. This
+receipt belongs to [draft #22](https://github.com/brianluby/armorer/pull/22), whose
+main runtime source is unchanged; it supplies no candidate-integration or complete
+signed-release acceptance. The source-repair candidate at `3a21085a5864` passes
 205 ordinary tests/eight doctests; seven native integrations are ignored locally.
 The later test-only `aff8c041c410` head passes both integrated CLI tests locally
 and its distinct hosted Linux x64/Linux ARM/macOS jobs pass. The
