@@ -118,8 +118,10 @@ claiming complete #8 acceptance. An external wheel signature fixture establishes
 only the native signature adapter and the inventory-first rejection boundary.
 
 Historical compatibility is never attempted by this operation, including after
-failed authentication. An explicit exact historical consumer route remains
-pending; existing historical policy records do not enable automatic downgrade.
+failed authentication. The separate explicit
+[historical byte operation](historical-verification.md) matches independently
+approved legacy bytes and reports no provenance authentication; policy records
+never enable automatic downgrade.
 Draft ownership, served-byte re-download, ancestry/actor checks, protected
 publication and immutable-release attestations are separately tracked #10 gates.
 

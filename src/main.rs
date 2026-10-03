@@ -37,6 +37,21 @@ enum Operation {
         #[arg(long)]
         expect_plan_sha256: String,
     },
+    /// Explicitly compare independently approved historical bytes; establishes no provenance authentication.
+    VerifyHistoricalBytes {
+        #[arg(long)]
+        directory: PathBuf,
+        #[arg(long)]
+        policy: PathBuf,
+        #[arg(long)]
+        expect_policy_sha256: String,
+        #[arg(long)]
+        source_repository: String,
+        #[arg(long)]
+        source_commit: String,
+        #[arg(long)]
+        source_tag: String,
+    },
     /// Print a structural JSON schema. Semantic rules are also checked at runtime.
     Schema {
         #[arg(value_enum)]
@@ -66,11 +81,44 @@ enum SchemaKind {
 
 /// Produce JSON and an exit status for the selected operation.
 ///
-/// Schema, plan, apply and recovery return status 0; check returns 2 because release
+/// Successful schema, plan, apply, recovery and historical comparison return 0; check returns 2 because release
 /// readiness remains blocked. Propagates inspection errors and maps JSON value
 /// conversion failures to `Error::Json`; output is left to the caller.
 fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
     match cli.command {
+        Operation::VerifyHistoricalBytes {
+            directory,
+            policy,
+            expect_policy_sha256,
+            source_repository,
+            source_commit,
+            source_tag,
+        } => {
+            let source = armorer::trust::Source {
+                repository: source_repository,
+                commit: source_commit,
+                git_ref: format!("refs/tags/{source_tag}"),
+            };
+            let result = armorer::verification::historical::HistoricalByteMatch::verify(
+                &directory,
+                &policy,
+                &expect_policy_sha256,
+                &source,
+            )?;
+            Ok((
+                json!({
+                    "status": "historical-byte-match",
+                    "authenticity": "not-established",
+                    "provenance_verified": false,
+                    "slsa_build_level": null,
+                    "requested_source": result.source(),
+                    "approved_policy": result.policy_identity(),
+                    "assets": result.assets(),
+                    "limitations": result.limitations(),
+                }),
+                0,
+            ))
+        }
         Operation::Schema { kind } => {
             let schema = match kind {
                 SchemaKind::VerificationContext => {
