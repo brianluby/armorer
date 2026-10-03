@@ -90,3 +90,10 @@ This test requires retained native outputs and separate fixture configuration;
 it fails when those inputs are absent. The receipt explicitly records unsigned
 output and synthetic fixture run 17/attempt 2. No fixture artifact is executed,
 no release/tag API is invoked, and these tests do not authenticate a release.
+
+## Resolved feature authority
+
+The strict consumer now compares root features with an independently approved
+[context-v3 resolved set](resolved-root-features-v3.md). Literal old contexts
+reject expansion and require a successor for defaults. Graph v2 retains its
+original serialized shape; the producer cannot choose the expected feature set.

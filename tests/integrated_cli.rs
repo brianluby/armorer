@@ -218,13 +218,14 @@ fn integrated_verification_commands_preserve_context_first_rejection() {
     for name in [
         armorer::verification::context::CONTEXT_NAME,
         armorer::verification::context::NATIVE_CONTEXT_NAME,
+        armorer::verification::context::FEATURE_CONTEXT_NAME,
     ] {
         fs::write(trusted.path().join(name), unapproved).unwrap();
     }
     let trusted_before = snapshot(trusted.path());
     let policy = tempfile::NamedTempFile::new().unwrap();
     fs::write(policy.path(), unapproved).unwrap();
-    for kind in ["legacy-v1", "native-v2"] {
+    for kind in ["legacy-v1", "native-v2", "native-v3"] {
         let result = cli(
             root.path(),
             &[

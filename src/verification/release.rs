@@ -206,13 +206,24 @@ impl AuthenticatedReleaseFiles {
                 &workspace.path().join(&graph_name),
                 MAX_METADATA,
             )?)?;
-            graph.validate_against(
-                context.config(),
-                &selected.selection,
-                &selected.root_component_name,
-                context.inputs(),
-                &context.lock().workflows.commit,
-            )?;
+            if let Some(features) = context.resolved_root_features(&selected.selection)? {
+                graph.validate_against_with_resolved_features(
+                    context.config(),
+                    &selected.selection,
+                    &selected.root_component_name,
+                    context.inputs(),
+                    &context.lock().workflows.commit,
+                    features,
+                )?;
+            } else {
+                graph.validate_against(
+                    context.config(),
+                    &selected.selection,
+                    &selected.root_component_name,
+                    context.inputs(),
+                    &context.lock().workflows.commit,
+                )?;
+            }
             graph.compare_sbom(sbom.document())?;
             let mut records = vec![format!("{key}.build.json"), format!("{key}.package.json")];
             if selected.selection.profile != Profile::Library

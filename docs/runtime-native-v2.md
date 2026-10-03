@@ -15,7 +15,7 @@ then exact config, lock, Cargo.lock, catalog and policy bytes. The complete
 `AuthenticatedReleaseFiles::verify` consumer accepts either private context;
 its inventory-first signature, whole SBOM, graph and evidence checks stay active.
 The CLI exposes complete verification through `armorer verify-release` with
-explicit `--context-kind native-v2` or `legacy-v1`; see
+explicit `--context-kind native-v3`, `native-v2` or `legacy-v1`; see
 [the CLI guide](verify-release-cli.md). Runtime approval and archive loading
 remain library operations; the CLI does not provide runtime approval.
 
@@ -92,3 +92,7 @@ own signed complete inventory rehearsal, Apple finalization and both pilot
 rehearsals remain required. Authentication-record syntax or a CI artifact
 cannot satisfy those gates. This migration enables reviewed candidate work;
 it does not authorize signing, publication or claim SLSA Build L2.
+
+For complete default/implied-feature verification, separately approve the
+[explicit context-v3 successor](resolved-root-features-v3.md). Native catalog
+v2 and the common runtime archive retain their original meanings.

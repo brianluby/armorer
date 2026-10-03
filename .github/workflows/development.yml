@@ -76,7 +76,7 @@ jobs:
           diff -u schemas/cargo-graph-v2.json /tmp/armorer-cargo-graph-v2.json
           target/debug/armorer schema verification-context > /tmp/armorer-verification-context-v1.json
           diff -u schemas/verification-context-v1.json /tmp/armorer-verification-context-v1.json
-          for kind in native-catalog-v2 runtime-distribution-v1 verification-context-v2; do
+          for kind in native-catalog-v2 runtime-distribution-v1 verification-context-v2 verification-context-v3; do
             target/debug/armorer schema "$kind" > "/tmp/armorer-$kind.json"
             diff -u "schemas/$kind.json" "/tmp/armorer-$kind.json"
           done

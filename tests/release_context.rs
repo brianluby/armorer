@@ -1072,3 +1072,76 @@ fn cli_requires_context_kind_and_rejects_claim_overrides() {
     );
     assert!(override_attempt.stdout.is_empty());
 }
+
+/// Native-v3 authenticates an exact complete feature map and never retries the older context file.
+#[test]
+fn native_v3_requires_complete_independently_approved_root_features() {
+    use armorer::verification::context::FEATURE_CONTEXT_NAME;
+    if !supported() {
+        return;
+    }
+    let (directory, mut outer, _) = native_fixture();
+    outer["schema_version"] = 3.into();
+    let keys = outer["release"]["selections"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|selected| {
+            let selection = &selected["selection"];
+            format!(
+                "{}--{}--{}",
+                selection["deliverable_id"].as_str().unwrap(),
+                selection["target"].as_str().unwrap(),
+                selection["feature_set"].as_str().unwrap()
+            )
+        })
+        .collect::<Vec<_>>();
+    let features = keys
+        .iter()
+        .map(|key| (key.clone(), json!([])))
+        .collect::<serde_json::Map<_, _>>();
+    outer["root_features"] = features.into();
+    let identity: ByteIdentity =
+        serde_json::from_value(write(&directory.path().join(FEATURE_CONTEXT_NAME), &outer))
+            .unwrap();
+    TrustedReleaseContext::open_native_v3(directory.path(), &identity.sha256).unwrap();
+    // The same approved digest cannot select another format/name, even if a v2 file exists.
+    let mut old = outer.clone();
+    old["schema_version"] = 2.into();
+    old.as_object_mut().unwrap().remove("root_features");
+    write(
+        &directory
+            .path()
+            .join(armorer::verification::context::NATIVE_CONTEXT_NAME),
+        &old,
+    );
+    assert!(TrustedReleaseContext::open_native_v2(directory.path(), &identity.sha256).is_err());
+    for case in 0..6 {
+        let mut changed = outer.clone();
+        match case {
+            0 => {
+                changed["root_features"]
+                    .as_object_mut()
+                    .unwrap()
+                    .remove(&keys[0]);
+            }
+            1 => changed["root_features"]["foreign--target--variant"] = json!([]),
+            2 => changed["root_features"][&keys[0]] = json!(["duplicate", "duplicate"]),
+            3 => changed["root_features"][&keys[0]] = json!(["z", "a"]),
+            4 => changed["root_features"][&keys[0]] = json!(["bad\nfeature"]),
+            5 => {
+                changed.as_object_mut().unwrap().remove("root_features");
+            }
+            _ => unreachable!(),
+        }
+        let identity: ByteIdentity = serde_json::from_value(write(
+            &directory.path().join(FEATURE_CONTEXT_NAME),
+            &changed,
+        ))
+        .unwrap();
+        assert!(
+            TrustedReleaseContext::open_native_v3(directory.path(), &identity.sha256).is_err(),
+            "{case}"
+        );
+    }
+}

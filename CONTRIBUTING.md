@@ -35,7 +35,8 @@ an installed `armorer` on PATH is never used:
     upgrade-plan:upgrade-plan-v1 upgrade-rollback:upgrade-rollback-v1 \
     cargo-graph-v2:cargo-graph-v2 verification-context:verification-context-v1 \
     native-catalog-v2:native-catalog-v2 runtime-distribution-v1:runtime-distribution-v1 \
-    verification-context-v2:verification-context-v2; do
+    verification-context-v2:verification-context-v2 \
++    verification-context-v3:verification-context-v3; do
     kind="${entry%%:*}"
     filename="${entry#*:}"
     target/debug/armorer schema "$kind" > "$armorer_schema_staging/$filename.json"

@@ -30,7 +30,7 @@ verification for required Apple executables. Authentication errors never select 
 different context version or historical fallback.
 
 The combined Development workflow retains Linux x64, Linux ARM64 and macOS,
-strict Rust checks, all 23 byte-matched schemas, every profile/schema example,
+strict Rust checks, all 24 byte-matched schemas, every profile/schema example,
 authenticated workflow audits, genuine native Sigstore and CycloneDX integrations,
 Apple native checks and unprivileged runtime candidate retention. The auxiliary
 workflow-tools checkout is moved outside the candidate before runtime staging.
@@ -51,3 +51,6 @@ effective publication approvals and immutable draft transitions, race/retry
 qualification, both gated pilots and operational acceptance remain required.
 Configured, CI verified, release rehearsed, published and provenance verified
 remain distinct. This integration grants no SLSA level or release authority.
+
+Complete feature-set verification uses the explicit
+[resolved root-feature context v3](resolved-root-features-v3.md).

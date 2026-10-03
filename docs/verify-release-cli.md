@@ -90,3 +90,10 @@ publication, both pilots and human acceptance remain incomplete. This command
 makes the consumer usable without weakening or completing those external gates.
 
 Apple CLI/service selections also require the [native Apple verification v1](apple-native-verification-v1.md) gate on macOS. Required native failures yield no successful complete-release result; library/Linux sets report `apple_verification: not-required`.
+
+## Explicit resolved features
+
+Use `--context-kind native-v3` and an independently approved
+`armorer-verification-context-v3.json` for complete default/implied feature sets.
+[The successor guide](resolved-root-features-v3.md) describes exact expectations
+and old-context rejection. No version fallback is attempted.

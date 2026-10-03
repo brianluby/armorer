@@ -108,6 +108,7 @@ enum Operation {
 enum ContextKind {
     LegacyV1,
     NativeV2,
+    NativeV3,
 }
 
 #[derive(Subcommand)]
@@ -184,6 +185,7 @@ enum SchemaKind {
     NativeCatalogV2,
     RuntimeDistributionV1,
     VerificationContextV2,
+    VerificationContextV3,
     VerificationContext,
     CargoGraphV2,
     UpgradePlan,
@@ -330,6 +332,9 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
                 ContextKind::NativeV2 => {
                     TrustedReleaseContext::open_native_v2(&trusted_inputs, &expect_context_sha256)?
                 }
+                ContextKind::NativeV3 => {
+                    TrustedReleaseContext::open_native_v3(&trusted_inputs, &expect_context_sha256)?
+                }
             };
             let verifier = OfflineVerifier::open(
                 &trusted_inputs.join("verification-policy.json"),
@@ -409,6 +414,9 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
                 }
                 SchemaKind::RuntimeDistributionV1 => {
                     schemars::schema_for!(armorer::trust::native::RuntimeDistributionV1)
+                }
+                SchemaKind::VerificationContextV3 => {
+                    schemars::schema_for!(armorer::verification::context::ReleaseExpectationsV3)
                 }
                 SchemaKind::VerificationContextV2 => {
                     schemars::schema_for!(armorer::verification::context::ReleaseExpectationsV2)

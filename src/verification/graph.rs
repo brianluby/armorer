@@ -147,9 +147,26 @@ fn flat_component_scope(value: &Value, expected: &str) -> bool {
             .is_none_or(|v| v.as_array().is_some_and(Vec::is_empty))
 }
 
+/// Bound and canonicalize an independently approved resolved root feature set.
+pub(crate) fn validate_root_feature_expectation(
+    selection: &Selection,
+    features: &[String],
+) -> Result<()> {
+    require(
+        features.len() <= 1024
+            && features.iter().all(|feature| text(feature, 100))
+            && features.windows(2).all(|pair| pair[0] < pair[1])
+            && selection
+                .features
+                .iter()
+                .all(|feature| features.contains(feature)),
+        "invalid-approved-root-features",
+    )
+}
+
 impl CargoGraphV2 {
-    /// Bind the retained graph to independently approved source, run, locks and selection.
-    /// The reusable workflow commit must come from the independently approved lock.
+    /// Bind legacy contexts only when defaults are disabled and root features equal the literal requests.
+    /// Implied/default feature closures require independently approved native-v3 expectations.
     pub fn validate_against(
         &self,
         config: &Config,
@@ -158,6 +175,58 @@ impl CargoGraphV2 {
         inputs: &InputIdentity,
         workflow_commit: &str,
     ) -> Result<()> {
+        let root = self.validate_identity_against(
+            config,
+            selection,
+            root_component_name,
+            inputs,
+            workflow_commit,
+        )?;
+        require(
+            !selection.default_features,
+            "cargo-graph-resolved-feature-expectation-required",
+        )?;
+        require(
+            root.features.iter().collect::<BTreeSet<_>>()
+                == selection.features.iter().collect::<BTreeSet<_>>(),
+            "cargo-graph-unapproved-root-feature",
+        )
+    }
+
+    /// Match every activated root feature to the independently approved resolved set, including defaults.
+    pub fn validate_against_with_resolved_features(
+        &self,
+        config: &Config,
+        selection: &Selection,
+        root_component_name: &str,
+        inputs: &InputIdentity,
+        workflow_commit: &str,
+        resolved_features: &[String],
+    ) -> Result<()> {
+        validate_root_feature_expectation(selection, resolved_features)?;
+        let root = self.validate_identity_against(
+            config,
+            selection,
+            root_component_name,
+            inputs,
+            workflow_commit,
+        )?;
+        require(
+            root.features.iter().collect::<BTreeSet<_>>()
+                == resolved_features.iter().collect::<BTreeSet<_>>(),
+            "cargo-graph-resolved-feature-mismatch",
+        )
+    }
+
+    /// Bind retained graph source, run, locks and selection before comparing feature expectations.
+    fn validate_identity_against(
+        &self,
+        config: &Config,
+        selection: &Selection,
+        root_component_name: &str,
+        inputs: &InputIdentity,
+        workflow_commit: &str,
+    ) -> Result<&CargoNode> {
         inputs.validate()?;
         selection.validate_against(config)?;
         require(self.schema_version == 2, "unsupported-cargo-graph-version")?;
@@ -205,7 +274,8 @@ impl CargoGraphV2 {
                 .iter()
                 .all(|f| root_node.features.contains(f)),
             "cargo-graph-requested-feature-missing",
-        )
+        )?;
+        Ok(root_node)
     }
 
     /// Construct unique package/node indexes and reject dangling, unreachable or oversized graphs.

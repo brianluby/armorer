@@ -397,3 +397,254 @@ fn graph_and_expected_run_share_the_approved_workflow_commit() {
             .is_err()
     );
 }
+
+/// Literal old contexts reject default/all-feature expansion instead of trusting a requested-name subset.
+#[test]
+fn feature_expanded_graphs_cannot_satisfy_literal_legacy_selections() {
+    for name in ["minimal", "optional", "zero-library"] {
+        let (graph, _) = fixture(name);
+        let (config, selection, inputs, root_name) = context(name);
+        for extra in [
+            vec!["default"],
+            vec!["unapproved"],
+            vec!["default", "unapproved"],
+        ] {
+            let mut changed = graph.clone();
+            let root = changed.root.clone();
+            changed
+                .nodes
+                .iter_mut()
+                .find(|node| node.id == root)
+                .unwrap()
+                .features
+                .extend(extra.into_iter().map(str::to_owned));
+            assert_eq!(
+                changed
+                    .validate_against(&config, &selection, root_name, &inputs, &"b".repeat(40))
+                    .unwrap_err()
+                    .to_string(),
+                "invalid configuration: cargo-graph-unapproved-root-feature"
+            );
+        }
+        let mut config = config;
+        let mut selection = selection;
+        let mut graph = graph;
+        config
+            .feature_sets
+            .get_mut(&selection.feature_set)
+            .unwrap()
+            .default_features = true;
+        selection.default_features = true;
+        graph.selection = selection.clone();
+        assert_eq!(
+            graph
+                .validate_against(&config, &selection, root_name, &inputs, &"b".repeat(40))
+                .unwrap_err()
+                .to_string(),
+            "invalid configuration: cargo-graph-resolved-feature-expectation-required"
+        );
+    }
+}
+
+/// Explicit expectations allow legitimate implied features but reject missing, extra and malformed sets.
+#[test]
+fn independently_approved_feature_closure_is_compared_exactly() {
+    let (mut graph, _) = fixture("optional");
+    let (config, selection, inputs, root_name) = context("optional");
+    let expected = vec!["extra".to_owned(), "implied".to_owned()];
+    let root = graph.root.clone();
+    graph
+        .nodes
+        .iter_mut()
+        .find(|node| node.id == root)
+        .unwrap()
+        .features = expected.clone();
+    graph
+        .validate_against_with_resolved_features(
+            &config,
+            &selection,
+            root_name,
+            &inputs,
+            &"b".repeat(40),
+            &expected,
+        )
+        .unwrap();
+    for actual in [
+        vec!["extra"],
+        vec!["extra", "implied", "unapproved"],
+        vec!["default", "extra", "implied"],
+    ] {
+        graph
+            .nodes
+            .iter_mut()
+            .find(|node| node.id == root)
+            .unwrap()
+            .features = actual.into_iter().map(str::to_owned).collect();
+        assert!(
+            graph
+                .validate_against_with_resolved_features(
+                    &config,
+                    &selection,
+                    root_name,
+                    &inputs,
+                    &"b".repeat(40),
+                    &expected
+                )
+                .is_err()
+        );
+    }
+    for malformed in [
+        vec![],
+        vec!["implied"],
+        vec!["extra", "extra"],
+        vec!["implied", "extra"],
+        vec!["extra", "bad\nfeature"],
+    ] {
+        let malformed = malformed.into_iter().map(str::to_owned).collect::<Vec<_>>();
+        assert_eq!(
+            graph
+                .validate_against_with_resolved_features(
+                    &config,
+                    &selection,
+                    root_name,
+                    &inputs,
+                    &"b".repeat(40),
+                    &malformed
+                )
+                .unwrap_err()
+                .to_string(),
+            "invalid configuration: invalid-approved-root-features"
+        );
+    }
+}
+
+/// Default activation is accepted only when every actual member matches the separately approved set.
+#[test]
+fn default_feature_decision_uses_independent_resolved_expectations() {
+    let (mut graph, _) = fixture("minimal");
+    let (mut config, mut selection, inputs, root_name) = context("minimal");
+    config
+        .feature_sets
+        .get_mut(&selection.feature_set)
+        .unwrap()
+        .default_features = true;
+    selection.default_features = true;
+    graph.selection = selection.clone();
+    let expected = vec!["base".to_owned(), "default".to_owned()];
+    let root = graph.root.clone();
+    graph
+        .nodes
+        .iter_mut()
+        .find(|node| node.id == root)
+        .unwrap()
+        .features = expected.clone();
+    graph
+        .validate_against_with_resolved_features(
+            &config,
+            &selection,
+            root_name,
+            &inputs,
+            &"b".repeat(40),
+            &expected,
+        )
+        .unwrap();
+    for actual in [
+        vec![],
+        vec!["default"],
+        vec!["base", "default", "unapproved"],
+    ] {
+        graph
+            .nodes
+            .iter_mut()
+            .find(|node| node.id == root)
+            .unwrap()
+            .features = actual.into_iter().map(str::to_owned).collect();
+        assert!(
+            graph
+                .validate_against_with_resolved_features(
+                    &config,
+                    &selection,
+                    root_name,
+                    &inputs,
+                    &"b".repeat(40),
+                    &expected
+                )
+                .is_err()
+        );
+    }
+}
+
+/// Real Cargo metadata resolves implied/default features and an all-features substitution fails the independent reader.
+#[test]
+fn real_cargo_resolution_distinguishes_requested_flags_from_resolved_features() {
+    use std::{fs, process::Command};
+    let directory = tempfile::tempdir().unwrap();
+    let root = directory.path();
+    fs::create_dir(root.join("src")).unwrap();
+    fs::write(root.join("src/lib.rs"), b"pub fn owned_fixture() {}\n").unwrap();
+    fs::write(
+        root.join("build.rs"),
+        b"compile_error!(\"metadata must not build this fixture\");\n",
+    )
+    .unwrap();
+    fs::write(root.join("Cargo.toml"), b"[package]\nname=\"app\"\nversion=\"0.1.0\"\nedition=\"2024\"\n[lib]\nname=\"custom_library\"\n[features]\ndefault=[\"base\"]\nbase=[]\nextra=[\"implied\"]\nimplied=[]\n").unwrap();
+    let lock = b"version = 4\n[[package]]\nname = \"app\"\nversion = \"0.1.0\"\n";
+    fs::write(root.join("Cargo.lock"), lock).unwrap();
+    let cargo = std::path::Path::new(env!("CARGO"));
+    for (flags, expected) in [
+        (vec!["--no-default-features"], vec![]),
+        (
+            vec!["--no-default-features", "--features", "extra"],
+            vec!["extra", "implied"],
+        ),
+        (
+            vec!["--features", "extra"],
+            vec!["base", "default", "extra", "implied"],
+        ),
+        (
+            vec!["--no-default-features", "--all-features"],
+            vec!["base", "default", "extra", "implied"],
+        ),
+    ] {
+        let output = Command::new(cargo)
+            .args(["metadata", "--format-version=1", "--locked", "--offline"])
+            .args(flags)
+            .current_dir(root)
+            .env_clear()
+            .env("HOME", root)
+            .env("CARGO_HOME", root.join("cargo-home"))
+            .env("RUSTC", cargo.with_file_name("rustc"))
+            .env("PATH", "/usr/bin:/bin")
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "owned feature metadata failed");
+        let metadata: Value = serde_json::from_slice(&output.stdout).unwrap();
+        let actual = metadata["resolve"]["nodes"][0]["features"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|value| value.as_str().unwrap().to_owned())
+            .collect::<Vec<_>>();
+        let expected = expected.into_iter().map(str::to_owned).collect::<Vec<_>>();
+        assert_eq!(actual, expected);
+        let (mut graph, _) = fixture("zero-library");
+        let (config, selection, inputs, root_name) = context("zero-library");
+        graph.nodes[0].features = actual;
+        // The independently selected minimal variant expects no activated features.
+        assert_eq!(
+            graph
+                .validate_against_with_resolved_features(
+                    &config,
+                    &selection,
+                    root_name,
+                    &inputs,
+                    &"b".repeat(40),
+                    &[]
+                )
+                .is_ok(),
+            expected.is_empty()
+        );
+    }
+    assert_eq!(fs::read(root.join("Cargo.lock")).unwrap(), lock);
+    assert!(!root.join("target").exists());
+}

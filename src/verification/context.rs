@@ -23,6 +23,7 @@ use std::{
 
 pub const CONTEXT_NAME: &str = "armorer-verification-context.json";
 pub const NATIVE_CONTEXT_NAME: &str = "armorer-verification-context-v2.json";
+pub const FEATURE_CONTEXT_NAME: &str = "armorer-verification-context-v3.json";
 const MAX_CONTEXT: u64 = 4 * 1024 * 1024;
 
 /// Only the existing supported secure release/rehearsal invoking events are representable.
@@ -78,6 +79,18 @@ pub struct ReleaseExpectationsV2 {
     pub schema_version: u32,
     pub runtime_source: crate::trust::Source,
     pub release: ReleaseExpectations,
+}
+
+/// Explicit v3 adds exact resolved root features independently approved for every selection.
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReleaseExpectationsV3 {
+    #[schemars(range(min = 3, max = 3))]
+    pub schema_version: u32,
+    pub runtime_source: crate::trust::Source,
+    pub release: ReleaseExpectations,
+    /// Selection keys map to sorted unique features resolved from separately reviewed source and flags.
+    pub root_features: BTreeMap<String, Vec<String>>,
 }
 
 enum CatalogAuthority {
@@ -181,25 +194,32 @@ pub struct TrustedReleaseContext {
     lock: Lock,
     catalog: CatalogAuthority,
     policy: VerificationPolicy,
+    root_features: Option<BTreeMap<String, Vec<String>>>,
 }
 impl TrustedReleaseContext {
     /// Match the independently approved context SHA first, then exact config/locks/catalog/policy bytes.
     /// This reads trusted input files only; it never discovers, builds or executes a consuming repository.
     pub fn open(directory: &Path, independently_approved_sha256: &str) -> Result<Self> {
-        Self::open_version(directory, independently_approved_sha256, false)
+        Self::open_version(directory, independently_approved_sha256, 1)
     }
 
     /// Select the explicit v2 archive/member catalog; errors never retry the legacy context.
     pub fn open_native_v2(directory: &Path, independently_approved_sha256: &str) -> Result<Self> {
-        Self::open_version(directory, independently_approved_sha256, true)
+        Self::open_version(directory, independently_approved_sha256, 2)
+    }
+
+    /// Select independently approved v3 resolved features; errors never fall back to v1/v2.
+    pub fn open_native_v3(directory: &Path, independently_approved_sha256: &str) -> Result<Self> {
+        Self::open_version(directory, independently_approved_sha256, 3)
     }
 
     /// Authenticate the chosen context bytes before decoding any schema or separately retained input.
     fn open_version(
         directory: &Path,
         independently_approved_sha256: &str,
-        native: bool,
+        version: u32,
     ) -> Result<Self> {
+        let native = version >= 2;
         require(
             config::hex_digest(independently_approved_sha256, 64),
             "invalid-approved-release-context-digest",
@@ -209,7 +229,9 @@ impl TrustedReleaseContext {
             "release-context-directory-type",
         )?;
         let bytes = io::read_bounded(
-            &directory.join(if native {
+            &directory.join(if version == 3 {
+                FEATURE_CONTEXT_NAME
+            } else if native {
                 NATIVE_CONTEXT_NAME
             } else {
                 CONTEXT_NAME
@@ -220,15 +242,26 @@ impl TrustedReleaseContext {
             crate::digest(&bytes) == independently_approved_sha256,
             "unapproved-release-context",
         )?;
-        let (expectations, runtime_source) = if native {
+        let (expectations, runtime_source, root_features) = if version == 3 {
+            let outer: ReleaseExpectationsV3 = io::parse(&bytes)?;
+            require(
+                outer.schema_version == 3,
+                "unsupported-feature-release-context-version",
+            )?;
+            (
+                outer.release,
+                Some(outer.runtime_source),
+                Some(outer.root_features),
+            )
+        } else if native {
             let outer: ReleaseExpectationsV2 = io::parse(&bytes)?;
             require(
                 outer.schema_version == 2,
                 "unsupported-native-release-context-version",
             )?;
-            (outer.release, Some(outer.runtime_source))
+            (outer.release, Some(outer.runtime_source), None)
         } else {
-            (io::parse::<ReleaseExpectations>(&bytes)?, None)
+            (io::parse::<ReleaseExpectations>(&bytes)?, None, None)
         };
         let now = sigstore::wall_time()?;
         require(
@@ -292,9 +325,28 @@ impl TrustedReleaseContext {
             lock,
             catalog,
             policy,
+            root_features,
         };
         context.validate_at(now)?;
         Ok(context)
+    }
+
+    /// Return only the exact privately retained v3 expectation; a missing selection never falls back.
+    pub(crate) fn resolved_root_features(
+        &self,
+        selection: &Selection,
+    ) -> Result<Option<&[String]>> {
+        self.root_features
+            .as_ref()
+            .map(|features| {
+                features
+                    .get(&selection.key())
+                    .map(Vec::as_slice)
+                    .ok_or_else(|| {
+                        Error::Invalid("release-context-root-feature-set-mismatch".into())
+                    })
+            })
+            .transpose()
     }
 
     /// Recheck current review/policy/catalog expiry and all independently selected contexts.
@@ -347,11 +399,20 @@ impl TrustedReleaseContext {
             self.expectations.selections.len() == expected_keys.len() && expected_keys.len() <= 384,
             "release-context-selection-set-mismatch",
         )?;
+        if let Some(features) = &self.root_features {
+            require(
+                features.keys().cloned().collect::<BTreeSet<_>>() == expected_keys,
+                "release-context-root-feature-set-mismatch",
+            )?;
+        }
         let mut seen = BTreeSet::new();
         for selected in &self.expectations.selections {
             let selection = &selected.selection;
             selection.validate_against(&self.config)?;
             let key = selection.key();
+            if let Some(features) = self.resolved_root_features(selection)? {
+                super::graph::validate_root_feature_expectation(selection, features)?;
+            }
             require(
                 expected_keys.contains(&key) && seen.insert(key),
                 "release-context-selection-set-mismatch",

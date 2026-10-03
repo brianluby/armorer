@@ -5,7 +5,7 @@ from pathlib import Path
 from jsonschema import Draft202012Validator, ValidationError
 
 root=Path(__file__).resolve().parent.parent
-cases=[('native-catalog-v2','catalog.json'),('runtime-distribution-v1','runtime-distribution.json'),('verification-context-v2','context.json')]
+cases=[('native-catalog-v2','catalog.json'),('runtime-distribution-v1','runtime-distribution.json'),('verification-context-v2','context.json'),('verification-context-v3','context-v3.json')]
 negative=0
 for kind,name in cases:
     schema=json.loads((root/'schemas'/(kind+'.json')).read_bytes())
@@ -18,4 +18,4 @@ for kind,name in cases:
         try: validator.validate(value)
         except ValidationError: negative+=1
         else: raise AssertionError('unsupported version or caller input accepted')
-print(f'3 synthetic native schema examples; {negative} rejections; no runtime approval or provenance claim')
+print(f'4 synthetic native schema examples; {negative} rejections; no runtime approval or provenance claim')
