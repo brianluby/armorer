@@ -41,6 +41,7 @@ pub struct CapabilityReport {
     pub observed_at: u64,
     pub repository_id: u64,
     pub actor_id: Option<u64>,
+    pub triggering_actor_id: Option<u64>,
     pub gates: BTreeMap<String, GateState>,
     pub evidence: BTreeMap<String, ByteIdentity>,
     pub limitations: Vec<String>,
@@ -272,7 +273,7 @@ impl NativeGithub {
                 && repo["fork"].as_bool() == Some(false),
             "publication-repository-substitution",
         )?;
-        let mut report = CapabilityReport { observed_at: now()?, repository_id: policy.policy.repository_id, actor_id: None,
+        let mut report = CapabilityReport { observed_at: now()?, repository_id: policy.policy.repository_id, actor_id: None, triggering_actor_id: None,
             gates: BTreeMap::new(), evidence: BTreeMap::new(), limitations: vec![
                 "Repository settings do not authenticate current-attempt environment approval or exclusive controller execution.".into(),
                 "Local locks do not serialize independent Actions runners; a separately authenticated runner-wide gate is required.".into()] };
@@ -442,6 +443,7 @@ impl NativeGithub {
         }
         let workflow = &policy.policy.controller_workflow;
         report.actor_id = value["actor"]["id"].as_u64();
+        report.triggering_actor_id = value["triggering_actor"]["id"].as_u64();
         require(
             value["referenced_workflows"]
                 .as_array()

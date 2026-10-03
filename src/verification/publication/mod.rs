@@ -347,6 +347,13 @@ struct StateStore {
     _lock: File,
     journal: PathBuf,
 }
+impl Drop for StateStore {
+    /// Release the completed controller lock even while a concurrent spawn retains a duplicate.
+    fn drop(&mut self) {
+        // File closure remains a fallback if explicit unlocking fails.
+        let _ = self._lock.unlock();
+    }
+}
 impl StateStore {
     /// Acquire a kernel-released exclusive lock; refuse links, unsafe permissions and conflicting journals.
     fn open(root: &Path, repository_id: u64) -> Result<Self> {
@@ -482,9 +489,11 @@ impl<B: Backend> Controller<B> {
         report.require_ready(now()?, self.policy.policy.max_observation_age)?;
         if kind == ApprovalKind::PublishDraft {
             require(
-                report
-                    .actor_id
-                    .is_some_and(|id| id != approval.approval.approver_id),
+                [report.actor_id, report.triggering_actor_id]
+                    .into_iter()
+                    .all(|actor| {
+                        actor.is_some_and(|id| id > 0 && id != approval.approval.approver_id)
+                    }),
                 "publication-self-approval",
             )?;
         }

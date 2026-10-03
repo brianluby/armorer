@@ -11,6 +11,9 @@ struct Fake {
     publishes: usize,
     checks: usize,
     fail_check_at: Option<usize>,
+    actor: Option<Option<u64>>,
+    triggering_actor: Option<Option<u64>>,
+    triggering_actor_change_at: Option<usize>,
     ambiguous_create: bool,
     ambiguous_upload: bool,
     ambiguous_publish: bool,
@@ -30,10 +33,14 @@ impl Backend for Fake {
         if self.fail_check_at == Some(self.checks) {
             return Err(Error::Invalid("test-mutable-gate-changed".into()));
         }
+        if self.triggering_actor_change_at == Some(self.checks) {
+            self.triggering_actor = Some(Some(3));
+        }
         Ok(CapabilityReport {
             observed_at: now()?,
             repository_id: policy.policy.repository_id,
-            actor_id: Some(1),
+            actor_id: self.actor.unwrap_or(Some(1)),
+            triggering_actor_id: self.triggering_actor.unwrap_or(Some(1)),
             gates: github::REQUIRED_GATES
                 .iter()
                 .map(|name| ((*name).into(), GateState::Enforced))
@@ -154,7 +161,7 @@ fn fixture() -> (Controller<Fake>, ApprovedPublication, tempfile::TempDir) {
         release_attestation_root: ByteIdentity::from_bytes(b"independent release root"),
         default_branch: "main".into(),
         controller_workflow: inputs.run.workflow.clone(),
-        allowed_actor_ids: [1].into(),
+        allowed_actor_ids: [1, 2, 3].into(),
         allowed_publisher_ids: [2].into(),
         allowed_approver_ids: [1, 3].into(),
         publish_environment: "release-publish".into(),
@@ -443,6 +450,66 @@ fn publication_approval_requires_independent_reviewer_and_exact_draft() {
     }
 }
 #[test]
+/// A rerun initiator, missing initiator or zero ID cannot authorize a publication write.
+fn rerun_initiator_cannot_approve_publication() {
+    for (actor, triggering_actor) in [
+        (Some(1), Some(3)),
+        (Some(1), None),
+        (Some(1), Some(0)),
+        (None, Some(2)),
+        (Some(0), Some(2)),
+    ] {
+        let (mut c, stage, _dir) = fixture();
+        let served = c.stage(&stage).unwrap();
+        let approval = publish_approval(&c, &served);
+        c.backend.actor = Some(actor);
+        c.backend.triggering_actor = Some(triggering_actor);
+        assert!(matches!(
+            c.publish(&approval),
+            Err(Error::Invalid(reason)) if reason == "publication-self-approval"
+        ));
+        assert_eq!(
+            (c.backend.creates, c.backend.uploads, c.backend.publishes),
+            (1, 2, 0)
+        );
+        assert_eq!(
+            c.state.load(&c.release.identity).unwrap().unwrap().phase,
+            Phase::DraftVerified
+        );
+    }
+}
+#[test]
+/// A rerun actor change at the last mutable preflight still prevents the public write.
+fn rerun_reviewer_change_at_final_preflight_does_not_publish() {
+    let (mut c, stage, _dir) = fixture();
+    let served = c.stage(&stage).unwrap();
+    let approval = publish_approval(&c, &served);
+    c.backend.triggering_actor_change_at = Some(c.backend.checks + 2);
+    assert!(matches!(
+        c.publish(&approval),
+        Err(Error::Invalid(reason)) if reason == "publication-self-approval"
+    ));
+    assert_eq!(c.backend.publishes, 0);
+    assert_eq!(
+        c.state.load(&c.release.identity).unwrap().unwrap().phase,
+        Phase::DraftVerified
+    );
+}
+#[test]
+/// A third independent reviewer can approve when the original and rerun actors differ.
+fn distinct_original_and_rerun_actors_allow_independent_reviewer() {
+    let (mut c, stage, _dir) = fixture();
+    let served = c.stage(&stage).unwrap();
+    let approval = publish_approval(&c, &served);
+    c.backend.triggering_actor = Some(Some(2));
+    c.publish(&approval).unwrap();
+    assert_eq!(c.backend.publishes, 1);
+    assert_eq!(
+        c.state.load(&c.release.identity).unwrap().unwrap().phase,
+        Phase::Complete
+    );
+}
+#[test]
 /// Post-publication immutability and cryptographic-proof failures preserve an incomplete incident state.
 fn post_publication_failures_never_claim_completion_or_repair_bytes() {
     for immutable in [true, false] {
@@ -470,6 +537,22 @@ fn repository_wide_lock_serializes_concurrent_tags_and_releases_on_drop() {
     assert!(StateStore::open(directory.path(), 5).is_err());
     drop(first);
     assert!(StateStore::open(directory.path(), 5).is_ok());
+}
+#[test]
+/// A duplicate descriptor cannot keep a finished controller locked or release its successor's lock.
+fn publication_lock_releases_before_duplicate_descriptors_close() {
+    let directory = tempfile::tempdir().unwrap();
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(directory.path(), fs::Permissions::from_mode(0o700)).unwrap();
+    let first = StateStore::open(directory.path(), 5).unwrap();
+    let inherited = first._lock.try_clone().unwrap();
+    assert!(StateStore::open(directory.path(), 5).is_err());
+    drop(first);
+    let next = StateStore::open(directory.path(), 5).unwrap();
+    drop(inherited);
+    assert!(StateStore::open(directory.path(), 5).is_err());
+    drop(next);
+    StateStore::open(directory.path(), 5).unwrap();
 }
 #[test]
 /// A symlink or group-writable state directory cannot hold publication ownership.
