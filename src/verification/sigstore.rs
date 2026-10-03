@@ -683,7 +683,14 @@ impl Drop for Running {
 }
 
 /// Drain both bounded streams while enforcing the pinned child exit status and deadline.
-pub(super) fn run_process(mut command: Command, limits: Limits) -> Result<Vec<u8>> {
+pub(super) fn run_process(command: Command, limits: Limits) -> Result<Vec<u8>> {
+    let (success, output) = run_process_status(command, limits)?;
+    require(success, "attestation-authentication-failed")?;
+    Ok(output)
+}
+
+/// Retain bounded HTTP diagnostics on a nonzero native CLI exit without treating them as trusted evidence.
+pub(super) fn run_process_status(mut command: Command, limits: Limits) -> Result<(bool, Vec<u8>)> {
     let child = command
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -727,13 +734,11 @@ pub(super) fn run_process(mut command: Command, limits: Limits) -> Result<Vec<u8
                     Err(_) => break Err(Error::Invalid("attestation-verifier-wait-failed".into())),
                 }
             }
-            if let Some(status) = status {
-                if !status.success() {
-                    break Err(Error::Invalid("attestation-authentication-failed".into()));
-                }
-                if out.is_some() && err.is_some() {
-                    break Ok(out.take().ok_or(Error::Json)?);
-                }
+            if let Some(status) = status
+                && out.is_some()
+                && err.is_some()
+            {
+                break Ok((status.success(), out.take().ok_or(Error::Json)?));
             }
             if started.elapsed() >= limits.timeout {
                 break Err(Error::Invalid("attestation-verifier-timeout".into()));

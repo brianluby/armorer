@@ -1,0 +1,141 @@
+{
+  "$defs": {
+    "ByteIdentity": {
+      "additionalProperties": false,
+      "description": "An exact byte identity, independent of a filename or producer claim.",
+      "properties": {
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size": {
+          "format": "uint64",
+          "maximum": 1073741824,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sha256",
+        "size"
+      ],
+      "type": "object"
+    },
+    "WorkflowIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "commit": {
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "repository": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "repository",
+        "path",
+        "commit"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Independently approved publication policy, separately versioned from frozen trust v1.",
+  "properties": {
+    "allowed_actor_ids": {
+      "items": {
+        "format": "uint64",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
+    "allowed_approver_ids": {
+      "items": {
+        "format": "uint64",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
+    "allowed_publisher_ids": {
+      "items": {
+        "format": "uint64",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
+    "context": {
+      "$ref": "#/$defs/ByteIdentity"
+    },
+    "controller_workflow": {
+      "$ref": "#/$defs/WorkflowIdentity"
+    },
+    "default_branch": {
+      "type": "string"
+    },
+    "expires_at": {
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "max_observation_age": {
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "owner_id": {
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "publish_environment": {
+      "type": "string"
+    },
+    "publish_environment_id": {
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "release_attestation_root": {
+      "$ref": "#/$defs/ByteIdentity"
+    },
+    "repository_id": {
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema_version": {
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schema_version",
+    "context",
+    "repository_id",
+    "owner_id",
+    "release_attestation_root",
+    "default_branch",
+    "controller_workflow",
+    "allowed_actor_ids",
+    "allowed_publisher_ids",
+    "allowed_approver_ids",
+    "publish_environment",
+    "publish_environment_id",
+    "max_observation_age",
+    "expires_at"
+  ],
+  "title": "PublicationPolicy",
+  "type": "object"
+}

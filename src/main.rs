@@ -3,7 +3,7 @@ use armorer::{
     config::{Config, Lock},
     plan::{Plan, inspect},
 };
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 use serde_json::json;
 use std::{io::Write, path::PathBuf};
 
@@ -96,10 +96,80 @@ enum Operation {
         #[arg(long)]
         source_tag: String,
     },
+    /// Review and control a separately approved exact owned release, with native capability gates.
+    Publication {
+        #[command(flatten)]
+        inputs: PublicationInputs,
+        #[command(subcommand)]
+        operation: PublicationOperation,
+    },
     /// Print a structural JSON schema. Semantic rules are also checked at runtime.
     Schema {
         #[arg(value_enum)]
         kind: SchemaKind,
+    },
+}
+
+/// Independently approved inputs are authenticated before credentials or a native publication adapter are opened.
+#[derive(Args)]
+struct PublicationInputs {
+    #[arg(long)]
+    directory: PathBuf,
+    #[arg(long)]
+    trusted_inputs: PathBuf,
+    #[arg(long)]
+    expect_context_sha256: String,
+    #[arg(long, value_enum)]
+    context_kind: ContextKind,
+    #[arg(long)]
+    gh: PathBuf,
+    #[arg(long)]
+    trusted_root: PathBuf,
+    #[arg(long)]
+    cyclonedx: PathBuf,
+    #[arg(long)]
+    publication_policy: PathBuf,
+    #[arg(long)]
+    expect_publication_policy_sha256: String,
+    #[arg(long)]
+    release_attestation_root: PathBuf,
+}
+
+#[derive(Subcommand)]
+enum PublicationOperation {
+    /// Authenticate and freeze exact assets for independent review; opens no credential-bearing client.
+    Plan,
+    /// Observe native prerequisites without any remote writes; settings alone grant no authority.
+    Inspect {
+        #[arg(long)]
+        owner_home: Option<PathBuf>,
+        #[arg(long)]
+        state_directory: PathBuf,
+    },
+    /// Stage only a separately approved new or identical owned draft; unsupported native gates block writes.
+    Stage {
+        #[arg(long)]
+        approval: PathBuf,
+        #[arg(long)]
+        expect_approval_sha256: String,
+        #[arg(long)]
+        state_directory: PathBuf,
+    },
+    /// Publish only the separately approved exact draft after fresh served-byte and mutable checks.
+    Publish {
+        #[arg(long)]
+        approval: PathBuf,
+        #[arg(long)]
+        expect_approval_sha256: String,
+        #[arg(long)]
+        state_directory: PathBuf,
+    },
+    /// Resolve an ambiguous publication through read-only verification; never repeat the provider write.
+    RecoverPublished {
+        #[arg(long)]
+        owner_home: Option<PathBuf>,
+        #[arg(long)]
+        state_directory: PathBuf,
     },
 }
 
@@ -182,6 +252,9 @@ enum UpgradeOperation {
 
 #[derive(Clone, ValueEnum)]
 enum SchemaKind {
+    PublicationPolicy,
+    PublicationPlan,
+    PublicationApproval,
     NativeCatalogV2,
     RuntimeDistributionV1,
     VerificationContextV2,
@@ -214,8 +287,137 @@ enum SchemaKind {
 /// comparison return 0; check returns 2 because release
 /// readiness remains blocked. Propagates inspection errors and maps JSON value
 /// conversion failures to `Error::Json`; output is left to the caller.
+/// Authenticate complete inert release bytes and native Apple evidence before creating publication intent.
+fn freeze_publication_inputs(
+    inputs: &PublicationInputs,
+) -> Result<(
+    armorer::verification::context::TrustedReleaseContext,
+    armorer::verification::publication::TrustedPublicationPolicy,
+    armorer::verification::publication::FrozenRelease,
+)> {
+    use armorer::verification::{
+        apple::VerifiedAppleRelease,
+        context::TrustedReleaseContext,
+        cyclonedx::OfflineSbomValidator,
+        publication::{FrozenRelease, TrustedPublicationPolicy},
+        release::AuthenticatedReleaseFiles,
+        sigstore::OfflineVerifier,
+    };
+    let context = match inputs.context_kind {
+        ContextKind::LegacyV1 => {
+            TrustedReleaseContext::open(&inputs.trusted_inputs, &inputs.expect_context_sha256)?
+        }
+        ContextKind::NativeV2 => TrustedReleaseContext::open_native_v2(
+            &inputs.trusted_inputs,
+            &inputs.expect_context_sha256,
+        )?,
+        ContextKind::NativeV3 => TrustedReleaseContext::open_native_v3(
+            &inputs.trusted_inputs,
+            &inputs.expect_context_sha256,
+        )?,
+    };
+    let policy = TrustedPublicationPolicy::open(
+        &inputs.publication_policy,
+        &inputs.expect_publication_policy_sha256,
+        &context,
+    )?;
+    let verifier = OfflineVerifier::open(
+        &inputs.trusted_inputs.join("verification-policy.json"),
+        &context.policy_identity().sha256,
+        &inputs.gh,
+        &inputs.trusted_root,
+    )?;
+    let validator = OfflineSbomValidator::open(&inputs.cyclonedx, context.sbom_validator())?;
+    let files =
+        AuthenticatedReleaseFiles::verify(&inputs.directory, &context, &verifier, &validator)?;
+    let apple = VerifiedAppleRelease::verify(&files, &context)?;
+    let frozen = FrozenRelease::freeze(&files, &apple, &context, &policy)?;
+    Ok((context, policy, frozen))
+}
+
+/// Route explicit actions through independent intent and preserve existing read-only discovery behavior.
 fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
     match cli.command {
+        Operation::Publication { inputs, operation } => {
+            use armorer::verification::publication::{
+                ApprovedPublication, NativeGithub, OwnedDraftController,
+            };
+            let (context, policy, frozen) = freeze_publication_inputs(&inputs)?;
+            if matches!(operation, PublicationOperation::Plan) {
+                return Ok((
+                    json!({"plan":frozen.plan(), "plan_identity":frozen.identity(),
+                    "remote_mutations":false, "publication_authorized":false}),
+                    0,
+                ));
+            }
+            // Authenticate an independent action before reading credentials. Inspect and recovery are GET-only.
+            let approval = match &operation {
+                PublicationOperation::Stage {
+                    approval,
+                    expect_approval_sha256,
+                    ..
+                }
+                | PublicationOperation::Publish {
+                    approval,
+                    expect_approval_sha256,
+                    ..
+                } => Some(ApprovedPublication::open(
+                    approval,
+                    expect_approval_sha256,
+                    &frozen,
+                    &policy,
+                )?),
+                _ => None,
+            };
+            let (state_directory, owner_home, read_only) = match &operation {
+                PublicationOperation::Inspect {
+                    state_directory,
+                    owner_home,
+                }
+                | PublicationOperation::RecoverPublished {
+                    state_directory,
+                    owner_home,
+                } => (state_directory, owner_home.as_deref(), true),
+                PublicationOperation::Stage {
+                    state_directory, ..
+                }
+                | PublicationOperation::Publish {
+                    state_directory, ..
+                } => (state_directory, None, false),
+                PublicationOperation::Plan => unreachable!(),
+            };
+            let client = if read_only {
+                let home = owner_home
+                    .map(PathBuf::from)
+                    .or_else(|| std::env::var_os("HOME").map(PathBuf::from))
+                    .ok_or(Error::Json)?;
+                NativeGithub::open_owner_read_only(
+                    &inputs.gh,
+                    &inputs.release_attestation_root,
+                    &policy,
+                    &home,
+                )?
+            } else {
+                NativeGithub::open(&inputs.gh, &inputs.release_attestation_root, &policy)?
+            }
+            .bind_repository(&context, &policy)?;
+            let mut controller =
+                OwnedDraftController::open(client, frozen, policy, state_directory, context)?;
+            let value = match operation {
+                PublicationOperation::Inspect { .. } => serde_json::to_value(controller.inspect()?),
+                PublicationOperation::Stage { .. } => {
+                    serde_json::to_value(controller.stage(approval.as_ref().ok_or(Error::Json)?)?)
+                }
+                PublicationOperation::Publish { .. } => {
+                    serde_json::to_value(controller.publish(approval.as_ref().ok_or(Error::Json)?)?)
+                }
+                PublicationOperation::RecoverPublished { .. } => {
+                    serde_json::to_value(controller.recover_published()?)
+                }
+                PublicationOperation::Plan => unreachable!(),
+            };
+            Ok((value.map_err(|_| Error::Json)?, 0))
+        }
         Operation::Upgrade { operation } => {
             let value = match operation {
                 UpgradeOperation::Plan {
@@ -409,6 +611,15 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
         }
         Operation::Schema { kind } => {
             let schema = match kind {
+                SchemaKind::PublicationPolicy => {
+                    schemars::schema_for!(armorer::verification::publication::PublicationPolicy)
+                }
+                SchemaKind::PublicationPlan => {
+                    schemars::schema_for!(armorer::verification::publication::PublicationPlan)
+                }
+                SchemaKind::PublicationApproval => {
+                    schemars::schema_for!(armorer::verification::publication::PublicationApproval)
+                }
                 SchemaKind::NativeCatalogV2 => {
                     schemars::schema_for!(armorer::trust::native::NativeCatalogV2)
                 }

@@ -6,6 +6,7 @@ pub mod cyclonedx;
 pub mod graph;
 pub mod historical;
 mod io;
+pub mod publication;
 pub mod release;
 pub mod runtime;
 pub mod sigstore;
