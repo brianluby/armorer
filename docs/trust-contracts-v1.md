@@ -1,8 +1,14 @@
 # Version-one release trust contracts
 
-Status: proposed freeze for ticket [#2](https://kanban.luby.us/tasks/1305),
-2026-10-01. Typed contracts and semantic validation are usable library interfaces;
-release verification, signing and publication implementations remain #8/#9/#10.
+Keep policy independent. Bind evidence to the artifact it protects.
+**This is the way.**
+
+The original contract-freeze proposal for ticket
+[#2](https://kanban.luby.us/tasks/1305) is dated 2026-10-01. Typed contracts and
+semantic validation are merged library interfaces. Main also implements
+[offline verification of individual attestation slots](offline-verifier.md);
+complete-release verification, signing and publication require later integration.
+See [the current source map](development-status.md) for main versus stacked PRs.
 No schema, fixture, producer record or passing local test establishes SLSA L2.
 v0.1 targets Build L2; L3 remains deferred.
 
@@ -14,9 +20,10 @@ v0.1 targets Build L2; L3 remains deferred.
 | lock-v1 | Exact config bytes, runtime version, workflow SHA and tool distribution digest syntax | Independently authenticated catalog and authentication records supplement pins; syntax alone is not authentication |
 | plan-v1 | Deterministic local preview/preimages and existing apply digest | No readiness promotion; new lifecycle records remain separate |
 | workflow build-inventory-v1 | Unsigned artifact/SBOM/Cargo graph, source/run/attempt and tracked input identities | Trusted controller rehashes outputs; release inventory is a different document with a final-byte chain |
-| Release contracts | Previously deferred | New inventory, policy, evidence, capability/catalog and receipt schemas, owned by this PR |
+| Release contracts | Additive v1 library interfaces | Inventory, policy, evidence, capability/catalog and receipt schemas; production execution has separate gates |
 
-The frozen existing config/lock/plan files are byte-for-byte unchanged. The
+The original trust-contract slice preserved existing config/lock/plan schemas
+byte-for-byte. The
 workflow repository at `772ca83e386c883c88cc3b936d69f8cb3216c91e` is the inspected
 compatibility baseline. Its build inventory remains authoritative in that
 repository and is neither renamed nor reinterpreted as authenticated provenance.
@@ -37,8 +44,11 @@ Capability intent is `CapabilityConfig` (JSON sidecar, proposed path
 reviewed catalog byte identity and an expiring review record. Its validator takes
 the expected catalog identity independently and compares both digest and size. This preserves
 old Rust and Python readers. Existing check/plan do not load these sidecars or
-claim support for their execution. Catalog installation, rendering and upgrades
-remain #5/#4 integration work; no candidate pins are supplied for production.
+claim support for their execution. The [bootstrap catalog](bootstrap-catalog.md)
+is a separate embedded authority used by [five-file bootstrap](bootstrap-v2.md)
+and [reviewed upgrades](upgrades.md). Installing capability sidecars and enforcing
+required production observations remain separate operational gates. Synthetic trust
+fixtures supply no production-approved pins.
 
 ## Schemas and library API
 
@@ -69,6 +79,9 @@ performs signature verification, platform API checks, SBOM graph validation,
 archive extraction, Apple inspection, approval authentication or publication.
 The public API accepts independently established expected context explicitly.
 Calling it with expectations copied from the record defeats that boundary.
+
+Load the authority through its reviewed channel. Verify the offered record
+against it. **This is the way.**
 
 Byte identities are lowercase SHA-256 and nonzero sizes, capped at 1 GiB per
 asset in this v1 layout. Empty/partial uploads cannot satisfy a required asset.
@@ -117,6 +130,8 @@ and is outside that list. `compare_published_bytes` requires precisely listed
 assets plus these two detached files and independently verified identities.
 There is no inventory/bundle hash cycle and no bundle-of-bundle requirement.
 
+Forge the final bytes before you attest them. **This is the way.**
+
 Transformation stages retain unsigned executable, signed executable, notarized
 object and final package byte identities in the evidence record. They need not
 all be public release assets; their run-bound retained evidence must be available
@@ -150,6 +165,9 @@ historical byte-match evidence, never provenance-verified or an L2 claim. No
 missing/invalid required evidence falls back to historical mode. #8 must keep
 mode selection explicit and reject authenticity failures; the contract helper
 compares allowlisted bytes and does not implement that runtime mode router.
+
+Historical bytes retain their weaker claim. Hold the authentication gate.
+**This is the way.**
 
 ## Per-artifact evidence and Apple limits
 

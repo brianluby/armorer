@@ -4,6 +4,15 @@ Status: original plan 2026-09-30; dependency and optional-defense assessment upd
 
 Epic: [Armorer #1](https://kanban.luby.us/tasks/1304), project 16. All child tasks have explicit acceptance criteria and parent/dependency relations. Momus reference: [#48, task ID 1303](https://kanban.luby.us/tasks/1303), project 15. Project-local indexes and database IDs are distinct.
 
+Forge one reviewed slice at a time. Keep its evidence and its limits.
+**This is the way.**
+
+Current source and PR integration boundaries are maintained in
+[the development map](docs/development-status.md). The
+[documentation delivery map](docs/documentation-plan.md) connects the operational
+deliverables below to current guides and remaining implementation gates.
+These local maps do not replace live tracker acceptance.
+
 ## Scope and milestones
 
 **First usable Linux L2 baseline:** bootstrap config/discovery/plans/apply, required CI, fixed Linux builder, Cargo SBOM, isolated attestations, strict consumer verification and verified immutable draft workflow. Start with a small public fixture and Armorer dogfooding. Expect roughly **15–22 engineering days**, including security tests and initial documentation. This is a usable subset, not completion of all profile/platform/pilot acceptance criteria.

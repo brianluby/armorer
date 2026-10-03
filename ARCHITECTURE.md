@@ -2,6 +2,15 @@
 
 Status: accepted design; implementation is delivered in reviewed slices. Original research verified 2026-09-30; parallel contracts updated 2026-10-01.
 
+Forge protection into each boundary. Make each claim answer to its evidence.
+**This is the way.**
+
+This document describes the target design, including commands and release jobs
+still awaiting integration. Read [the source map](docs/development-status.md)
+and [current command reference](docs/cli-reference.md) before following an
+operator procedure. The [documentation plan](docs/documentation-plan.md) tracks
+the guides that follow each implementation slice.
+
 Armorer makes secure Rust CI and independently verifiable releases a repeatable repository capability. It configures a project, checks what is actually enforced, and records what has been demonstrated. Installing workflow files alone never means a project has achieved a SLSA level.
 
 Confirmed decisions: public repositories under `brianluby`, MIT license, secure releases fail closed when required capabilities are unavailable, and Momus plus Rusty Brain as pilots. **v0.1 targets Build L2; L3 assessment and gap closure are deferred to the backlog for an unscheduled future version.** Momus implementation continues independently. Architecture discovery did not modify either pilot. The repositories are now provisioned; current implementation status is documented in the README. Release publication requires separate authorization.
@@ -13,7 +22,7 @@ Confirmed decisions: public repositories under `brianluby`, MIT license, secure 
 | CLI and shared runtime | `brianluby/armorer`; local `/Users/bluby/repos/armorer` | Discovery, typed configuration, previews, safe file changes, migrations, capability checks, release inventory and consumer verification |
 | Trusted workflows | `brianluby/armorer-workflows` | Versioned CI/build/release controllers, fixed commands, job permissions, reviewed tool pins, workflow integration fixtures |
 
-Both public repositories are provisioned. Armorer PR #1 merged configuration validation and read-only Cargo discovery; the workflow repository has an MIT/contributor-documentation base for subsequent implementation PRs. Crate-name availability remains a publication-time check, not a reservation. Use original project artwork and describe the forging inspiration in prose. [ADR 0004](docs/adr/0004-parallel-contracts.md) freezes ownership and interfaces for transactional apply, reusable CI and target-aware builders.
+Both public repositories are provisioned. The original discovery slice merged configuration validation and read-only Cargo discovery; subsequent slices added local transactions, exact preview, catalog rendering and individual offline attestation verification. The workflow repository is versioned separately. Crate-name availability remains a publication-time check, not a reservation. Use original project artwork and describe the forging inspiration in prose. [ADR 0004](docs/adr/0004-parallel-contracts.md) freezes ownership and interfaces for transactional apply, reusable CI and target-aware builders.
 
 Use **Rust** initially, with Clap, Serde, TOML editing that preserves comments, Cargo metadata support, and a small shared core/runtime. Rust provides typed validation, portable binaries, strong filesystem handling and direct alignment with the repositories being configured. Python would accelerate prototyping but add interpreter/dependency distribution to every adopter; shell is unsuitable for transactional migration and robust untrusted-input handling; Go is viable but loses the Cargo ecosystem alignment. Delegate Sigstore cryptographic verification to a pinned GitHub CLI initially rather than implementing a new verifier.
 
@@ -197,4 +206,6 @@ Initial risk register:
 
 No initial L3 claim. Record L2 evidence and limitations per artifact for v0.1; undertake L3 assessment only when the future backlog item is selected. See IMPLEMENTATION_PLAN.md for scoped ownership and test gates, RESEARCH.md for verified upstream findings and tradeoffs.
 
-The proposed [ticket #2 trust-contract freeze](docs/trust-contracts-v1.md) and ADRs 0006–0008 define additive versioned release interfaces and exact handoffs to #8/#9/#10; those runtime gates remain unimplemented.
+Earn the level through evidence. **This is the way.**
+
+The [ticket #2 trust contracts](docs/trust-contracts-v1.md) and ADRs 0006–0008 define additive versioned release interfaces and handoffs to #8/#9/#10. Main supplies scoped offline attestation verification; complete consumer integration, protected production signing and publication still require their own gates.

@@ -1,0 +1,23 @@
+[package]
+name = "field-tools"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+field-core.workspace = true
+
+[features]
+default = []
+service = ["store"]
+store = []
+
+[[bin]]
+name = "field-tool"
+path = "src/main.rs"
+
+[[bin]]
+name = "field-daemon"
+path = "src/daemon.rs"
+required-features = ["service"]
