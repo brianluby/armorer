@@ -69,8 +69,10 @@ is not hashed by metadata discovery and is not claimed as release provenance.
 Stale preimages require a freshly reviewed plan. Replaying the identical successful
 plan checks intent, ownership and all final bytes, and changes no file or timestamp.
 
-Both writers use the persistent kernel lock `.armorer/apply.lock`. Version 2 has a
-separate `.armorer/bootstrap-journal-v2.json`; an unfinished journal blocks apply.
+Both writers use the persistent kernel lock `.armorer/apply.lock`. The transaction
+guard explicitly unlocks when it leaves scope, allowing immediate replay even
+while a concurrent child briefly retains a duplicate file descriptor. A separate
+writer still rejects while the transaction is active. Version 2 has a separate `.armorer/bootstrap-journal-v2.json`; an unfinished journal blocks apply.
 The engine validates all preimages under the lock, writes a durable journal before
 any managed byte, creates required parents, atomically replaces each file and
 writes ownership last. Updates preserve modes. It rechecks inputs and the entire

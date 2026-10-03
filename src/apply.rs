@@ -289,8 +289,21 @@ fn validate_plan(plan: &Plan, expected: &str) -> Result<()> {
     Ok(())
 }
 
+/// Own a transaction lock and release it before closing its file descriptor.
+/// A concurrent spawn can briefly inherit a duplicate descriptor; closing only
+/// the parent descriptor can leave a completed transaction's flock active.
+pub(crate) struct TransactionLock(File);
+
+impl Drop for TransactionLock {
+    /// End the transaction's lock even while a duplicate descriptor remains open.
+    fn drop(&mut self) {
+        // File closure remains a fallback if the explicit unlock fails.
+        let _ = self.0.unlock();
+    }
+}
+
 /// Acquire the persistent kernel lock shared by Armorer transaction versions.
-pub(crate) fn lock(root: &Path) -> Result<File> {
+pub(crate) fn lock(root: &Path) -> Result<TransactionLock> {
     let directory = safe_path(root, ".armorer")?;
     match fs::create_dir(&directory) {
         Ok(()) => sync_directory(root)?,
@@ -308,7 +321,7 @@ pub(crate) fn lock(root: &Path) -> Result<File> {
         .truncate(false)
         .open(path)?;
     match file.try_lock() {
-        Ok(()) => Ok(file),
+        Ok(()) => Ok(TransactionLock(file)),
         Err(TryLockError::WouldBlock) => {
             Err(Error::Transaction("another Armorer transaction is active"))
         }
@@ -715,6 +728,28 @@ pub fn recover(root: &Path, expected: &str) -> Result<Receipt> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Retain a duplicate descriptor while requiring immediate post-transaction reacquisition.
+    #[test]
+    fn transaction_lock_releases_before_duplicate_descriptors_close() {
+        let root = tempfile::tempdir().unwrap();
+        let guard = lock(root.path()).unwrap();
+        let inherited = guard.0.try_clone().unwrap();
+        assert!(matches!(
+            lock(root.path()),
+            Err(Error::Transaction("another Armorer transaction is active"))
+        ));
+        drop(guard);
+        let next = lock(root.path()).unwrap();
+        drop(inherited);
+        // Closing the previous duplicate must not release the new independent lock.
+        assert!(matches!(
+            lock(root.path()),
+            Err(Error::Transaction("another Armorer transaction is active"))
+        ));
+        drop(next);
+        lock(root.path()).unwrap();
+    }
 
     /// Create an isolated repository fixture with explicit inputs for the surrounding transaction tests.
     fn fixture() -> tempfile::TempDir {

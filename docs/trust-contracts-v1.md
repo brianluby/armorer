@@ -163,9 +163,12 @@ checks; selection/config consistency cannot prove them.
 
 `EvidenceRequirements` comes from independently reviewed config/catalog/policy.
 It binds exact inputs/selection, stage workflows, tool versions/bytes/authentication
-records, database freshness ceilings, required tested subject/scope/omissions,
-maximum evidence age, permitted exceptions and expected Apple team. Producer
-records cannot widen freshness or reduce enforced scope. Exceptions bind tool,
+records and observation times, database freshness ceilings, required tested
+subject/scope/omissions and exact exception IDs, maximum evidence age, permitted
+exceptions and expected Apple team. Producer records cannot refresh an approved
+observation time, widen freshness or reduce enforced scope. Allowing an exception
+record does not authorize attaching it to exception-free required coverage; its
+use must match the independently approved coverage record. Exceptions bind tool,
 rule/version, tested subject, policy, owner/rationale/review/expiry and adjacent
 positive-control evidence. Source/signer/byte/trigger/publication/credential
 requirements cannot be waived. Authentication-record hashes do not themselves
