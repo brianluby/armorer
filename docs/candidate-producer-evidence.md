@@ -1,7 +1,7 @@
 # Bring the whole cargo. Prove who carried it.
 
 Candidate guide: workflow source
-[`b2b9fbc9846d5aa4bf1dbdb8e8618bddad25e23c`](https://github.com/brianluby/armorer-workflows/tree/b2b9fbc9846d5aa4bf1dbdb8e8618bddad25e23c).
+[`4cdf5d786aebb637c7b41afe53c4d19a8be08ffa`](https://github.com/brianluby/armorer-workflows/tree/4cdf5d786aebb637c7b41afe53c4d19a8be08ffa).
 Armorer's embedded workflow pin remains `772ca83e386c883c88cc3b936d69f8cb3216c91e`.
 These internal interfaces prepare a fixed controller. They are not main CLI
 commands or an accepted protected release procedure.
@@ -149,6 +149,13 @@ the signed OIDC claim must match the independently mapped check-run identity.
 The mapped helper observes again after issuer verification and rejects source,
 job or prerequisite changes. An artifact-writer observation separately binds
 each completed uploader's native check to its artifact-service backend ID.
+
+At this candidate, the original Node-first issuer/mapped exports reject.
+The following two producer record functions belong to internal `*_worker_v1.mjs`
+modules and run only inside the [isolated startup boundary](candidate-producer-startup.md).
+The Python launcher returns audit JSON after that fresh process exits. Its output
+cannot carry an original private proof into another stage or authorize a later
+signing/publication operation. The artifact-writer interface remains separate.
 
 | Interface | Required original object and export lifetime | What remains unproven |
 | --- | --- | --- |

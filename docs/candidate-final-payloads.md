@@ -1,7 +1,7 @@
 # Seal the cargo before you attest it
 
 Candidate source: workflow integration
-[`b2b9fbc9846d5aa4bf1dbdb8e8618bddad25e23c`](https://github.com/brianluby/armorer-workflows/tree/b2b9fbc9846d5aa4bf1dbdb8e8618bddad25e23c).
+[`4cdf5d786aebb637c7b41afe53c4d19a8be08ffa`](https://github.com/brianluby/armorer-workflows/tree/4cdf5d786aebb637c7b41afe53c4d19a8be08ffa).
 The embedded catalog still pins workflow main `772ca83e386c883c88cc3b936d69f8cb3216c91e`.
 This internal assembler prepares a byte layout for the strict consumer. It
 provides no main CLI command, signing adapter or publication operation.

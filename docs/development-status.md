@@ -1,10 +1,13 @@
 # What stands. What is still being forged.
 
-Source snapshot: **2026-10-02, America/Los_Angeles**, main
+Source snapshot: **2026-10-03, America/Los_Angeles / UTC**, main
 `96457ee418439dde097339cfcd374c08f2cc98ad`. PR API observations were made
 on 2026-10-03 UTC. Seven implementation PRs (#15–21) are open. The separate
 [documentation draft #22](https://github.com/brianluby/armorer/pull/22) supplies
-these field guides and review records. Inspect source ancestry before promoting
+these field guides and review records. The separate
+[contributor repair draft #23](https://github.com/brianluby/armorer/pull/23) fixes
+only #21's schema instructions; its [receipt](../reviews/2026-10-03-pr23-schema-guide.md)
+keeps that proposal separate from integration. Inspect source ancestry before promoting
 a feature into the current command guide.
 
 **This is the way.**
@@ -118,6 +121,19 @@ Its 32 affected local tests, separate prerequisite/intake jobs and all 12 runtim
 jobs pass. Its distinct combined run `37108079402` now finishes successfully
 with all 33 jobs and all three native writer joins; preserve the earlier live
 observation separately.
+
+The [startup continuation](../reviews/2026-10-03-workflow-producer-startup.md)
+reviews `9980f975d4cf222a3a52d0eece718bbfb79ca126`: isolated Python copies
+byte-qualified proposed Node 24.21.0, retires credentialed Node-first exports and
+returns non-authorizing audit JSON from a fresh fixed worker. Local startup and
+internal issuer/mapped suites pass 7 and 25 tests respectively. Its green native
+build jobs skip the new startup class; its distinct combined run is cancelled.
+The wiring-only successor `4cdf5d786aebb637c7b41afe53c4d19a8be08ffa` enables
+that fixture and renews issuer/mapped action pins. All three native logs now show
+seven startup controls within 208 passing tests with no skips. All 12 runtime
+jobs pass in run `37111479943`; all 33 combined jobs and all three writer joins
+pass in run `37111480272`. The [startup guide](candidate-producer-startup.md)
+records the current interface, startup assumptions and remaining production gates.
 
 ## Integrate with care
 

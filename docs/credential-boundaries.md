@@ -89,7 +89,7 @@ effective current-attempt approvals and rotation remain unqualified.
 ## Match the candidate helper's exact read interface
 
 These interfaces belong to workflow candidate
-[`b2b9fbc9846d5aa4bf1dbdb8e8618bddad25e23c`](https://github.com/brianluby/armorer-workflows/tree/b2b9fbc9846d5aa4bf1dbdb8e8618bddad25e23c).
+[`4cdf5d786aebb637c7b41afe53c4d19a8be08ffa`](https://github.com/brianluby/armorer-workflows/tree/4cdf5d786aebb637c7b41afe53c4d19a8be08ffa).
 They are not generated main callers or production signing-secret definitions.
 Use the fixed helper's declared name; a similarly named variable does not supply
 the same interface.
@@ -97,11 +97,11 @@ the same interface.
 | Name | Source and consumer | Boundary |
 | --- | --- | --- |
 | `ARMORER_READ_TOKEN` | Qualification steps explicitly bind `github.token` for Python source/controller/transport/capability readers | Read-process input; native child receives the selected token as `GH_TOKEN` in a sterile environment |
-| `ARMORER_WORKFLOW_READ_TOKEN` | Qualification actions explicitly bind `github.token` for the fixed mapped-job worker and artifact-writer observer | A distinct Node/worker interface; mapped worker needs contents/actions read; writer observation also needs checks read |
+| `ARMORER_WORKFLOW_READ_TOKEN` | Qualification actions and the candidate Python producer launcher bind `github.token` for mapped-job reads; the artifact-writer observer keeps its separate interface | A distinct Node/worker interface; mapped worker needs contents/actions read; writer observation also needs checks read |
 | `GH_TOKEN` | Fixed native subprocess adapter constructs this binding from its explicit read token | Ambient credentials or debug/proxy settings cannot replace the independently selected token |
 | `ACTIONS_RUNTIME_TOKEN` | Platform runtime supplies the artifact-service credential to the writer observer | Separate from REST read identity; used only for fixed read-only `ListArtifacts` POST, never create/finalize/delete/download-URL methods |
 | `ACTIONS_RESULTS_URL` | Platform context identifies the artifact receiver | Location metadata, not a credential; observer accepts only its fixed GitHub.com receiver origin |
-| `ACTIONS_ID_TOKEN_REQUEST_URL`, `ACTIONS_ID_TOKEN_REQUEST_TOKEN` | Platform supplies the request location and bearer credential to the fixed producer OIDC helper | Request service only; issuer/JWKS/audience are fixed separately and the bearer never goes to JWKS |
+| `ACTIONS_ID_TOKEN_REQUEST_URL`, `ACTIONS_ID_TOKEN_REQUEST_TOKEN` | Platform supplies the request location and bearer credential to the isolated producer launcher and its fixed child | Request service only; issuer/JWKS/audience are fixed separately and the bearer never goes to JWKS |
 
 The current development transport and combined collection jobs grant
 `contents: read`, `actions: read`, `checks: read` and bind the corresponding
@@ -142,6 +142,18 @@ to make an issuer request pass. This environment guard does not authenticate the
 launcher or repair arbitrary code already running in the process.
 The [successor review](../reviews/2026-10-03-workflow-cleanup.md#reject-startup-transport-overrides)
 records synthetic issuer/mapped tests; production OIDC acceptance remains open.
+
+At `9980f975d4cf`, the credentialed Node-first exports are retired: they fail
+with `oidc-startup-boundary-required` or
+`producer-context-startup-boundary-required`. The new
+[producer startup guide](candidate-producer-startup.md) describes the isolated
+Python launcher, byte-qualified Node copy, exact child credential environment and
+non-authorizing audit output. Its internal worker modules retain the issuer and
+mapped proof checks; importing those workers into caller-controlled Node is
+unsupported. The old four-variable presence guard alone cannot detect a preload
+that already ran and erased its marker. The
+[startup review](../reviews/2026-10-03-workflow-producer-startup.md) retains that
+boundary and the `4cdf5d786aeb` fixture-wiring successor.
 
 Name the interface. Keep the credential inside it. **This is the way.**
 

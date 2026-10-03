@@ -25,6 +25,8 @@ For the separate workflow stack, inspect the
 [candidate prerequisite and unsigned intake guide](candidate-workflow-prerequisites.md).
 Follow [candidate producer evidence](candidate-producer-evidence.md) for complete
 same-attempt build/policy collection, advisory freshness and private proof limits.
+Read [producer startup](candidate-producer-startup.md) for the isolated Python
+boundary, retired Node-first APIs and private-proof versus audit-JSON distinction.
 Then inspect [final payload assembly](candidate-final-payloads.md) for measured
 transformations, fixed subject slots and detached inventory authentication.
 Its native read-token interface and limits on the complete handoff remain separate
@@ -47,6 +49,7 @@ from protected signing or publication authority.
 | [Credential boundaries](credential-boundaries.md) | Current CI/build and candidate read-token interfaces, planned protected approvals and rotation decisions |
 | [Candidate workflow prerequisites](candidate-workflow-prerequisites.md) | Native configuration states, ephemeral read-token isolation and complete unsigned Apple intake; no signing/publication grant |
 | [Candidate producer evidence](candidate-producer-evidence.md) | Complete build/policy handoffs, final freshness checks and transport versus original private identity proofs |
+| [Candidate producer startup](candidate-producer-startup.md) | Byte-qualified fresh Node, exact child credentials, retired APIs and non-authorizing audit output |
 | [Candidate final payloads](candidate-final-payloads.md) | Fixed Linux/library assembly, exact retained evidence and acyclic inventory order; layout completion leaves authority false |
 | [Dogfooding](dogfooding.md), [own intent example](../examples/armorer-dogfood/README.md) | Read-only inspection of Armorer itself and remaining complete rehearsal gates |
 | [Documentation coverage](documentation-coverage.md) | Every planned documentation deliverable, present evidence and outstanding acceptance |
@@ -88,6 +91,10 @@ The [cleanup continuation](../reviews/2026-10-03-workflow-cleanup.md) retains th
 latest process/schema regressions and failed Linux collection receipt.
 The [transport continuation](../reviews/2026-10-03-workflow-transport-cleanup.md)
 records the successor's terminal joined rehearsal, shared-reader fault and tested successor repair.
+
+The [producer startup continuation](../reviews/2026-10-03-workflow-producer-startup.md)
+retains the initial native-test skip and its wiring repair with renewed hosted
+startup and combined-handoff qualification.
 
 Contributors follow [the contributor guide](../CONTRIBUTING.md) and
 [the writing creed](writing-guide.md). Update behavior guides when behavior

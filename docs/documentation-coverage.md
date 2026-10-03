@@ -1,6 +1,6 @@
 # Account for every guide
 
-Review snapshot: 2026-10-02 America/Los_Angeles / 2026-10-03 UTC. This audit follows
+Review snapshot: 2026-10-03 America/Los_Angeles / UTC. This audit follows
 [the complete documentation requirements](../IMPLEMENTATION_PLAN.md#documentation-and-recovery-deliverables)
 and [ticket #14's local acceptance map](../IMPLEMENTATION_PLAN.md#14-open-source-onboarding-upgrades-and-recovery-runbooks).
 It is not a tracker update or ticket closure.
@@ -11,7 +11,7 @@ Main is `96457ee418439dde097339cfcd374c08f2cc98ad`; the combined candidate is
 Candidate guides remain separate from main's commands. Preserve source identities
 when these boundaries change.
 The separately reviewed workflow integration candidate is
-`b2b9fbc9846d5aa4bf1dbdb8e8618bddad25e23c`; its observer and unsigned intake do
+`4cdf5d786aebb637c7b41afe53c4d19a8be08ffa`; its observer and unsigned intake do
 not change the embedded workflow pin or grant protected production authority.
 
 Count what stands. Keep the missing proof visible. **This is the way.**
@@ -116,6 +116,9 @@ After adding the contributor repair record, the new check covers 54 Markdown
 files, 375 local links (including 38 heading links), balanced fences and the same
 29 shell blocks. The new record preserves the original failing command and labels
 the proposed fix separately from integration acceptance.
+The producer startup continuation expands the checked set to 56 Markdown files,
+391 local links (including 40 heading links), balanced fences and the same
+29 shell blocks. Earlier structure counts remain tied to their preceding scope.
 
 Pinned workflow source was read through GitHub's API, including its separately
 pinned nested CI workflow. The credential guide records the actual no-secret,
@@ -160,6 +163,20 @@ each prerequisite/intake run pass. The same combined run `37108079402` now
 finishes successfully with all 33 jobs, including all three native writer joins.
 The earlier live observation stays in its dated review. No genuine native-tool exploitation or complete signed
 release is inferred.
+
+The [producer startup review](../reviews/2026-10-03-workflow-producer-startup.md)
+records `9980f975d4cf` retiring the credentialed Node-first interfaces and adding
+isolated Python/byte-qualified Node startup. Seven local startup and 25 internal
+issuer/mapped tests pass on proposed Node 24.21.0. The first hosted build suites
+skip that startup class despite green jobs; the local no-fixture control and all
+three original logs retain this gap. Successor `4cdf5d786aeb` changes only fixture
+wiring: all three native build suites execute the seven cases and pass 208 tests
+without skips. All 12 runtime jobs pass in run `37111479943`, and all 33 combined
+jobs, including all three native writer joins, pass in run `37111480272`.
+The [startup guide](candidate-producer-startup.md) separates internal proof
+lifetimes from the launcher's non-authorizing JSON and proposed delivery pins
+from upstream signature/catalog acceptance. The earlier cancelled combined run
+remains a distinct receipt; these fixtures do not qualify live protected OIDC.
 
 The [support-policy proposal](support-policy-draft.md) prepares current-minor
 versus two-minor maintenance, independent catalog combinations, declared valid

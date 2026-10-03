@@ -1,7 +1,7 @@
 # Inspect the handoff before opening the vault
 
 Candidate source: `brianluby/armorer-workflows`
-[`b2b9fbc9846d5aa4bf1dbdb8e8618bddad25e23c`](https://github.com/brianluby/armorer-workflows/tree/b2b9fbc9846d5aa4bf1dbdb8e8618bddad25e23c),
+[`4cdf5d786aebb637c7b41afe53c4d19a8be08ffa`](https://github.com/brianluby/armorer-workflows/tree/4cdf5d786aebb637c7b41afe53c4d19a8be08ffa),
 the reviewed successor in workflow integration PR #21, preserving the stack through #20.
 The catalog still pins accepted workflow main `772ca83e386c883c88cc3b936d69f8cb3216c91e`.
 This guide prepares review of internal candidate interfaces. Armorer's current
