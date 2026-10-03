@@ -16,6 +16,7 @@ pub mod discovery;
 pub mod plan;
 pub mod preview;
 pub mod trust;
+pub mod verification;
 
 use std::path::{Component, Path, PathBuf};
 
