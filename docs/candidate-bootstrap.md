@@ -30,15 +30,18 @@ training_dir=$(mktemp -d) || exit 1
 cp -R "$candidate_checkout/examples/bootstrap-v2/cli" "$training_dir/project"
 project="$training_dir/project"
 policy="$project/ci-policy.reviewed.toml"
-"$armorer_candidate" --repository "$project" bootstrap check --policy "$policy"
-check_status=$?
-test "$check_status" -eq 2
+if "$armorer_candidate" --repository "$project" bootstrap check --policy "$policy"; then
+  check_status=0
+else
+  check_status=$?
+fi
+test "$check_status" -eq 2 || exit 1
 "$armorer_candidate" --repository "$project" bootstrap plan --policy "$policy" \
   > "$training_dir/bootstrap-plan.json"
 ```
 
-`check` returns JSON and exit 2 because release gates remain open. Run that command
-where an expected nonzero status will not abort your shell before you capture it.
+`check` returns JSON and exit 2 because release gates remain open. The conditional
+captures that expected status; any other status stops the walkthrough.
 `plan` returns 0 for a valid complete preview, including a preview with conflicts.
 Both inspect without changing consumer files, compiling source, running build
 scripts, resolving dependencies or downloading tools/catalogs. Repeat with the

@@ -19,21 +19,21 @@ supported targets, with package defaults and no extra features.
 
 ```sh
 armorer_binary="$PWD/target/debug/armorer"
-dogfood_source_commit=$(git rev-parse HEAD)
+dogfood_source_commit=$(git rev-parse HEAD) || exit 1
 dogfood_root=$(mktemp -d) || exit 1
-mkdir "$dogfood_root/project"
-git archive --format=tar --output="$dogfood_root/source.tar" HEAD
-tar -xf "$dogfood_root/source.tar" -C "$dogfood_root/project"
-cp examples/armorer-dogfood/armorer.toml "$dogfood_root/project/armorer.toml"
+mkdir "$dogfood_root/project" || exit 1
+git archive --format=tar --output="$dogfood_root/source.tar" HEAD || exit 1
+tar -xf "$dogfood_root/source.tar" -C "$dogfood_root/project" || exit 1
+cp examples/armorer-dogfood/armorer.toml "$dogfood_root/project/armorer.toml" || exit 1
 "$armorer_binary" --repository "$dogfood_root/project" plan \
-  > "$dogfood_root/inspection-plan.json"
+  > "$dogfood_root/inspection-plan.json" || exit 1
 if "$armorer_binary" --repository "$dogfood_root/project" check \
     > "$dogfood_root/inspection-check.json"; then
   dogfood_check_status=0
 else
   dogfood_check_status=$?
 fi
-test "$dogfood_check_status" -eq 2
+test "$dogfood_check_status" -eq 2 || exit 1
 printf 'Inspected tracked source: %s\n' "$dogfood_source_commit"
 ```
 
