@@ -49,12 +49,17 @@ jobs:
           done
           target/debug/armorer schema bootstrap-plan > /tmp/armorer-bootstrap-plan.json
           diff -u schemas/bootstrap-plan-v2.json /tmp/armorer-bootstrap-plan.json
+          for kind in upgrade-plan upgrade-rollback; do
+            target/debug/armorer schema "$kind" > "/tmp/armorer-$kind.json"
+            diff -u "schemas/$kind-v1.json" "/tmp/armorer-$kind.json"
+          done
       - name: Independently validate example schemas
         run: |
           python3 -m venv /tmp/armorer-schema-venv
           /tmp/armorer-schema-venv/bin/python -m pip install --require-hashes --only-binary=:all: -r requirements-schema.txt
           /tmp/armorer-schema-venv/bin/python scripts/validate-contract-examples.py
           /tmp/armorer-schema-venv/bin/python scripts/validate-bootstrap-examples.py
+          /tmp/armorer-schema-venv/bin/python scripts/validate-upgrade-examples.py
       - name: Checkout reviewed workflow lint runtime
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

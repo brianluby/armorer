@@ -32,7 +32,7 @@ pub(crate) struct State {
 #[serde(deny_unknown_fields)]
 pub(crate) struct Base {
     pub(crate) sha256: String,
-    content: String,
+    pub(crate) content: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -202,9 +202,15 @@ pub(crate) fn load_state(root: &Path) -> Result<Option<(State, Vec<u8>)>> {
     let Some(bytes) = optional_bytes(root, STATE)? else {
         return Ok(None);
     };
-    let state: State = decode(&bytes)?;
-    validate_state(&state)?;
+    let state = state_from_bytes(&bytes)?;
     Ok(Some((state, bytes)))
+}
+
+/// Strict frozen v1 ownership decoding, also used by explicit migration previews.
+pub(crate) fn state_from_bytes(bytes: &[u8]) -> Result<State> {
+    let state: State = decode(bytes)?;
+    validate_state(&state)?;
+    Ok(state)
 }
 
 fn validate_state(state: &State) -> Result<()> {

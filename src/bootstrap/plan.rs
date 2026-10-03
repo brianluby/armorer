@@ -62,7 +62,7 @@ fn append_lines(output: &mut String, prefix: char, content: &str) {
 }
 
 /// Render complete hunks in linear space, preserving CRLF, Unicode and absence.
-fn diff(path: &str, before: Option<&str>, after: &str) -> String {
+pub(crate) fn diff(path: &str, before: Option<&str>, after: &str) -> String {
     if before == Some(after) {
         return String::new();
     }
@@ -82,20 +82,11 @@ fn diff(path: &str, before: Option<&str>, after: &str) -> String {
 
 /// Exact compiled template set. Consuming input selects neither paths nor templates.
 pub(super) fn generated(plan: &Plan) -> Result<BTreeMap<String, String>> {
-    let catalog = catalog::reviewed()?;
-    let mut files = catalog.caller_workflows();
-    files.insert(
-        ".armorer/ci-policy.toml".into(),
-        plan.policy_content.clone(),
-    );
-    files.insert(
-        "armorer.lock".into(),
-        catalog.lock_for_config_sha256(&plan.config_sha256)?,
-    );
-    files.insert("rust-toolchain.toml".into(), format!(
-        "[toolchain]\nchannel = \"{}\"\nprofile = \"minimal\"\ncomponents = [\"clippy\", \"rustfmt\"]\n", plan.intent.toolchain
-    ));
-    Ok(files)
+    catalog::reviewed()?.bootstrap_files(
+        &plan.config_sha256,
+        &plan.intent.toolchain,
+        &plan.policy_content,
+    )
 }
 
 /// Ownership is checked before comparing the new candidate: deletion or an edit
@@ -142,6 +133,7 @@ pub fn inspect(root: &Path, policy: &Path) -> Result<Plan> {
 
 /// The exact approved policy is self-contained; its external filename is not authority.
 pub(super) fn inspect_bytes(root: &Path, policy: &[u8]) -> Result<Plan> {
+    crate::upgrade::guard_previous(root)?;
     ci_policy::parse_at(policy, ci_policy::today()?)?;
     let (intent, config) = load_config(root)?;
     if TARGETS.contains(&intent.policy.license_file.as_str())

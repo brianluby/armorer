@@ -32,6 +32,12 @@ enum Operation {
         operation: BootstrapOperation,
     },
 
+    /// Review and apply upgrades/imports/rollback using separate approval contracts.
+    Upgrade {
+        #[command(subcommand)]
+        operation: UpgradeOperation,
+    },
+
     /// Preview changes without writing repository files (JSON).
     Plan,
     /// Apply a reviewed plan; the digest must be supplied independently.
@@ -79,8 +85,53 @@ enum BootstrapOperation {
     },
 }
 
+#[derive(Subcommand)]
+enum UpgradeOperation {
+    /// Show exact generated base, current/candidate bytes, pin and compatibility changes.
+    Plan {
+        #[arg(long)]
+        policy: PathBuf,
+        #[arg(long)]
+        catalog: String,
+        #[arg(long)]
+        import_file: Vec<String>,
+        #[arg(long)]
+        allow_downgrade: bool,
+    },
+    /// Apply only a separately reviewed upgrade plan and independent digest.
+    Apply {
+        #[arg(long)]
+        plan: PathBuf,
+        #[arg(long)]
+        expect_plan_sha256: String,
+    },
+    /// Explicitly recover the exact upgrade or reviewed rollback journal.
+    Recover {
+        #[arg(long)]
+        expect_plan_sha256: String,
+    },
+    /// Preview exact prior-byte restoration; requires explicit historical downgrade intent.
+    RollbackPlan {
+        #[arg(long)]
+        upgrade_plan: PathBuf,
+        #[arg(long)]
+        expect_upgrade_plan_sha256: String,
+        #[arg(long)]
+        allow_downgrade: bool,
+    },
+    /// Restore a separately reviewed reverse packet; release readiness remains unverified.
+    RollbackApply {
+        #[arg(long)]
+        plan: PathBuf,
+        #[arg(long)]
+        expect_plan_sha256: String,
+    },
+}
+
 #[derive(Clone, ValueEnum)]
 enum SchemaKind {
+    UpgradePlan,
+    UpgradeRollback,
     BootstrapPlan,
     CiPolicy,
     Config,
@@ -106,6 +157,62 @@ enum SchemaKind {
 /// conversion failures to `Error::Json`; output is left to the caller.
 fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
     match cli.command {
+        Operation::Upgrade { operation } => {
+            let value = match operation {
+                UpgradeOperation::Plan {
+                    policy,
+                    catalog,
+                    import_file,
+                    allow_downgrade,
+                } => serde_json::to_value(armorer::upgrade::inspect(
+                    &cli.repository,
+                    &policy,
+                    &catalog,
+                    &import_file,
+                    allow_downgrade,
+                )?),
+                UpgradeOperation::Apply {
+                    plan,
+                    expect_plan_sha256,
+                } => {
+                    let plan = armorer::upgrade::load_plan(&plan, &expect_plan_sha256)?;
+                    serde_json::to_value(armorer::upgrade::apply(
+                        &cli.repository,
+                        &plan,
+                        &expect_plan_sha256,
+                    )?)
+                }
+                UpgradeOperation::Recover { expect_plan_sha256 } => serde_json::to_value(
+                    armorer::upgrade::recover(&cli.repository, &expect_plan_sha256)?,
+                ),
+                UpgradeOperation::RollbackPlan {
+                    upgrade_plan,
+                    expect_upgrade_plan_sha256,
+                    allow_downgrade,
+                } => {
+                    let plan =
+                        armorer::upgrade::load_plan(&upgrade_plan, &expect_upgrade_plan_sha256)?;
+                    serde_json::to_value(armorer::upgrade::inspect_rollback(
+                        &cli.repository,
+                        &plan,
+                        &expect_upgrade_plan_sha256,
+                        allow_downgrade,
+                    )?)
+                }
+                UpgradeOperation::RollbackApply {
+                    plan,
+                    expect_plan_sha256,
+                } => {
+                    let plan = armorer::upgrade::load_rollback_plan(&plan, &expect_plan_sha256)?;
+                    serde_json::to_value(armorer::upgrade::apply_rollback(
+                        &cli.repository,
+                        &plan,
+                        &expect_plan_sha256,
+                    )?)
+                }
+            };
+            Ok((value.map_err(|_| Error::Json)?, 0))
+        }
         Operation::Bootstrap { operation } => {
             let (value, status) = match operation {
                 BootstrapOperation::Plan { policy } => (
@@ -146,6 +253,10 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
         )),
         Operation::Schema { kind } => {
             let schema = match kind {
+                SchemaKind::UpgradeRollback => {
+                    schemars::schema_for!(armorer::upgrade::RollbackPlan)
+                }
+                SchemaKind::UpgradePlan => schemars::schema_for!(armorer::upgrade::Plan),
                 SchemaKind::BootstrapPlan => schemars::schema_for!(armorer::bootstrap::Plan),
                 SchemaKind::CiPolicy => schemars::schema_for!(armorer::ci_policy::CiPolicy),
                 SchemaKind::Config => schemars::schema_for!(Config),
