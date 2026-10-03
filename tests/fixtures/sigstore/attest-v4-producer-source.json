@@ -1,0 +1,101 @@
+{
+  "purpose": "Source qualification only; no execution, signature proof, accepted catalog or Build L2 claim",
+  "action": {
+    "repository": "actions/attest",
+    "version": "4.2.0",
+    "commit": "f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6",
+    "source_files": {
+      "action.yml": {
+        "git_blob": "f3d593f3020cf14b65d2789e3788d015354475e9",
+        "sha256": "9e4a1b808433f9ec87120b534e11fc35469a039bdbdc62b019441444c9ad0449",
+        "size": 4048
+      },
+      "package.json": {
+        "git_blob": "2805fd4b013555abbcdc35e5a3fff9c679d4a455",
+        "sha256": "5ef1a342920a69a5d529469634c73aed0f6c47a85f530272e21eb89171357ab4",
+        "size": 2757
+      },
+      "package-lock.json": {
+        "git_blob": "5303a66ea2858890fc88c737e8254846ed5f377d",
+        "sha256": "8adfee4dcc39b8fff69e1abc927345289c22def1bb1a6c012547aa274d21d3ef",
+        "size": 381618
+      },
+      "src/main.ts": {
+        "git_blob": "521ead038a66991306c71e0b0ac5f5080077c689",
+        "sha256": "f7e0793174f84f5908891c6e60ea399af6276613a3de428e1b73e56537c8f25e",
+        "size": 8916
+      },
+      "src/attest.ts": {
+        "git_blob": "e927732b348321e6f27fc29df57a3a0a3e05f0ef",
+        "sha256": "c4488692b10e4758a35bb686f2702d696721b6e58561f94f1f9a3acb30c41846",
+        "size": 4148
+      },
+      "src/subject.ts": {
+        "git_blob": "843f4c3af94483cf43156dfbd0c97c0f1d35d22e",
+        "sha256": "14103f1e219f26a2e920a1b62d94d8159e709aeefc1f6344f9dfab883fc3ebfd",
+        "size": 9957
+      },
+      "src/sbom.ts": {
+        "git_blob": "6185a318e9267ab149f9fbdc4a718f227bc9e448",
+        "sha256": "266f37693d86bfee74d0008944c154aeea62b59002eac18e009e48892bd038b3",
+        "size": 2390
+      },
+      "src/provenance.ts": {
+        "git_blob": "fb40e035a5a346c018ecb78e221fcf7ba05d1e31",
+        "sha256": "14a74a43c75b3c99aaf55e27f0fefa18ef6ec626f0117a1d7d33bc04840bd58f",
+        "size": 233
+      },
+      "src/predicate.ts": {
+        "git_blob": "9340cb00a9043f8cc8cf3c4d455ada676e9293c9",
+        "sha256": "cedc5ea33030b7dec1bdf32e1094dd38cd404c896c5c1607ba0385a0565feac2",
+        "size": 1636
+      }
+    },
+    "approved_catalog_successor": false,
+    "executed": false
+  },
+  "observed_action_package_version": "4.1.0",
+  "library": {
+    "name": "@actions/attest",
+    "version": "3.2.0",
+    "distribution": {
+      "url": "https://registry.npmjs.org/@actions/attest/-/attest-3.2.0.tgz",
+      "integrity": "sha512-Mdpqfyfp4dp7VZt9lVBmQTlnpK0PBrIXSblzeseP4w6Gn4Bbl5bpScJ+8zgwOMfTz1049wPzSUda5XtTYIZloQ==",
+      "sha256": "6353f793ebd7d64a4ca8274b56dd61b62d7bdf550d3f952d3e419effad621b0c",
+      "size": 15558
+    },
+    "metadata": {
+      "url": "https://registry.npmjs.org/@actions%2Fattest/3.2.0",
+      "bytes": {
+        "sha256": "ac106f8df8e1daca460ae421d0cc66043df6408de983b88257907816317283fa",
+        "size": 2586
+      },
+      "gitHead": null
+    },
+    "source_files": {
+      "package/lib/provenance.js": {
+        "sha256": "d195149b5a29a6e97c06097a6c68becdf1848e1b453bc5b566c2c4aaaddf138d",
+        "size": 3885
+      },
+      "package/lib/oidc.js": {
+        "sha256": "f48579941282467d7072ef7619b89d5651db987b7f634449745041cd5309ca67",
+        "size": 3619
+      },
+      "package/lib/intoto.js": {
+        "sha256": "2ab9ecd19e38b65f5896f3baf68c9521828416a01de9900e7c44538de921bc5f",
+        "size": 562
+      }
+    },
+    "source_repository": {
+      "url": "git+https://github.com/actions/toolkit.git",
+      "type": "git",
+      "directory": "packages/attest"
+    }
+  },
+  "modern_builder": "https://github.com/{independently-approved-signer-repository}/{workflow-path}@{full-commit}",
+  "modern_internal_runner_field": "buildDefinition.internalParameters.github.runner_environment",
+  "modern_internal_runner_required_value": "github-hosted",
+  "legacy_builder": "https://github.com/actions/runner/github-hosted",
+  "certificate_runner_always_required": "github-hosted",
+  "own_current_producer_signed_positive": false
+}

@@ -3,7 +3,7 @@
 1. Install rustup and the exact toolchain declared in `armorer.toml`. Armorer never installs consuming tools during check/plan. The CLI builds with Rust 1.95.0.
 2. Author configuration using [the example](../examples/armorer.toml) and [contracts](contracts-v1.md). Select packages, binaries, targets and features explicitly; omit binary for libraries.
 3. Run `armorer --repository /path/to/workspace plan` and review findings and proposed content. Run `check` for a failing setup gate; it exits 2 while requirements remain.
-4. Optionally review and retain a plan digest, then use [transactional apply](apply.md) to configure the toolchain. Check/plan stay read-only. Track missing settings, credentials and reviewed pins as setup work; this slice does not contact GitHub, request secrets or configure GitHub settings.
+4. Review and retain a plan digest, then use [v1 transactional apply](apply.md) for toolchain-only setup or [version-two bootstrap](bootstrap-v2.md) to provision callers, catalog-backed lock and explicit policy. Check/plan stay read-only. Track missing settings, credentials and reviewed pins as setup work; this slice does not contact GitHub, request secrets or configure GitHub settings.
 
 ## Discovery boundary
 

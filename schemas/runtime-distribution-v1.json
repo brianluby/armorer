@@ -1,0 +1,144 @@
+{
+  "$defs": {
+    "ByteIdentity": {
+      "additionalProperties": false,
+      "description": "An exact byte identity, independent of a filename or producer claim.",
+      "properties": {
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size": {
+          "format": "uint64",
+          "maximum": 1073741824,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sha256",
+        "size"
+      ],
+      "type": "object"
+    },
+    "RuntimeMember": {
+      "additionalProperties": false,
+      "description": "A runtime archive has exactly one bounded executable member per qualified host.",
+      "properties": {
+        "bytes": {
+          "$ref": "#/$defs/ByteIdentity"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "bytes"
+      ],
+      "type": "object"
+    },
+    "Source": {
+      "additionalProperties": false,
+      "properties": {
+        "commit": {
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
+        "git_ref": {
+          "type": "string"
+        },
+        "repository": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "repository",
+        "commit",
+        "git_ref"
+      ],
+      "type": "object"
+    },
+    "WorkflowIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "commit": {
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "repository": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "repository",
+        "path",
+        "commit"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Canonical USTAR bytes are common to every release selection; members remain target-specific.",
+  "properties": {
+    "authentication_record": {
+      "$ref": "#/$defs/ByteIdentity"
+    },
+    "build_workflow": {
+      "$ref": "#/$defs/WorkflowIdentity"
+    },
+    "cargo_lock": {
+      "$ref": "#/$defs/ByteIdentity"
+    },
+    "compiler": {
+      "type": "string"
+    },
+    "distribution": {
+      "$ref": "#/$defs/ByteIdentity"
+    },
+    "members": {
+      "additionalProperties": false,
+      "properties": {
+        "aarch64-apple-darwin": {
+          "$ref": "#/$defs/RuntimeMember"
+        },
+        "aarch64-unknown-linux-gnu": {
+          "$ref": "#/$defs/RuntimeMember"
+        },
+        "x86_64-unknown-linux-gnu": {
+          "$ref": "#/$defs/RuntimeMember"
+        }
+      },
+      "type": "object"
+    },
+    "schema_version": {
+      "format": "uint32",
+      "maximum": 1,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "source": {
+      "$ref": "#/$defs/Source"
+    },
+    "version": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "version",
+    "source",
+    "compiler",
+    "cargo_lock",
+    "build_workflow",
+    "authentication_record",
+    "distribution",
+    "members"
+  ],
+  "title": "RuntimeDistributionV1",
+  "type": "object"
+}

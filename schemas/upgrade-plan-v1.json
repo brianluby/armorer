@@ -1,0 +1,605 @@
+{
+  "$defs": {
+    "Attestations": {
+      "enum": [
+        "required"
+      ],
+      "type": "string"
+    },
+    "Authority": {
+      "additionalProperties": false,
+      "properties": {
+        "config_schema_version": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "id": {
+          "type": "string"
+        },
+        "policy_schema_version": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "revision": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "runtime_version": {
+          "type": "string"
+        },
+        "tools_sha256": {
+          "type": "string"
+        },
+        "workflow_commit": {
+          "type": "string"
+        },
+        "workflow_repository": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "revision",
+        "workflow_repository",
+        "workflow_commit",
+        "tools_sha256",
+        "runtime_version",
+        "config_schema_version",
+        "policy_schema_version"
+      ],
+      "type": "object"
+    },
+    "Change": {
+      "additionalProperties": false,
+      "properties": {
+        "after_sha256": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "base_content": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "base_sha256": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "before_content": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "before_sha256": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "candidate_content": {
+          "type": "string"
+        },
+        "candidate_diff": {
+          "type": "string"
+        },
+        "candidate_sha256": {
+          "type": "string"
+        },
+        "decision": {
+          "$ref": "#/$defs/Decision"
+        },
+        "imported": {
+          "type": "boolean"
+        },
+        "path": {
+          "type": "string"
+        },
+        "proposed_content": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "proposed_diff": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "path",
+        "decision",
+        "imported",
+        "candidate_sha256",
+        "candidate_content",
+        "candidate_diff"
+      ],
+      "type": "object"
+    },
+    "Compatibility": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "detail": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "state",
+        "code",
+        "detail"
+      ],
+      "type": "object"
+    },
+    "Config": {
+      "additionalProperties": false,
+      "properties": {
+        "deliverables": {
+          "items": {
+            "$ref": "#/$defs/Deliverable"
+          },
+          "type": "array"
+        },
+        "feature_sets": {
+          "additionalProperties": {
+            "$ref": "#/$defs/FeatureSet"
+          },
+          "type": "object"
+        },
+        "manifest": {
+          "default": "Cargo.toml",
+          "type": "string"
+        },
+        "policy": {
+          "$ref": "#/$defs/Policy"
+        },
+        "repository": {
+          "type": "string"
+        },
+        "schema_version": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "toolchain": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema_version",
+        "repository",
+        "toolchain",
+        "deliverables",
+        "feature_sets",
+        "policy"
+      ],
+      "type": "object"
+    },
+    "Decision": {
+      "enum": [
+        "create",
+        "unchanged",
+        "update",
+        "preserve-customization",
+        "import",
+        "conflict"
+      ],
+      "type": "string"
+    },
+    "Deliverable": {
+      "additionalProperties": false,
+      "properties": {
+        "binary": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "feature_set": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "package": {
+          "type": "string"
+        },
+        "profile": {
+          "$ref": "#/$defs/Profile"
+        },
+        "targets": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "profile",
+        "package",
+        "targets",
+        "feature_set"
+      ],
+      "type": "object"
+    },
+    "FeatureSet": {
+      "additionalProperties": false,
+      "properties": {
+        "default_features": {
+          "type": "boolean"
+        },
+        "features": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "default_features"
+      ],
+      "type": "object"
+    },
+    "Package": {
+      "properties": {
+        "features": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "type": "object"
+        },
+        "license": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "links": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "rust_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "targets": {
+          "items": {
+            "$ref": "#/$defs/Target"
+          },
+          "type": "array"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "features",
+        "targets"
+      ],
+      "type": "object"
+    },
+    "PinChange": {
+      "additionalProperties": false,
+      "properties": {
+        "after": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ToolPin"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "before": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ToolPin"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Syntax-checked observations, never independent catalog trust roots."
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "Policy": {
+      "additionalProperties": false,
+      "properties": {
+        "attestations": {
+          "$ref": "#/$defs/Attestations"
+        },
+        "license_file": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "license_file",
+        "attestations"
+      ],
+      "type": "object"
+    },
+    "Profile": {
+      "enum": [
+        "library",
+        "cli",
+        "service"
+      ],
+      "type": "string"
+    },
+    "SourceFormat": {
+      "enum": [
+        "unmanaged",
+        "legacy-v1",
+        "bootstrap-v2",
+        "upgrade-v1"
+      ],
+      "type": "string"
+    },
+    "Target": {
+      "properties": {
+        "kind": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "name": {
+          "type": "string"
+        },
+        "required-features": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "kind"
+      ],
+      "type": "object"
+    },
+    "ToolPin": {
+      "additionalProperties": false,
+      "properties": {
+        "sha256": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "version",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "WorkflowPin": {
+      "additionalProperties": false,
+      "properties": {
+        "commit": {
+          "type": "string"
+        },
+        "repository": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "repository",
+        "commit"
+      ],
+      "type": "object"
+    },
+    "Workspace": {
+      "additionalProperties": false,
+      "properties": {
+        "cargo_config_present": {
+          "type": "boolean"
+        },
+        "cargo_lock_present": {
+          "type": "boolean"
+        },
+        "inputs": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "packages": {
+          "items": {
+            "$ref": "#/$defs/Package"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "packages",
+        "inputs",
+        "cargo_config_present",
+        "cargo_lock_present"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "allow_downgrade": {
+      "type": "boolean"
+    },
+    "changes": {
+      "items": {
+        "$ref": "#/$defs/Change"
+      },
+      "type": "array"
+    },
+    "compatibility": {
+      "items": {
+        "$ref": "#/$defs/Compatibility"
+      },
+      "type": "array"
+    },
+    "config_sha256": {
+      "type": "string"
+    },
+    "contract": {
+      "type": "string"
+    },
+    "direction": {
+      "type": "string"
+    },
+    "import_files": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "input_preimages": {
+      "additionalProperties": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "type": "object"
+    },
+    "intent": {
+      "$ref": "#/$defs/Config"
+    },
+    "pin_changes": {
+      "items": {
+        "$ref": "#/$defs/PinChange"
+      },
+      "type": "array"
+    },
+    "plan_sha256": {
+      "type": "string"
+    },
+    "policy_content": {
+      "type": "string"
+    },
+    "policy_review_day": {
+      "description": "UTC epoch day used for the reviewed policy/compatibility snapshot, not a live trust root.",
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "recovery_required": {
+      "type": "boolean"
+    },
+    "runtime_version": {
+      "type": "string"
+    },
+    "schema_version": {
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "source_catalog": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Authority"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "source_format": {
+      "$ref": "#/$defs/SourceFormat"
+    },
+    "state_preimages": {
+      "additionalProperties": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "type": "object"
+    },
+    "target_catalog": {
+      "$ref": "#/$defs/Authority"
+    },
+    "workflow_after": {
+      "$ref": "#/$defs/WorkflowPin"
+    },
+    "workflow_before": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/WorkflowPin"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "workspace": {
+      "$ref": "#/$defs/Workspace"
+    }
+  },
+  "required": [
+    "schema_version",
+    "contract",
+    "runtime_version",
+    "plan_sha256",
+    "source_format",
+    "target_catalog",
+    "direction",
+    "allow_downgrade",
+    "import_files",
+    "state_preimages",
+    "input_preimages",
+    "config_sha256",
+    "intent",
+    "workspace",
+    "policy_content",
+    "policy_review_day",
+    "recovery_required",
+    "compatibility",
+    "pin_changes",
+    "workflow_after",
+    "changes"
+  ],
+  "title": "Plan",
+  "type": "object"
+}

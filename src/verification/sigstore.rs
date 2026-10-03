@@ -50,7 +50,9 @@ pub fn qualified_native_verifier() -> Result<ByteIdentity> {
 }
 const ISSUER: &str = "https://token.actions.githubusercontent.com";
 const RESULT_TYPE: &str = "application/vnd.dev.sigstore.verificationresult+json;version=0.1";
-const BUILD_TYPE: &str = "https://slsa-framework.github.io/github-actions-buildtypes/workflow/v1";
+const LEGACY_BUILD_TYPE: &str =
+    "https://slsa-framework.github.io/github-actions-buildtypes/workflow/v1";
+const MODERN_BUILD_TYPE: &str = "https://actions.github.io/buildtypes/workflow/v1";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Trigger {
@@ -82,7 +84,7 @@ pub struct ExpectedAttestation {
 }
 impl ExpectedAttestation {
     /// Check independent context against the approved source, mode, signer and scope policy.
-    fn validate(&self, policy: &VerificationPolicy) -> Result<()> {
+    pub(super) fn validate(&self, policy: &VerificationPolicy) -> Result<()> {
         self.source.validate()?;
         self.run.validate()?;
         self.caller_workflow.validate()?;
@@ -384,7 +386,7 @@ impl OfflineVerifier {
 }
 
 /// Observe current epoch seconds; an unavailable clock cannot bypass review-expiry gates.
-fn wall_time() -> Result<u64> {
+pub(super) fn wall_time() -> Result<u64> {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_secs())
@@ -418,7 +420,7 @@ fn validate_root_transport(bytes: &[u8]) -> Result<()> {
 }
 
 /// Check supported native headers after authenticating the complete official executable bytes.
-fn native_executable(path: &Path) -> Result<()> {
+pub(super) fn native_executable(path: &Path) -> Result<()> {
     let mut header = [0_u8; 32];
     io::regular(path, io::MAX_VERIFIER)?.read_exact(&mut header)?;
     let supported = if cfg!(all(target_os = "linux", target_arch = "x86_64")) {
@@ -568,7 +570,7 @@ fn validate_output(
             .predicate
             .get("buildDefinition")
             .ok_or(Error::Json)?;
-        equal_field(definition, "buildType", BUILD_TYPE)?;
+        let build_type = field(definition, "buildType")?;
         let workflow = definition
             .pointer("/externalParameters/workflow")
             .ok_or(Error::Json)?;
@@ -603,10 +605,11 @@ fn validate_output(
             "verified-provenance-source-mismatch",
         )?;
         let details = statement.predicate.get("runDetails").ok_or(Error::Json)?;
-        equal_field(
+        validate_builder_identity(
+            build_type,
             details.get("builder").ok_or(Error::Json)?,
-            "id",
-            "https://github.com/actions/runner/github-hosted",
+            github,
+            &signer_uri,
         )?;
         equal_field(
             details.get("metadata").ok_or(Error::Json)?,
@@ -617,11 +620,42 @@ fn validate_output(
     Ok(statement.predicate)
 }
 
+/// Match exact source-qualified build types and builders without changing legacy verification rules.
+/// The current build type requires the exact reusable signer and OIDC-derived hosted claim.
+fn validate_builder_identity(
+    build_type: &str,
+    builder: &Value,
+    github: &Value,
+    signer_uri: &str,
+) -> Result<()> {
+    require(
+        matches!(build_type, LEGACY_BUILD_TYPE | MODERN_BUILD_TYPE),
+        "verified-provenance-build-type-mismatch",
+    )?;
+    let id = field(builder, "id")?;
+    if build_type == MODERN_BUILD_TYPE {
+        equal_field(builder, "id", signer_uri)?;
+        return equal_field(github, "runner_environment", "github-hosted");
+    }
+    if id == signer_uri {
+        return equal_field(github, "runner_environment", "github-hosted");
+    }
+    require(
+        id == "https://github.com/actions/runner/github-hosted",
+        "verified-provenance-builder-mismatch",
+    )?;
+    // The genuine historical fixture predates this internal field. If present it must agree.
+    if github.get("runner_environment").is_some() {
+        equal_field(github, "runner_environment", "github-hosted")?;
+    }
+    Ok(())
+}
+
 #[derive(Clone, Copy)]
-struct Limits {
-    timeout: Duration,
-    stdout: usize,
-    stderr: usize,
+pub(super) struct Limits {
+    pub(super) timeout: Duration,
+    pub(super) stdout: usize,
+    pub(super) stderr: usize,
 }
 impl Default for Limits {
     /// Use fixed production time and output limits for every native invocation.
@@ -649,7 +683,7 @@ impl Drop for Running {
 }
 
 /// Drain both bounded streams while enforcing the pinned child exit status and deadline.
-fn run_process(mut command: Command, limits: Limits) -> Result<Vec<u8>> {
+pub(super) fn run_process(mut command: Command, limits: Limits) -> Result<Vec<u8>> {
     let child = command
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -852,6 +886,171 @@ mod tests {
         let wrong_signed = value[0]["verificationResult"]["statement"].clone();
         assert!(check(&value, &wrong_signed, &bytes, &expected).is_err());
     }
+    #[test]
+    /// Qualify modern builder identity semantics only; synthetic output never constructs a signature proof.
+    fn workflow_builder_requires_exact_signer_pin_and_both_hosted_claims() {
+        let (mut value, _, bytes, expected) = fixture();
+        let signer = format!(
+            "https://github.com/{}/{}@{}",
+            expected.run.workflow.repository,
+            expected.run.workflow.path,
+            expected.run.workflow.commit
+        );
+        let producer: Value = serde_json::from_str(include_str!(
+            "../../tests/fixtures/sigstore/attest-v4-predicate-source-v1.json"
+        ))
+        .unwrap();
+        let statement = &mut value[0]["verificationResult"]["statement"];
+        statement["predicate"]["buildDefinition"]["buildType"] = producer["build_type"].clone();
+        statement["predicate"]["runDetails"]["builder"]["id"] = signer.clone().into();
+        statement["predicate"]["buildDefinition"]["internalParameters"]["github"]["runner_environment"] =
+            "github-hosted".into();
+        let signed = value[0]["verificationResult"]["statement"].clone();
+        assert!(check(&value, &signed, &bytes, &expected).is_ok());
+        for wrong in [
+            signer.replace(&expected.run.workflow.commit, "refs/heads/main"),
+            signer.replace(&expected.run.workflow.commit, &"a".repeat(40)),
+            signer.replace(&expected.run.workflow.repository, "attacker/workflows"),
+            signer.replace(&expected.run.workflow.path, ".github/workflows/other.yml"),
+            format!("{signer}/"),
+            format!("http{}", &signer[5..]),
+        ] {
+            let mut changed = value.clone();
+            changed[0]["verificationResult"]["statement"]["predicate"]["runDetails"]["builder"]["id"] =
+                wrong.into();
+            let signed = changed[0]["verificationResult"]["statement"].clone();
+            assert!(check(&changed, &signed, &bytes, &expected).is_err());
+        }
+        for runner in [
+            serde_json::json!("self-hosted"),
+            serde_json::Value::Null,
+            serde_json::json!(true),
+        ] {
+            let mut changed = value.clone();
+            changed[0]["verificationResult"]["statement"]["predicate"]["buildDefinition"]["internalParameters"]
+                ["github"]["runner_environment"] = runner;
+            let signed = changed[0]["verificationResult"]["statement"].clone();
+            assert!(check(&changed, &signed, &bytes, &expected).is_err());
+        }
+        let mut missing = value.clone();
+        missing[0]["verificationResult"]["statement"]["predicate"]["buildDefinition"]["internalParameters"]["github"]
+            .as_object_mut().unwrap().remove("runner_environment");
+        let signed = missing[0]["verificationResult"]["statement"].clone();
+        assert!(check(&missing, &signed, &bytes, &expected).is_err());
+        let signed = value[0]["verificationResult"]["statement"].clone();
+        value[0]["verificationResult"]["signature"]["certificate"]["runnerEnvironment"] =
+            "self-hosted".into();
+        assert!(check(&value, &signed, &bytes, &expected).is_err());
+    }
+
+    #[test]
+    /// Reject malformed current build types and mixed producer forms after payload equality passes.
+    fn provenance_build_type_is_exact_and_current_type_never_accepts_legacy_builder() {
+        let (original, _, bytes, expected) = fixture();
+        let signer = format!(
+            "https://github.com/{}/{}@{}",
+            expected.run.workflow.repository,
+            expected.run.workflow.path,
+            expected.run.workflow.commit
+        );
+        let mut current = original.clone();
+        current[0]["verificationResult"]["statement"]["predicate"]["buildDefinition"]["buildType"] =
+            MODERN_BUILD_TYPE.into();
+        current[0]["verificationResult"]["statement"]["predicate"]["runDetails"]["builder"]["id"] =
+            signer.into();
+        current[0]["verificationResult"]["statement"]["predicate"]["buildDefinition"]["internalParameters"]
+            ["github"]["runner_environment"] = "github-hosted".into();
+        let signed = current[0]["verificationResult"]["statement"].clone();
+        assert!(check(&current, &signed, &bytes, &expected).is_ok());
+        for wrong in [
+            serde_json::json!(""),
+            serde_json::json!("http://actions.github.io/buildtypes/workflow/v1"),
+            serde_json::json!("https://actions.github.io/buildtypes/workflow/v1/"),
+            serde_json::json!("https://actions.github.io/buildtypes/workflow/v2"),
+            serde_json::json!("https://attacker.example/buildtypes/workflow/v1"),
+            serde_json::json!(true),
+            serde_json::json!(7),
+            serde_json::json!([]),
+            serde_json::json!({}),
+            Value::Null,
+        ] {
+            let mut changed = current.clone();
+            changed[0]["verificationResult"]["statement"]["predicate"]["buildDefinition"]["buildType"] =
+                wrong;
+            let signed = changed[0]["verificationResult"]["statement"].clone();
+            assert!(check(&changed, &signed, &bytes, &expected).is_err());
+        }
+        let mut missing = current.clone();
+        missing[0]["verificationResult"]["statement"]["predicate"]["buildDefinition"]
+            .as_object_mut()
+            .unwrap()
+            .remove("buildType");
+        let signed = missing[0]["verificationResult"]["statement"].clone();
+        assert!(check(&missing, &signed, &bytes, &expected).is_err());
+        current[0]["verificationResult"]["statement"]["predicate"]["runDetails"]["builder"]["id"] =
+            "https://github.com/actions/runner/github-hosted".into();
+        let signed = current[0]["verificationResult"]["statement"].clone();
+        assert!(check(&current, &signed, &bytes, &expected).is_err());
+    }
+
+    #[test]
+    /// Current producer semantics retain exact source, repository IDs and invocation bindings.
+    fn current_provenance_does_not_relax_source_repository_or_run_identity() {
+        let (mut current, _, bytes, expected) = fixture();
+        let predicate = &mut current[0]["verificationResult"]["statement"]["predicate"];
+        predicate["buildDefinition"]["buildType"] = MODERN_BUILD_TYPE.into();
+        predicate["buildDefinition"]["internalParameters"]["github"]["runner_environment"] =
+            "github-hosted".into();
+        predicate["runDetails"]["builder"]["id"] = format!(
+            "https://github.com/{}/{}@{}",
+            expected.run.workflow.repository,
+            expected.run.workflow.path,
+            expected.run.workflow.commit
+        )
+        .into();
+        let signed = current[0]["verificationResult"]["statement"].clone();
+        assert!(check(&current, &signed, &bytes, &expected).is_ok());
+        for pointer in [
+            "/predicate/buildDefinition/resolvedDependencies/0/digest/gitCommit",
+            "/predicate/buildDefinition/internalParameters/github/repository_id",
+            "/predicate/buildDefinition/internalParameters/github/repository_owner_id",
+            "/predicate/buildDefinition/externalParameters/workflow/ref",
+            "/predicate/buildDefinition/externalParameters/workflow/path",
+            "/predicate/runDetails/metadata/invocationId",
+        ] {
+            let mut changed = current.clone();
+            *changed[0]["verificationResult"]["statement"]
+                .pointer_mut(pointer)
+                .unwrap() = "wrong-independent-identity".into();
+            let signed = changed[0]["verificationResult"]["statement"].clone();
+            assert!(
+                check(&changed, &signed, &bytes, &expected).is_err(),
+                "{pointer}"
+            );
+        }
+    }
+
+    #[test]
+    /// Preserve genuine legacy semantics while rejecting contradictory optional runner assertions.
+    fn legacy_builder_still_requires_hosted_certificate_and_consistent_optional_claim() {
+        let (original, signed, bytes, expected) = fixture();
+        assert!(check(&original, &signed, &bytes, &expected).is_ok());
+        let mut value = original.clone();
+        value[0]["verificationResult"]["statement"]["predicate"]["buildDefinition"]["internalParameters"]
+            ["github"]["runner_environment"] = "github-hosted".into();
+        let signed = value[0]["verificationResult"]["statement"].clone();
+        assert!(check(&value, &signed, &bytes, &expected).is_ok());
+        value[0]["verificationResult"]["statement"]["predicate"]["buildDefinition"]["internalParameters"]
+            ["github"]["runner_environment"] = "self-hosted".into();
+        let signed = value[0]["verificationResult"]["statement"].clone();
+        assert!(check(&value, &signed, &bytes, &expected).is_err());
+        let signed = original[0]["verificationResult"]["statement"].clone();
+        let mut certificate = original.clone();
+        certificate[0]["verificationResult"]["signature"]["certificate"]["runnerEnvironment"] =
+            "self-hosted".into();
+        assert!(check(&certificate, &signed, &bytes, &expected).is_err());
+    }
+
     #[test]
     /// Ensure invalid root transport cannot select a usable subset of supplied records.
     fn root_transport_rejects_duplicates_arrays_empty_and_malformed_records() {

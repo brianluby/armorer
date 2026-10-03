@@ -32,7 +32,7 @@ pub(crate) struct State {
 #[serde(deny_unknown_fields)]
 pub(crate) struct Base {
     pub(crate) sha256: String,
-    content: String,
+    pub(crate) content: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -64,6 +64,7 @@ pub struct Receipt {
     pub provenance_verified: bool,
 }
 
+/// Report the completed local transaction while keeping CI, release and provenance gates separate.
 fn receipt(plan: &Plan, outcome: &'static str, toolchain_configured: bool) -> Receipt {
     Receipt {
         plan_sha256: plan.plan_sha256.clone(),
@@ -77,7 +78,8 @@ fn receipt(plan: &Plan, outcome: &'static str, toolchain_configured: bool) -> Re
     }
 }
 
-fn optional_bytes(root: &Path, relative: &str) -> Result<Option<Vec<u8>>> {
+/// Read a regular optional input while preserving absence and propagating unsafe-file failures.
+pub(crate) fn optional_bytes(root: &Path, relative: &str) -> Result<Option<Vec<u8>>> {
     let path = safe_path(root, relative)?;
     match fs::symlink_metadata(&path) {
         Ok(_) => Ok(Some(read_small(&path)?)),
@@ -86,7 +88,8 @@ fn optional_bytes(root: &Path, relative: &str) -> Result<Option<Vec<u8>>> {
     }
 }
 
-fn json<T: Serialize>(value: &T) -> Result<Vec<u8>> {
+/// Encode the record as stable JSON bytes for persistence and identity checks.
+pub(crate) fn json<T: Serialize>(value: &T) -> Result<Vec<u8>> {
     let bytes = serde_json::to_vec_pretty(value).map_err(|_| Error::Json)?;
     if bytes.len() > 1_048_576 {
         return Err(Error::Transaction("transaction exceeds 1 MiB"));
@@ -94,7 +97,8 @@ fn json<T: Serialize>(value: &T) -> Result<Vec<u8>> {
     Ok(bytes)
 }
 
-fn text(bytes: &[u8]) -> Result<String> {
+/// Convert exact record bytes to UTF-8, rejecting unsupported text.
+pub(crate) fn text(bytes: &[u8]) -> Result<String> {
     String::from_utf8(bytes.to_vec()).map_err(|_| Error::Transaction("managed input must be UTF-8"))
 }
 
@@ -103,33 +107,39 @@ fn text(bytes: &[u8]) -> Result<String> {
 struct StrictValue(serde_json::Value);
 
 impl<'de> Deserialize<'de> for StrictValue {
+    /// Use the strict JSON visitor so duplicate fields and unsupported values cannot conceal record content.
     fn deserialize<D: serde::Deserializer<'de>>(
         deserializer: D,
     ) -> std::result::Result<Self, D::Error> {
         struct Visitor;
         impl<'de> serde::de::Visitor<'de> for Visitor {
             type Value = StrictValue;
+            /// Describe the strict JSON value shape to the deserializer without echoing input values.
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                 formatter.write_str("JSON without duplicate keys")
             }
+            /// Retain a JSON boolean without numeric coercion.
             fn visit_bool<E: serde::de::Error>(
                 self,
                 value: bool,
             ) -> std::result::Result<Self::Value, E> {
                 Ok(StrictValue(value.into()))
             }
+            /// Retain a signed integer as a JSON number.
             fn visit_i64<E: serde::de::Error>(
                 self,
                 value: i64,
             ) -> std::result::Result<Self::Value, E> {
                 Ok(StrictValue(value.into()))
             }
+            /// Retain an unsigned integer as a JSON number.
             fn visit_u64<E: serde::de::Error>(
                 self,
                 value: u64,
             ) -> std::result::Result<Self::Value, E> {
                 Ok(StrictValue(value.into()))
             }
+            /// Reject nonfinite floating-point values before constructing a JSON number.
             fn visit_f64<E: serde::de::Error>(
                 self,
                 value: f64,
@@ -138,24 +148,29 @@ impl<'de> Deserialize<'de> for StrictValue {
                     .map(|number| StrictValue(number.into()))
                     .ok_or_else(|| E::custom("invalid JSON number"))
             }
+            /// Copy a borrowed JSON string into the strict value tree.
             fn visit_str<E: serde::de::Error>(
                 self,
                 value: &str,
             ) -> std::result::Result<Self::Value, E> {
                 Ok(StrictValue(value.into()))
             }
+            /// Retain an owned JSON string without interpreting it as another type.
             fn visit_string<E: serde::de::Error>(
                 self,
                 value: String,
             ) -> std::result::Result<Self::Value, E> {
                 Ok(StrictValue(value.into()))
             }
+            /// Represent an absent optional JSON value as null.
             fn visit_none<E: serde::de::Error>(self) -> std::result::Result<Self::Value, E> {
                 Ok(StrictValue(serde_json::Value::Null))
             }
+            /// Represent a JSON unit value as null.
             fn visit_unit<E: serde::de::Error>(self) -> std::result::Result<Self::Value, E> {
                 self.visit_none()
             }
+            /// Recursively deserialize each array member through the same strict value reader.
             fn visit_seq<A: serde::de::SeqAccess<'de>>(
                 self,
                 mut sequence: A,
@@ -166,6 +181,7 @@ impl<'de> Deserialize<'de> for StrictValue {
                 }
                 Ok(StrictValue(values.into()))
             }
+            /// Reject duplicate object keys while recursively reading every value.
             fn visit_map<A: serde::de::MapAccess<'de>>(
                 self,
                 mut map: A,
@@ -185,7 +201,8 @@ impl<'de> Deserialize<'de> for StrictValue {
     }
 }
 
-fn decode<T: serde::de::DeserializeOwned + Serialize>(bytes: &[u8]) -> Result<T> {
+/// Parse the bounded JSON record through the strict duplicate-key-rejecting reader.
+pub(crate) fn decode<T: serde::de::DeserializeOwned + Serialize>(bytes: &[u8]) -> Result<T> {
     let StrictValue(value) = serde_json::from_slice(bytes)
         .map_err(|_| Error::Transaction("invalid transaction JSON"))?;
     let typed: T = serde_json::from_value(value.clone())
@@ -198,15 +215,23 @@ fn decode<T: serde::de::DeserializeOwned + Serialize>(bytes: &[u8]) -> Result<T>
     Ok(typed)
 }
 
+/// Read the bounded versioned ownership state and reject unsupported or inconsistent records.
 pub(crate) fn load_state(root: &Path) -> Result<Option<(State, Vec<u8>)>> {
     let Some(bytes) = optional_bytes(root, STATE)? else {
         return Ok(None);
     };
-    let state: State = decode(&bytes)?;
-    validate_state(&state)?;
+    let state = state_from_bytes(&bytes)?;
     Ok(Some((state, bytes)))
 }
 
+/// Strict frozen v1 ownership decoding, also used by explicit migration previews.
+pub(crate) fn state_from_bytes(bytes: &[u8]) -> Result<State> {
+    let state: State = decode(bytes)?;
+    validate_state(&state)?;
+    Ok(state)
+}
+
+/// Check ownership identities and generated bases before they can authorize a transaction.
 fn validate_state(state: &State) -> Result<()> {
     if state.schema_version != VERSION
         || state.runtime_version != env!("CARGO_PKG_VERSION")
@@ -230,6 +255,7 @@ pub fn load_plan(path: &Path, expected: &str) -> Result<Plan> {
     Ok(plan)
 }
 
+/// Reconstruct the fixed approved plan semantics before permitting any managed write.
 fn validate_plan(plan: &Plan, expected: &str) -> Result<()> {
     if !hex_digest(expected, 64)
         || plan.plan_sha256 != expected
@@ -263,7 +289,8 @@ fn validate_plan(plan: &Plan, expected: &str) -> Result<()> {
     Ok(())
 }
 
-fn lock(root: &Path) -> Result<File> {
+/// Acquire the persistent kernel lock shared by Armorer transaction versions.
+pub(crate) fn lock(root: &Path) -> Result<File> {
     let directory = safe_path(root, ".armorer")?;
     match fs::create_dir(&directory) {
         Ok(()) => sync_directory(root)?,
@@ -289,7 +316,8 @@ fn lock(root: &Path) -> Result<File> {
     }
 }
 
-fn sync_directory(path: &Path) -> Result<()> {
+/// Sync parent metadata so completed file replacements have a durable directory entry.
+pub(crate) fn sync_directory(path: &Path) -> Result<()> {
     // Initial mutation support is Unix, matching the supported host platforms.
     #[cfg(unix)]
     File::open(path)?.sync_all()?;
@@ -303,7 +331,8 @@ fn sync_directory(path: &Path) -> Result<()> {
     Ok(())
 }
 
-fn replace(root: &Path, relative: &str, bytes: &[u8], absent: bool) -> Result<()> {
+/// Write and sync a temporary regular file, then atomically replace the approved destination.
+pub(crate) fn replace(root: &Path, relative: &str, bytes: &[u8], absent: bool) -> Result<()> {
     let destination = safe_path(root, relative)?;
     let parent = destination
         .parent()
@@ -326,10 +355,12 @@ fn replace(root: &Path, relative: &str, bytes: &[u8], absent: bool) -> Result<()
     sync_directory(parent)
 }
 
+/// Check exact current bytes against the recorded optional image.
 fn matches_bytes(current: Option<&[u8]>, expected: Option<&str>) -> bool {
     current == expected.map(str::as_bytes)
 }
 
+/// Validate restoration preimages before restoring approved prior bytes and ownership.
 fn rollback(root: &Path, journal: &Journal) -> Result<()> {
     // Validate every path before restoring any. Never overwrite intervening edits.
     for operation in &journal.operations {
@@ -362,12 +393,15 @@ fn rollback(root: &Path, journal: &Journal) -> Result<()> {
     remove_journal(root)
 }
 
+/// Remove the completed journal and sync its parent after the caller has verified recovery state.
 fn remove_journal(root: &Path) -> Result<()> {
     fs::remove_file(safe_path(root, JOURNAL)?)?;
     sync_directory(&safe_path(root, ".armorer")?)
 }
 
+/// Reinspect configuration and discovered input identities before committing local changes.
 fn same_inputs(original: &Plan, fresh: &Plan) -> Result<bool> {
+    /// Compare discovered workspace structure without ephemeral manifest-root differences.
     fn normalized(plan: &Plan) -> Result<String> {
         let mut plan = plan.clone();
         plan.state_sha256 = None;
@@ -391,6 +425,7 @@ pub fn apply(root: &Path, plan: &Plan, expected: &str) -> Result<Receipt> {
     apply_inner(root, plan, expected, |_| Ok(()))
 }
 
+/// Enter the version-one transaction with optional test-only failure injection.
 fn apply_inner(
     root: &Path,
     plan: &Plan,
@@ -402,6 +437,7 @@ fn apply_inner(
     })
 }
 
+/// Execute the approved version-one writes under the shared lock and durable journal.
 fn apply_transaction(
     root: &Path,
     plan: &Plan,
@@ -409,6 +445,7 @@ fn apply_transaction(
     mut after_write: impl FnMut(usize) -> Result<()>,
     commit_marker: impl FnOnce(&Path, &[u8]) -> Result<()>,
 ) -> Result<Receipt> {
+    crate::bootstrap::guard_v1(root)?;
     validate_plan(plan, expected)?;
     if plan
         .changes
@@ -427,6 +464,7 @@ fn apply_transaction(
         ));
     }
     let _guard = lock(&root)?;
+    crate::bootstrap::guard_v1(&root)?;
     if optional_bytes(&root, JOURNAL)?.is_some() {
         return Err(Error::Transaction(
             "unfinished transaction requires explicit recovery",
@@ -551,6 +589,7 @@ fn apply_transaction(
     Ok(receipt(plan, "applied", true))
 }
 
+/// Reconstruct the complete journal inventory and reject redirected or forged recovery claims.
 fn validate_journal(journal: &Journal, expected: &str) -> Result<()> {
     validate_plan(&journal.plan, expected)?;
     if journal.schema_version != VERSION
@@ -644,11 +683,13 @@ pub fn recover(root: &Path, expected: &str) -> Result<Receipt> {
         ));
     }
     let root = root.canonicalize()?;
+    crate::bootstrap::guard_v1(&root)?;
     let bytes = optional_bytes(&root, JOURNAL)?.ok_or(Error::Transaction("no recovery journal"))?;
     let journal: Journal = decode(&bytes)?;
     validate_journal(&journal, expected)?;
     journal.plan.intent.validate(&root)?;
     let _guard = lock(&root)?;
+    crate::bootstrap::guard_v1(&root)?;
     if optional_bytes(&root, JOURNAL)?.as_deref() != Some(bytes.as_slice()) {
         return Err(Error::Transaction("journal changed while acquiring lock"));
     }
@@ -675,6 +716,7 @@ pub fn recover(root: &Path, expected: &str) -> Result<Receipt> {
 mod tests {
     use super::*;
 
+    /// Create an isolated repository fixture with explicit inputs for the surrounding transaction tests.
     fn fixture() -> tempfile::TempDir {
         let root = tempfile::tempdir().unwrap();
         fs::create_dir(root.path().join("src")).unwrap();
@@ -693,6 +735,7 @@ mod tests {
         root
     }
 
+    /// Terminate the fixture child at the selected durable transaction boundary.
     fn interrupt(root: &Path, plan: &Plan, index: usize) {
         assert!(
             std::panic::catch_unwind(|| {
@@ -707,6 +750,7 @@ mod tests {
         );
     }
 
+    /// Verify that failed write rolls back all completed bytes.
     #[test]
     fn failed_write_rolls_back_all_completed_bytes() {
         for index in 0..2 {
@@ -733,6 +777,7 @@ mod tests {
         }
     }
 
+    /// Verify that explicit recovery rolls back after each crash boundary.
     #[test]
     fn explicit_recovery_rolls_back_after_each_crash_boundary() {
         for index in 0..2 {
@@ -757,6 +802,7 @@ mod tests {
         }
     }
 
+    /// Verify that recovery conflict preserves every file and journal.
     #[test]
     fn recovery_conflict_preserves_every_file_and_journal() {
         let root = fixture();
@@ -774,6 +820,7 @@ mod tests {
         );
     }
 
+    /// Verify that failed apply with intervening edit requires recovery.
     #[test]
     fn failed_apply_with_intervening_edit_requires_recovery() {
         let root = fixture();
@@ -791,6 +838,7 @@ mod tests {
         );
     }
 
+    /// Verify that committed journal finalizes only exact inventory.
     #[test]
     fn committed_journal_finalizes_only_exact_inventory() {
         let root = fixture();
@@ -811,16 +859,19 @@ mod tests {
         );
     }
 
+    /// Verify that commit marker failure before persist is recoverable.
     #[test]
     fn commit_marker_failure_before_persist_is_recoverable() {
         assert_commit_marker_failure_is_recoverable(false);
     }
 
+    /// Verify that commit marker failure after persist is recoverable.
     #[test]
     fn commit_marker_failure_after_persist_is_recoverable() {
         assert_commit_marker_failure_is_recoverable(true);
     }
 
+    /// Prove that either commit-marker persistence outcome preserves enough state for explicit recovery.
     fn assert_commit_marker_failure_is_recoverable(persisted: bool) {
         let root = fixture();
         let plan = inspect(root.path(), "plan").unwrap();
@@ -873,6 +924,7 @@ mod tests {
         );
     }
 
+    /// Verify that malformed or redirected journal never writes other paths.
     #[test]
     fn malformed_or_redirected_journal_never_writes_other_paths() {
         let root = fixture();
@@ -886,6 +938,7 @@ mod tests {
         assert!(root.path().join(JOURNAL).exists());
     }
 
+    /// Verify that owned refresh is allowed only with matching base.
     #[test]
     fn owned_refresh_is_allowed_only_with_matching_base() {
         let root = fixture();

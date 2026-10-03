@@ -189,6 +189,14 @@ impl Config {
     /// Returns `Error::Invalid` for a contract violation and propagates path and
     /// filesystem inspection errors from [`safe_path`].
     pub fn validate(&self, root: &Path) -> Result<()> {
+        self.validate_shape()?;
+        safe_path(root, &self.manifest)?;
+        safe_path(root, &self.policy.license_file)?;
+        Ok(())
+    }
+
+    /// Validate semantic shape without a filesystem lookup or temporary mutation.
+    pub(crate) fn validate_shape(&self) -> Result<()> {
         require(self.schema_version == VERSION, "unsupported schema_version")?;
         require(
             repository_name(&self.repository),
@@ -210,8 +218,6 @@ impl Config {
             self.manifest == "Cargo.toml",
             "v1 discovery requires the workspace-root Cargo.toml",
         )?;
-        safe_path(root, &self.manifest)?;
-        safe_path(root, &self.policy.license_file)?;
         for (name, case) in &self.feature_sets {
             require(identifier(name), "invalid feature-set name")?;
             require(

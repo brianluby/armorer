@@ -16,7 +16,7 @@ jobs:
   validate:
     name: Rust / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
@@ -39,23 +39,57 @@ jobs:
         run: cargo clippy --locked --all-targets --all-features -- -D warnings
       - name: Test
         run: cargo test --locked
+      - name: Reject genuine hardened ad-hoc Apple signatures
+        if: runner.os == 'macOS'
+        run: cargo test --locked real_hardened_adhoc_signature_cannot_satisfy_developer_id -- --ignored --test-threads=1
+      - name: Stage pin-matched public Apple reference without execution
+        if: runner.os == 'macOS'
+        run: python3 -I scripts/qualify-test-apple-reference.py --output-directory "$RUNNER_TEMP/armorer-apple-reference" --github-env
+      - name: Verify genuine Developer ID ticket and native adversaries
+        if: runner.os == 'macOS'
+        run: cargo test --locked real_public_developer_id_reference_and_native_adversaries -- --ignored --test-threads=1
       - name: Qualify pinned native signature verifier
         run: python3 -I scripts/qualify-test-verifier.py --output-directory "$RUNNER_TEMP/armorer-fixture-gh" --github-env
       - name: Verify genuine signatures and adversarial fixtures
         run: cargo test --locked --test real_sigstore -- --ignored --test-threads=1
+      - name: Qualify pinned native complete SBOM validator
+        run: python3 -I scripts/qualify-test-sbom-validator.py --output-directory "$RUNNER_TEMP/armorer-fixture-cyclonedx" --github-env
+      - name: Validate complete CycloneDX documents and adversarial fixtures
+        run: cargo test --locked --test real_cyclonedx -- --ignored --test-threads=1
+      - name: Reject unauthenticated inventories before metadata and asset processing
+        run: cargo test --locked --test release_context real_inventory_authentication_failure_precedes_json_and_asset_processing -- --ignored --test-threads=1
       - name: Build
         run: cargo build --locked
       - name: Verify committed schemas
         run: |
-          for kind in config lock plan release-inventory verification-policy artifact-evidence evidence-requirements capability-config catalog capability-observation lifecycle-record github-receipt publish-set registry-receipt; do
+          for kind in config lock plan release-inventory verification-policy artifact-evidence evidence-requirements capability-config catalog capability-observation lifecycle-record github-receipt publish-set registry-receipt ci-policy; do
             target/debug/armorer schema "$kind" > "/tmp/armorer-$kind.json"
             diff -u "schemas/$kind-v1.json" "/tmp/armorer-$kind.json"
+          done
+          target/debug/armorer schema bootstrap-plan > /tmp/armorer-bootstrap-plan.json
+          diff -u schemas/bootstrap-plan-v2.json /tmp/armorer-bootstrap-plan.json
+          for kind in upgrade-plan upgrade-rollback; do
+            target/debug/armorer schema "$kind" > "/tmp/armorer-$kind.json"
+            diff -u "schemas/$kind-v1.json" "/tmp/armorer-$kind.json"
+          done
+          target/debug/armorer schema cargo-graph-v2 > /tmp/armorer-cargo-graph-v2.json
+          diff -u schemas/cargo-graph-v2.json /tmp/armorer-cargo-graph-v2.json
+          target/debug/armorer schema verification-context > /tmp/armorer-verification-context-v1.json
+          diff -u schemas/verification-context-v1.json /tmp/armorer-verification-context-v1.json
+          for kind in native-catalog-v2 runtime-distribution-v1 verification-context-v2; do
+            target/debug/armorer schema "$kind" > "/tmp/armorer-$kind.json"
+            diff -u "schemas/$kind.json" "/tmp/armorer-$kind.json"
           done
       - name: Independently validate example schemas
         run: |
           python3 -m venv /tmp/armorer-schema-venv
           /tmp/armorer-schema-venv/bin/python -m pip install --require-hashes --only-binary=:all: -r requirements-schema.txt
           /tmp/armorer-schema-venv/bin/python scripts/validate-contract-examples.py
+          /tmp/armorer-schema-venv/bin/python scripts/validate-graph-v2.py
+          /tmp/armorer-schema-venv/bin/python scripts/validate-verification-context.py
+          /tmp/armorer-schema-venv/bin/python scripts/validate-runtime-native.py
+          /tmp/armorer-schema-venv/bin/python scripts/validate-bootstrap-examples.py
+          /tmp/armorer-schema-venv/bin/python scripts/validate-upgrade-examples.py
       - name: Checkout reviewed workflow lint runtime
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -78,3 +112,19 @@ jobs:
           scan_workflows(root, binaries)
           scan_workflows(root / "examples/bootstrap-catalog", binaries)
           PY
+          mv workflow-tools-source "$RUNNER_TEMP/armorer-reviewed-workflow-tools-source"
+      - name: Build unprivileged native runtime candidate
+        run: cargo build --locked --release
+      - name: Stage native runtime observations
+        run: python3 -I scripts/stage-runtime-candidate.py --output-directory "$RUNNER_TEMP/armorer-runtime-candidate"
+      - name: Retain unprivileged native runtime candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: runtime-candidate-${{ matrix.os }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/armorer-runtime-candidate/armorer
+            ${{ runner.temp }}/armorer-runtime-candidate/runtime-build.json
+          archive: true
+          if-no-files-found: error
+          overwrite: false
+          retention-days: 14

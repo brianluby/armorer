@@ -1,0 +1,395 @@
+{
+  "$defs": {
+    "Attestations": {
+      "enum": [
+        "required"
+      ],
+      "type": "string"
+    },
+    "Change": {
+      "additionalProperties": false,
+      "properties": {
+        "after_sha256": {
+          "type": "string"
+        },
+        "before_content": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "before_sha256": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "disposition": {
+          "type": "string"
+        },
+        "owned": {
+          "type": "boolean"
+        },
+        "path": {
+          "type": "string"
+        },
+        "proposed_content": {
+          "type": "string"
+        },
+        "unified_diff": {
+          "description": "Complete linear replacement hunk, with no omitted conflict lines.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "disposition",
+        "owned",
+        "after_sha256",
+        "proposed_content",
+        "unified_diff"
+      ],
+      "type": "object"
+    },
+    "Config": {
+      "additionalProperties": false,
+      "properties": {
+        "deliverables": {
+          "items": {
+            "$ref": "#/$defs/Deliverable"
+          },
+          "type": "array"
+        },
+        "feature_sets": {
+          "additionalProperties": {
+            "$ref": "#/$defs/FeatureSet"
+          },
+          "type": "object"
+        },
+        "manifest": {
+          "default": "Cargo.toml",
+          "type": "string"
+        },
+        "policy": {
+          "$ref": "#/$defs/Policy"
+        },
+        "repository": {
+          "type": "string"
+        },
+        "schema_version": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "toolchain": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema_version",
+        "repository",
+        "toolchain",
+        "deliverables",
+        "feature_sets",
+        "policy"
+      ],
+      "type": "object"
+    },
+    "Deliverable": {
+      "additionalProperties": false,
+      "properties": {
+        "binary": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "feature_set": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "package": {
+          "type": "string"
+        },
+        "profile": {
+          "$ref": "#/$defs/Profile"
+        },
+        "targets": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "profile",
+        "package",
+        "targets",
+        "feature_set"
+      ],
+      "type": "object"
+    },
+    "FeatureSet": {
+      "additionalProperties": false,
+      "properties": {
+        "default_features": {
+          "type": "boolean"
+        },
+        "features": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "default_features"
+      ],
+      "type": "object"
+    },
+    "Finding": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "detail": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "detail"
+      ],
+      "type": "object"
+    },
+    "Package": {
+      "properties": {
+        "features": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "type": "object"
+        },
+        "license": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "links": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "rust_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "targets": {
+          "items": {
+            "$ref": "#/$defs/Target"
+          },
+          "type": "array"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "features",
+        "targets"
+      ],
+      "type": "object"
+    },
+    "Policy": {
+      "additionalProperties": false,
+      "properties": {
+        "attestations": {
+          "$ref": "#/$defs/Attestations"
+        },
+        "license_file": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "license_file",
+        "attestations"
+      ],
+      "type": "object"
+    },
+    "Profile": {
+      "enum": [
+        "library",
+        "cli",
+        "service"
+      ],
+      "type": "string"
+    },
+    "Target": {
+      "properties": {
+        "kind": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "name": {
+          "type": "string"
+        },
+        "required-features": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "kind"
+      ],
+      "type": "object"
+    },
+    "Workspace": {
+      "additionalProperties": false,
+      "properties": {
+        "cargo_config_present": {
+          "type": "boolean"
+        },
+        "cargo_lock_present": {
+          "type": "boolean"
+        },
+        "inputs": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "packages": {
+          "items": {
+            "$ref": "#/$defs/Package"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "packages",
+        "inputs",
+        "cargo_config_present",
+        "cargo_lock_present"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Separate authorization contract; every before/after byte and diff is approval-bound.",
+  "properties": {
+    "capability_state": {
+      "type": "string"
+    },
+    "catalog_sha256": {
+      "type": "string"
+    },
+    "changes": {
+      "items": {
+        "$ref": "#/$defs/Change"
+      },
+      "type": "array"
+    },
+    "config_sha256": {
+      "type": "string"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/Finding"
+      },
+      "type": "array"
+    },
+    "input_preimages": {
+      "additionalProperties": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "type": "object"
+    },
+    "intent": {
+      "$ref": "#/$defs/Config"
+    },
+    "mode": {
+      "type": "string"
+    },
+    "plan_sha256": {
+      "type": "string"
+    },
+    "policy_content": {
+      "type": "string"
+    },
+    "preserved_inputs": {
+      "additionalProperties": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "type": "object"
+    },
+    "recovery_required": {
+      "type": "boolean"
+    },
+    "runtime_version": {
+      "type": "string"
+    },
+    "schema_version": {
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "state_sha256": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "workspace": {
+      "$ref": "#/$defs/Workspace"
+    }
+  },
+  "required": [
+    "schema_version",
+    "runtime_version",
+    "mode",
+    "plan_sha256",
+    "config_sha256",
+    "catalog_sha256",
+    "intent",
+    "workspace",
+    "policy_content",
+    "input_preimages",
+    "preserved_inputs",
+    "recovery_required",
+    "capability_state",
+    "findings",
+    "changes"
+  ],
+  "title": "Plan",
+  "type": "object"
+}
