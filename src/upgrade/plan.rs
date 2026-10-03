@@ -123,7 +123,7 @@ fn declared_lock(content: &str) -> Option<Lock> {
     let version =
         |s: &str| semver::Version::parse(s).is_ok_and(|v| v.pre.is_empty() && v.build.is_empty());
     (lock.schema_version == 1
-        && lock.runtime_version == "0.1.0"
+        && lock.runtime_version == authority::BOOTSTRAP_V1_RUNTIME_VERSION
         && hex_digest(&lock.config_sha256, 64)
         && repository_name(&lock.workflows.repository)
         && hex_digest(&lock.workflows.commit, 40)

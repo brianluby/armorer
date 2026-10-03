@@ -4,8 +4,11 @@
 its paired CycloneDX 1.5 SBOM. These are semantic checks. Authenticate both
 files before release acceptance; obtain the expected source, workflow, run,
 configuration/lock digests, selection and root target name independently.
-This library does not yet provide complete-release verification or Build L2
-acceptance. The existing offline verifier authenticates one evidence slot.
+The complete `AuthenticatedReleaseFiles::verify` consumer authenticates the
+inventory before applying `validate_against` and `compare_sbom` to every selected
+graph and its paired SBOM. `armorer verify-release` exposes that consumer through
+[an explicitly approved context](verify-release-cli.md). Operational Build L2
+acceptance still requires the producer, protected signing and rehearsal gates.
 
 ## Explicit successor
 

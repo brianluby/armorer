@@ -12,7 +12,7 @@ use crate::{
     trust::{
         ByteIdentity, asset_name,
         evidence::ArtifactEvidence,
-        inventory::{AssetRole, INVENTORY_BUNDLE_NAME, INVENTORY_NAME, ReleaseInventory},
+        inventory::{Asset, AssetRole, INVENTORY_BUNDLE_NAME, INVENTORY_NAME, ReleaseInventory},
         policy::{EvidenceScope, Predicate},
         require,
     },
@@ -243,19 +243,7 @@ impl AuthenticatedReleaseFiles {
                             .map(|apple| &apple.notarization_log),
                     )
                 {
-                    require(
-                        inventory.assets.iter().any(|asset| {
-                            asset.bytes == *reference
-                                && matches!(
-                                    asset.role,
-                                    AssetRole::Diagnostic
-                                        | AssetRole::BuildEvidence
-                                        | AssetRole::PackageEvidence
-                                        | AssetRole::TransformationEvidence
-                                )
-                        }),
-                        "release-platform-evidence-bytes-not-retained",
-                    )?;
+                    validate_retained_reference(&inventory.assets, reference, &final_name)?;
                 }
             }
             sboms.insert(sbom_name, sbom);
@@ -364,6 +352,28 @@ fn validate_sbom_slot(expected: &ExpectedAttestation, final_name: &str) -> Resul
     )
 }
 
+/// Require retained evidence bytes, an admitted evidence role and scope to this exact distributable.
+fn validate_retained_reference(
+    assets: &[Asset],
+    reference: &ByteIdentity,
+    final_name: &str,
+) -> Result<()> {
+    require(
+        assets.iter().any(|asset| {
+            asset.bytes == *reference
+                && asset.subjects.iter().any(|subject| subject == final_name)
+                && matches!(
+                    asset.role,
+                    AssetRole::Diagnostic
+                        | AssetRole::BuildEvidence
+                        | AssetRole::PackageEvidence
+                        | AssetRole::TransformationEvidence
+                )
+        }),
+        "release-platform-evidence-bytes-not-retained",
+    )
+}
+
 /// Map exact role/predicate relationships to independently approved signer scopes.
 fn slot_scope(role: AssetRole, predicate: Predicate) -> Result<EvidenceScope> {
     match (role, predicate) {
@@ -420,6 +430,40 @@ fn compare_directory(directory: &Path, expected: &BTreeSet<String>) -> Result<()
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Authenticated-looking bytes scoped to selection A cannot satisfy selection B's retained reference.
+    #[test]
+    fn retained_platform_evidence_requires_the_current_distributable_subject() {
+        let first = "app--x86_64-unknown-linux-gnu--minimal.tar.gz";
+        let second = "app--aarch64-unknown-linux-gnu--minimal.tar.gz";
+        let bytes = ByteIdentity::from_bytes(b"retained first-selection evidence");
+        for role in [
+            AssetRole::Diagnostic,
+            AssetRole::BuildEvidence,
+            AssetRole::PackageEvidence,
+            AssetRole::TransformationEvidence,
+        ] {
+            let mut asset = Asset {
+                name: "first-selection.build.json".into(),
+                role,
+                bytes: bytes.clone(),
+                subjects: vec![first.into()],
+                predicate: None,
+                predicate_asset: None,
+            };
+            validate_retained_reference(&[asset.clone()], &bytes, first).unwrap();
+            assert!(validate_retained_reference(&[asset.clone()], &bytes, second).is_err());
+            asset.subjects.clear();
+            assert!(validate_retained_reference(&[asset.clone()], &bytes, first).is_err());
+            asset.subjects.push(second.into());
+            validate_retained_reference(&[asset.clone()], &bytes, second).unwrap();
+            asset.bytes = ByteIdentity::from_bytes(b"different retained bytes");
+            assert!(validate_retained_reference(&[asset.clone()], &bytes, second).is_err());
+            asset.bytes = bytes.clone();
+            asset.role = AssetRole::Distributable;
+            assert!(validate_retained_reference(&[asset], &bytes, second).is_err());
+        }
+    }
 
     #[test]
     /// Check post-crypto identity semantics only; no synthetic claim constructs a signature proof.

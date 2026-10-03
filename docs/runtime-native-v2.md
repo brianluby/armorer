@@ -14,8 +14,10 @@ Both APIs check the independently approved context digest before JSON,
 then exact config, lock, Cargo.lock, catalog and policy bytes. The complete
 `AuthenticatedReleaseFiles::verify` consumer accepts either private context;
 its inventory-first signature, whole SBOM, graph and evidence checks stay active.
-These APIs are library operations. The CLI exports schemas; it has no complete
-release verification or runtime approval command.
+The CLI exposes complete verification through `armorer verify-release` with
+explicit `--context-kind native-v2` or `legacy-v1`; see
+[the CLI guide](verify-release-cli.md). Runtime approval and archive loading
+remain library operations; the CLI does not provide runtime approval.
 
 A v2 native pin retains the downloaded archive in `distribution`. The v1 lock's
 tool digest continues to identify those archive bytes. Its tagged `material`

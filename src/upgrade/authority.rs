@@ -16,6 +16,19 @@ pub struct Authority {
     pub policy_schema_version: u32,
 }
 
+/// Runtime identity frozen by the reviewed bootstrap-v1 catalog.
+pub(super) const BOOTSTRAP_V1_RUNTIME_VERSION: &str = "0.1.0";
+
+/// Reject a crate bump until a separate catalog successor has been reviewed.
+fn require_bootstrap_runtime(runtime_version: &str) -> Result<()> {
+    if runtime_version != BOOTSTRAP_V1_RUNTIME_VERSION {
+        return Err(Error::Transaction(
+            "compiled runtime requires a separately reviewed upgrade catalog successor",
+        ));
+    }
+    Ok(())
+}
+
 /// Stable IDs have immutable meanings. A future source update must retain this
 /// entry and add a separately reviewed successor, rather than moving this ID.
 pub fn select(id: &str) -> Result<Authority> {
@@ -24,6 +37,7 @@ pub fn select(id: &str) -> Result<Authority> {
             "unknown upgrade catalog; no moving pin or fallback is supported",
         ));
     }
+    require_bootstrap_runtime(env!("CARGO_PKG_VERSION"))?;
     catalog::reviewed()?;
     Ok(Authority {
         id: id.into(),
@@ -31,7 +45,7 @@ pub fn select(id: &str) -> Result<Authority> {
         workflow_repository: catalog::WORKFLOW_REPOSITORY.into(),
         workflow_commit: catalog::WORKFLOW_COMMIT.into(),
         tools_sha256: catalog::TOOLS_SHA256.into(),
-        runtime_version: "0.1.0".into(),
+        runtime_version: BOOTSTRAP_V1_RUNTIME_VERSION.into(),
         config_schema_version: 1,
         policy_schema_version: 1,
     })
@@ -57,6 +71,18 @@ pub(super) fn direction(current: u32, target: u32, allow_downgrade: bool) -> Res
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A future crate version must not silently redefine the immutable bootstrap-v1 authority.
+    #[test]
+    fn runtime_bump_requires_a_reviewed_catalog_successor() {
+        require_bootstrap_runtime("0.1.0").unwrap();
+        for runtime in ["0.1.1", "0.2.0", "0.1.0-rc.1", "0.1.0+unreviewed"] {
+            assert!(require_bootstrap_runtime(runtime).is_err());
+        }
+        let authority = select("bootstrap-v1").unwrap();
+        assert_eq!(authority.runtime_version, "0.1.0");
+        assert_eq!(authority.runtime_version, env!("CARGO_PKG_VERSION"));
+    }
     /// Verify that registry identity is independent of claims and unknown downgrades stay blocked.
     #[test]
     fn registry_identity_is_independent_of_claims_and_unknown_downgrades_stay_blocked() {

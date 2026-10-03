@@ -158,3 +158,12 @@ publication, genuine adversarial integration and both pilots remain separate gat
 [Profile review packets](../examples/upgrades/README.md) and the fault tests cover
 supported v1/v2 migration, imports, customizations, rollback, old-version rejection,
 concurrency and every write/owner/commit-marker boundary in both directions.
+
+## Runtime version boundary
+
+`bootstrap-v1` freezes runtime `0.1.0` as part of its independently reviewed
+authority. The compiled runtime must match that entry before an upgrade plan can
+be made or accepted. A crate version bump fails with an explicit catalog-successor
+error; it does not reinterpret this ID or widen historical lock acceptance. A new
+runtime requires a separately reviewed catalog ID and explicit migration tests
+for stored generated bases, ownership state and rollback.
