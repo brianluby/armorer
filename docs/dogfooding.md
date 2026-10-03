@@ -22,9 +22,10 @@ armorer_binary="$PWD/target/debug/armorer"
 dogfood_source_commit=$(git rev-parse HEAD) || exit 1
 dogfood_root=$(mktemp -d) || exit 1
 mkdir "$dogfood_root/project" || exit 1
-git archive --format=tar --output="$dogfood_root/source.tar" HEAD || exit 1
+git archive --format=tar --output="$dogfood_root/source.tar" "$dogfood_source_commit" || exit 1
 tar -xf "$dogfood_root/source.tar" -C "$dogfood_root/project" || exit 1
-cp examples/armorer-dogfood/armorer.toml "$dogfood_root/project/armorer.toml" || exit 1
+cp "$dogfood_root/project/examples/armorer-dogfood/armorer.toml" \
+  "$dogfood_root/project/armorer.toml" || exit 1
 "$armorer_binary" --repository "$dogfood_root/project" plan \
   > "$dogfood_root/inspection-plan.json" || exit 1
 if "$armorer_binary" --repository "$dogfood_root/project" check \
