@@ -1,38 +1,63 @@
 # Armorer
 
-Repeatable secure CI and verifiable releases for Rust repositories.
+Forge the setup. Keep the evidence. Earn the release.
 
-**Early development:** read-only `check`/`plan` validate explicit Cargo workspace selections. Digest-approved `apply` configures the pinned toolchain transactionally, with explicit `recover` for interrupted writes. Workflow/pin upgrades, reusable workflows, SBOMs, attestations and publication require later integration. No SLSA level is claimed by this slice.
+Armorer is building repeatable secure CI and verifiable releases for Rust repositories. Start with explicit intent. Preserve customizations. Hold the gate when required evidence is missing. A release must stand on its own proof.
 
-The public MIT repositories are [armorer](https://github.com/brianluby/armorer) for the Rust CLI and [armorer-workflows](https://github.com/brianluby/armorer-workflows) for separately versioned trusted reusable workflows.
+**This is the way.**
 
-Install Rust 1.95.0 through rustup and build with `cargo build --locked`. Author `armorer.toml` in the consuming repository using [the CLI example](examples/armorer.toml), replacing repository, package and binary identities. Library deliverables omit `binary`; CLI/service deliverables require it. Targets and feature sets are explicit.
+## What stands today
+
+On current `main`, read-only `check` and `plan` validate explicit Cargo workspace selections. `preview` shows exact before/after text and complete diffs. Digest-approved `apply` configures `rust-toolchain.toml` transactionally; `recover` handles interrupted writes. `catalog` exposes the embedded reviewed bootstrap authority. Library APIs verify individual attestation slots through pinned offline `gh`. Multi-file provisioning, upgrades and the complete-release consumer remain separate integration work. Follow [the development map](docs/development-status.md) for exact source and PR boundaries.
+
+**v0.1 targets SLSA Build L2. Current main claims no SLSA level.** L3 belongs to a future-version backlog item. Configuration, hosted CI, release rehearsal, publication and verified provenance each need separate evidence.
+
+## Enter the forge
+
+Start from a reviewed checkout with Rust 1.95.0 installed through rustup:
 
 ```sh
-armorer --repository /path/to/workspace plan
-armorer --repository /path/to/workspace check
-armorer schema config
+rustup run 1.95.0 cargo build --locked
+./target/debug/armorer --help
+./target/debug/armorer schema config
 ```
 
-From this checkout use `cargo run --locked -- --repository /path/to/workspace plan`. JSON goes to stdout. `plan` exits 0 for a valid preview, even with unmet requirements. `check` exits 2 when setup requirements remain; this development slice always reports missing release runtime and unverified capabilities. Invalid input/discovery exits 1 with a JSON error. Neither command writes consuming files or contacts GitHub. CLI argument errors follow Clap's conventional stderr output.
+The owner's workstation prefixes shell commands with `rtk`; use `rtk proxy rustup run 1.95.0 cargo build --locked` there. If an unavailable compiler wrapper blocks the build, follow [the contributor setup](CONTRIBUTING.md).
 
-See [onboarding and boundaries](docs/onboarding.md), [reviewed apply and recovery](docs/apply.md), [version-one contracts](docs/contracts-v1.md), and [contributing](CONTRIBUTING.md).
+Bring a consuming workspace. Author `armorer.toml` using [the CLI example](examples/armorer.toml). Name the repository, packages, binaries, targets and feature sets explicitly. Libraries omit `binary`; CLI and service deliverables require it.
 
-- [Architecture](ARCHITECTURE.md): Rust CLI, separately versioned trusted workflows, TOML configuration, preservation of customization, final-byte evidence and independent verification.
-- [Implementation plan](IMPLEMENTATION_PLAN.md): reviewable slices, owners, estimates, failure tests, pilot adoption and decisions.
-- [Research](RESEARCH.md): primary-source capabilities and additional supply-chain tooling.
-- [Supply-chain assessment](docs/supply-chain-assessment.md): prioritized optional defenses, eligibility/maintenance policy, bounded dist and crates.io adapters, and inputs to the release contracts ([ADR 0005](docs/adr/0005-additional-defenses-and-adapters.md), proposed for review).
-- [Accepted design ADRs](docs/adr/0001-repositories-language-and-configuration.md): repository/language/configuration, [attestations and claims](docs/adr/0002-platform-attestations-and-level-claims.md), and [publication/migration](docs/adr/0003-fail-closed-publication-and-migration.md).
-- [Veans epic #1](https://kanban.luby.us/tasks/1304): scoped baseline and optional follow-up tickets on [project 16](https://kanban.luby.us/projects/16/61).
+```sh
+./target/debug/armorer --repository /path/to/workspace plan
+./target/debug/armorer --repository /path/to/workspace plan --preview
+./target/debug/armorer --repository /path/to/workspace check
+```
 
-Confirmed: MIT license, fail-closed secure releases, and Momus/Rusty Brain pilots. v0.1 targets SLSA Build L2. Linux release assets will be authenticated through signed GitHub/Sigstore attestations; macOS additionally requires Developer ID signing and notarization before final-byte attestation. L3 assessment and gap closure are deferred to an unscheduled future backlog item. Additional security controls complement provenance.
+Read the JSON. `plan` exits 0 for valid inspection, including unmet setup requirements. `check` exits 2 for every valid inspection in this development version because release readiness remains blocked. Invalid input/discovery exits 1 with a JSON error. Argument errors use Clap's stderr diagnostics. Check and plan preserve consuming files, contact no GitHub service, and run no repository build scripts.
 
-Inspired by the Armorer's craft: forge protection into the tools projects begin with.
+Follow [your first inspection](docs/onboarding.md) for a complete local exercise. Before changing a real project, read [reviewed apply and recovery](docs/apply.md). Inspect the plan. Retain the approved digest. Apply the exact intent.
 
-`armorer catalog` exposes the reviewed bootstrap tool/workflow authority without
-network access or consuming files. See [catalog source and limits](docs/bootstrap-catalog.md).
-Project policy and transactional provisioning remain separate required integration.
+**This is the way.**
 
-`armorer plan --preview` (also `armorer preview`) shows exact current/proposed bytes and complete diffs while
-retaining the approval-bound v1 plan. See [review and apply](docs/apply.md) and
-the [v0.1 acceptance ledger](docs/v01-acceptance.md) for delivered scope and gates.
+## Choose your path
+
+| Your task | Your guide |
+| --- | --- |
+| Inspect a Rust workspace | [Onboarding](docs/onboarding.md) |
+| Find commands, exit statuses and finding codes | [CLI reference](docs/cli-reference.md) |
+| Apply a plan or recover a transaction | [Apply and recovery](docs/apply.md) |
+| Inspect the bootstrap authority | [Catalog source and limits](docs/bootstrap-catalog.md) |
+| Verify an individual attestation through the library | [Offline verifier](docs/offline-verifier.md) |
+| Understand configuration, locks and plan digests | [Version-one contracts](docs/contracts-v1.md) |
+| Understand release trust and evidence | [Trust contracts](docs/trust-contracts-v1.md) |
+| Follow proposed features | [Development map](docs/development-status.md) |
+| Contribute code or documentation | [Contributing](CONTRIBUTING.md), [writing creed](docs/writing-guide.md) |
+
+The [documentation index](docs/README.md) also leads to architecture, ADRs, research, the [v0.1 acceptance ledger](docs/v01-acceptance.md) and retained validation records.
+
+## The clan's work
+
+The public MIT repositories are [armorer](https://github.com/brianluby/armorer) for the Rust CLI and [armorer-workflows](https://github.com/brianluby/armorer-workflows) for separately versioned trusted reusable workflows. Momus and Rusty Brain are planned pilots.
+
+Work is tracked in [Veans project 16](https://kanban.luby.us/projects/16/61) under [epic #1](https://kanban.luby.us/tasks/1304). Merges and release publication require explicit human authorization. Keep credential values with their owner. Build protection into the tools. Make every claim answer to evidence.
+
+**This is the way.**

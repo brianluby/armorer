@@ -1,7 +1,10 @@
 # Reviewed local apply and recovery
 
+Inspect the plan. Keep your approval. Change only what the plan binds.
+**This is the way.**
+
 This development slice applies only `rust-toolchain.toml`. Custom workflow and
-license-policy files stay untouched. Reviewed workflow catalogs, pin upgrades,
+license-policy files stay untouched. Catalog-backed provisioning, pin upgrades,
 GitHub capability checks, credentials, signing and publication are separate gates.
 Applying a toolchain does not make the repository fully configured or CI verified.
 
@@ -49,6 +52,9 @@ view are bounded to 1 MiB. Non-UTF-8 or oversized views fail explicitly without
 truncating customizations or changing any bytes. Inspection assumes a stable
 filesystem; a preview is not a lock against other editors. Apply independently
 rechecks the saved plan under its existing transaction lock.
+
+Your approval belongs to the reviewed intent. Retain it outside the plan file.
+**This is the way.**
 
 Do not obtain the approval digest from an unreviewed replacement plan at apply
 time. The digest hashes compact typed JSON with `plan_sha256` blank. Whitespace
@@ -125,6 +131,9 @@ configuration bytes, not credential values. Armorer never requests secrets.
 Check/plan stay read-only and report unfinished transactions. The OS, installed
 rustup tools and a stable local filesystem are trusted; file locks coordinate
 Armorer processes and do not sandbox hostile writers or a hostile filesystem.
+
+Keep the journal until recovery succeeds. Preserve conflicting edits. Let exact
+bytes settle the transaction. **This is the way.**
 
 Primary sources: [Rust kernel file locks](https://doc.rust-lang.org/std/fs/struct.File.html#method.try_lock),
 [same-filesystem temporary persistence](https://docs.rs/tempfile/3.27.0/tempfile/struct.NamedTempFile.html#method.persist).
