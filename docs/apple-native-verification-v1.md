@@ -44,14 +44,24 @@ are currently rejected by this conservative current-certificate CMS check.
 The separately documented exact historical byte-verification command preserves
 its original semantics and does not acquire a native Apple release claim.
 
-The final native requirement includes `notarized`, which requires the platform
-to find a notarization ticket for the actual CodeDirectory hash. Its result is
-reported as `system-ticket-verified-cache-or-network`. It is not proof of a fresh
-online response, the producer’s notarization submission UUID or the origin of a
-retained producer log. The authenticated log remains producer evidence; the
-native ticket is a separate check over the actual executable. No notarization
-submission, credential lookup/import, keychain modification, signing or release
-publication is implemented by this consumer.
+The consumer requests a ticket lookup with the documented system
+`/usr/bin/codesign --verify --strict --check-notarization --test-requirement`
+command and the same fixed Developer ID/team/notarization requirement. It uses
+a sterile environment, closed stdin, bounded output and a sixty-second child
+deadline; a failed or unsupported command blocks verification. The payload is
+never executed. This request is necessary on fresh hosts: the native
+`notarized` requirement alone consults the local ticket store, and the code
+validation network flag applies to certificate evaluation.
+
+After the command, Security.framework must independently satisfy the complete
+`notarized` requirement for the same rehashed private executable. Command success
+alone cannot construct the proof. Audit output retains
+`system-ticket-verified-cache-or-network` and
+`online_notarization_check_requested: true`. An online request is not evidence of
+a fresh successful service response: system ticket/revocation behavior remains
+platform controlled. The consumer does not authenticate the producer’s submission
+UUID or retained log origin. No notarization submission, credential lookup/import,
+keychain modification, signing or release publication is implemented here.
 
 ## Supported operation and limitations
 
@@ -65,10 +75,12 @@ macOS and cannot downgrade to file authentication on Linux.
 This version supports the frozen `online-standalone-mach-o` ticket mode in
 `.tar.gz` packages. It does not claim a stapled ticket on a plain executable or
 tarball, and rejects `stapled-package` rather than projecting `.app`, `.pkg` or
-`.dmg` semantics onto a tarball. Ticket lookup can use the system cache or the
-network; an absent/unavailable required ticket fails. The trusted consumer host,
-its Security.framework, system certificate store, and private local filesystem
-are platform assumptions. The native APIs can perform their own network I/O;
+`.dmg` semantics onto a tarball. An online check is always requested;
+an absent required ticket, failed command or unsupported native option fails.
+Offline availability and fresh revocation evidence are not guaranteed, even
+when a platform ticket is already cached. The trusted consumer host, its system
+codesign and Security.framework, certificate store, and private filesystem are
+platform assumptions. The native APIs can perform their own network I/O;
 the twenty-minute stage expiry is checked on return and is not a hard interrupt
 of an in-flight platform API call. No same-account concurrent mutation is
 supported during the private snapshot verification.
@@ -109,5 +121,6 @@ establish SLSA Build L2. Existing v1 schemas and historical receipts are preserv
 
 References: [Apple static code validation](https://developer.apple.com/documentation/security/secstaticcodecheckvalidity(_:_:_:)),
 [Apple notarization requirements](https://developer.apple.com/documentation/security/resolving-common-notarization-issues),
+[Apple standalone-code verification guidance](https://developer.apple.com/forums/thread/130560),
 [Apple ticket lookup implementation](https://github.com/apple-oss-distributions/Security/blob/main/OSX/libsecurity_codesigning/lib/notarization.cpp),
 [pinned Rust Security.framework binding](https://docs.rs/security-framework/3.7.0/security_framework/).

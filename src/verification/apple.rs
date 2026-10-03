@@ -32,6 +32,7 @@ pub struct NativeApplePayload {
     certificate_sha256: String,
     secure_timestamp: u64,
     notarization: &'static str,
+    online_notarization_check_requested: bool,
 }
 
 /// Whole required Apple set, bound to the same private approved context and authenticated files.
@@ -154,6 +155,7 @@ impl VerifiedAppleRelease {
                     certificate_sha256: assertions.certificate_sha256.clone(),
                     secure_timestamp: timestamp,
                     notarization: "system-ticket-verified-cache-or-network",
+                    online_notarization_check_requested: true,
                 },
             );
         }
@@ -442,6 +444,43 @@ fn native(_path: &Path, _binary: &[u8], _team: &str, _certificate: &str) -> Resu
 }
 
 #[cfg(target_os = "macos")]
+/// Request the documented online ticket check with fixed system codesign, bounded I/O and no payload execution.
+fn check_online_notarization(path: &Path, requirement: &str) -> Result<()> {
+    use std::process::{Command, Stdio};
+    require(path.is_absolute(), "apple-native-private-path-required")?;
+    let directory = path
+        .parent()
+        .ok_or_else(|| invalid("apple-native-private-directory-required"))?;
+    let mut command = Command::new("/usr/bin/codesign");
+    command
+        .args([
+            "--verify",
+            "--strict",
+            "--check-notarization",
+            "--test-requirement",
+        ])
+        .arg(format!("={requirement}"))
+        .arg(path)
+        .current_dir(directory)
+        .env_clear()
+        .env("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")
+        .env("HOME", directory)
+        .env("TMPDIR", directory)
+        .env("LANG", "C")
+        .stdin(Stdio::null());
+    sigstore::run_process(
+        command,
+        sigstore::Limits {
+            timeout: Duration::from_secs(60),
+            stdout: 4096,
+            stderr: 16384,
+        },
+    )
+    .map_err(|_| invalid("apple-online-notarization-check-failed"))?;
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
 /// Validate the frozen file through Apple APIs, then bind authenticated CMS timestamp and leaf identity.
 fn native(path: &Path, binary: &[u8], team: &str, certificate: &str) -> Result<u64> {
     use core_foundation::url::CFURL;
@@ -513,7 +552,13 @@ fn native(path: &Path, binary: &[u8], team: &str, certificate: &str) -> Result<u
         timestamp.is_finite() && timestamp >= 1.0 && timestamp <= sigstore::wall_time()? as f64,
         "apple-authenticated-timestamp-future-or-invalid",
     )?;
-    let notarized = SecRequirement::from_str(&(expected + " and notarized"))
+    let notarized_requirement = expected + " and notarized";
+    // The requirement interpreter consults the local ticket store. The documented codesign
+    // option first requests an online lookup; its success alone never grants this proof.
+    identity(binary).matches(&io::read_bounded(path, MAX_BINARY as u64)?)?;
+    check_online_notarization(path, &notarized_requirement)?;
+    identity(binary).matches(&io::read_bounded(path, MAX_BINARY as u64)?)?;
+    let notarized = SecRequirement::from_str(&notarized_requirement)
         .map_err(|_| invalid("apple-notarization-requirement-unsupported"))?;
     code.check_validity(flags, &notarized)
         .map_err(|_| invalid("apple-notarization-ticket-missing-or-invalid"))?;
@@ -813,6 +858,7 @@ mod tests {
         );
         assert!(metadata.status.success());
         assert!(String::from_utf8_lossy(&metadata.stderr).contains("adhoc,runtime"));
+        assert!(check_online_notarization(&path, "notarized").is_err());
         let bytes = io::read_bounded(&path, MAX_BINARY as u64).unwrap();
         let error = native(&path, &bytes, "FIXTURE123", &"0".repeat(64)).unwrap_err();
         assert_eq!(

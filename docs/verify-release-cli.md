@@ -2,8 +2,10 @@
 
 `verify-release` authenticates the complete release set with the inventory-first
 strict consumer. Signature/SBOM adapters operate offline; required Apple
-executable checks use macOS Security.framework and may consult the system
-ticket cache or network.
+executable checks use macOS Security.framework and request an online ticket
+check through fixed system codesign. The final native requirement may use the
+system ticket store; no fresh service-response or offline availability guarantee
+is claimed.
 It authenticates the independent context before opening executable adapters or
 reading a release. It then verifies the inventory before parsing producer claims,
 rehashes every exact declared asset, verifies every required Sigstore bundle,
