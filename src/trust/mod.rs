@@ -6,6 +6,7 @@
 pub mod capability;
 pub mod evidence;
 pub mod inventory;
+pub mod native;
 pub mod policy;
 pub mod publication;
 
@@ -16,6 +17,7 @@ use crate::{
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+/// Return a fixed validation error when a consistency requirement fails; this establishes no authenticity.
 pub(crate) fn require(ok: bool, code: &'static str) -> Result<()> {
     if ok {
         Ok(())
@@ -35,6 +37,7 @@ pub struct ByteIdentity {
 }
 
 impl ByteIdentity {
+    /// Require a lowercase SHA-256 and a nonempty byte count bounded to one GiB.
     pub fn validate(&self) -> Result<()> {
         require(
             hex_digest(&self.sha256, 64) && (1..=1_073_741_824).contains(&self.size),
@@ -48,6 +51,7 @@ impl ByteIdentity {
             size: bytes.len() as u64,
         }
     }
+    /// Compare both digest and size with actual supplied bytes after validating the expected identity.
     pub fn matches(&self, bytes: &[u8]) -> Result<()> {
         self.validate()?;
         require(*self == Self::from_bytes(bytes), "byte-mismatch")
@@ -64,6 +68,7 @@ pub struct Source {
 }
 
 impl Source {
+    /// Validate repository/commit syntax and the supported branch, stable tag or PR merge ref shape.
     pub fn validate(&self) -> Result<()> {
         require(
             repository_name(&self.repository) && hex_digest(&self.commit, 40),
@@ -73,6 +78,7 @@ impl Source {
     }
 }
 
+/// Accept only canonical v-prefixed stable SemVer tags without prerelease or build metadata.
 pub(crate) fn release_tag(tag: &str) -> bool {
     tag.strip_prefix('v')
         .and_then(|s| semver::Version::parse(s).ok())
@@ -89,6 +95,7 @@ pub struct WorkflowIdentity {
 }
 
 impl WorkflowIdentity {
+    /// Require a repository, full commit and safe flat YAML filename under the workflow directory.
     pub fn validate(&self) -> Result<()> {
         let file = self.path.strip_prefix(".github/workflows/");
         require(
@@ -111,6 +118,7 @@ pub struct RunIdentity {
 }
 
 impl RunIdentity {
+    /// Require a valid immutable workflow identity and positive run/attempt numbers.
     pub fn validate(&self) -> Result<()> {
         self.workflow.validate()?;
         require(self.id > 0 && self.attempt > 0, "invalid-run-identity")
@@ -133,6 +141,7 @@ pub struct InputIdentity {
 }
 
 impl InputIdentity {
+    /// Validate source, runtime, run and exact input hash syntax with a canonical stable runtime version.
     pub fn validate(&self) -> Result<()> {
         self.source.validate()?;
         self.runtime.validate()?;
@@ -151,11 +160,13 @@ impl InputIdentity {
     }
 }
 
+/// Accept canonical stable SemVer text without prerelease or build metadata.
 pub(crate) fn stable_version(s: &str) -> bool {
     semver::Version::parse(s)
         .is_ok_and(|v| v.pre.is_empty() && v.build.is_empty() && s == v.to_string())
 }
 
+/// Require one bounded safe flat asset name; reject paths, whitespace and control bytes.
 pub(crate) fn asset_name(s: &str) -> bool {
     !s.is_empty()
         && s.len() <= 255
@@ -176,6 +187,7 @@ pub struct Review {
 }
 
 impl Review {
+    /// Require a bounded named rationale, retained record identity and a currently valid review window.
     pub fn validate_at(&self, now: u64) -> Result<()> {
         self.record.validate()?;
         require(
@@ -204,45 +216,55 @@ pub fn load_json<T: serde::de::DeserializeOwned>(
 /// Reject duplicate keys at every depth, including maps inside reviewed policy.
 struct UniqueJson(serde_json::Value);
 impl<'de> Deserialize<'de> for UniqueJson {
+    /// Decode JSON through a visitor that rejects duplicate object keys at every nested depth.
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> std::result::Result<Self, D::Error> {
         struct Visitor;
         impl<'de> serde::de::Visitor<'de> for Visitor {
             type Value = UniqueJson;
+            /// Describe the duplicate-free JSON contract without echoing untrusted input.
             fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 f.write_str("JSON without duplicate keys")
             }
+            /// Retain a JSON boolean value without treating it as an authentication decision.
             fn visit_bool<E: serde::de::Error>(
                 self,
                 v: bool,
             ) -> std::result::Result<Self::Value, E> {
                 Ok(UniqueJson(v.into()))
             }
+            /// Retain a signed JSON integer exactly in the intermediate structural value.
             fn visit_i64<E: serde::de::Error>(self, v: i64) -> std::result::Result<Self::Value, E> {
                 Ok(UniqueJson(v.into()))
             }
+            /// Retain an unsigned JSON integer exactly in the intermediate structural value.
             fn visit_u64<E: serde::de::Error>(self, v: u64) -> std::result::Result<Self::Value, E> {
                 Ok(UniqueJson(v.into()))
             }
+            /// Accept only finite floating-point values representable by a JSON number.
             fn visit_f64<E: serde::de::Error>(self, v: f64) -> std::result::Result<Self::Value, E> {
                 serde_json::Number::from_f64(v)
                     .map(|n| UniqueJson(n.into()))
                     .ok_or_else(|| E::custom("invalid JSON number"))
             }
+            /// Retain a decoded borrowed string as an owned structural JSON value.
             fn visit_str<E: serde::de::Error>(
                 self,
                 v: &str,
             ) -> std::result::Result<Self::Value, E> {
                 Ok(UniqueJson(v.into()))
             }
+            /// Retain an already owned decoded string without changing its contents.
             fn visit_string<E: serde::de::Error>(
                 self,
                 v: String,
             ) -> std::result::Result<Self::Value, E> {
                 Ok(UniqueJson(v.into()))
             }
+            /// Represent explicit JSON null; required typed fields remain separately validated.
             fn visit_unit<E: serde::de::Error>(self) -> std::result::Result<Self::Value, E> {
                 Ok(UniqueJson(serde_json::Value::Null))
             }
+            /// Decode each array element recursively through the duplicate-rejecting visitor.
             fn visit_seq<A: serde::de::SeqAccess<'de>>(
                 self,
                 mut a: A,
@@ -253,6 +275,7 @@ impl<'de> Deserialize<'de> for UniqueJson {
                 }
                 Ok(UniqueJson(values.into()))
             }
+            /// Reject repeated object keys before retaining recursively decoded values.
             fn visit_map<A: serde::de::MapAccess<'de>>(
                 self,
                 mut a: A,
@@ -271,6 +294,7 @@ impl<'de> Deserialize<'de> for UniqueJson {
     }
 }
 
+/// Decode at most one MiB of duplicate-free JSON into the requested contract type.
 pub(crate) fn parse_json<T: serde::de::DeserializeOwned>(bytes: &[u8]) -> Result<T> {
     require(bytes.len() <= 1_048_576, "contract-exceeds-1-mib")?;
     let strict: UniqueJson = serde_json::from_slice(bytes).map_err(|_| Error::Json)?;
@@ -282,6 +306,7 @@ pub(crate) fn release_ref(value: &str) -> bool {
     value.strip_prefix("refs/tags/").is_some_and(release_tag)
 }
 
+/// Accept supported safe branch refs, canonical stable release refs or canonical positive PR merge refs.
 pub(crate) fn valid_source_ref(value: &str) -> bool {
     if value.starts_with("refs/tags/") {
         return release_ref(value);

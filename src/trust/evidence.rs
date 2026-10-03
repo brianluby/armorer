@@ -51,6 +51,7 @@ impl Selection {
             "evidence-selection-mismatch",
         )
     }
+    /// Identify the exact deliverable, target and feature selection for independent expectations.
     pub fn key(&self) -> String {
         format!(
             "{}--{}--{}",
@@ -137,6 +138,7 @@ pub struct Exception {
 }
 
 impl Exception {
+    /// Validate a waivable exception and its bound subject, policy, review and positive control.
     pub fn validate_at(&self, now: u64) -> Result<()> {
         // Trust/byte/source/signer/trigger/publication requirements cannot be waived.
         require(
@@ -473,7 +475,8 @@ impl ArtifactEvidence {
                     && t.version == expected.version
                     && t.bytes == expected.bytes
                     && t.authentication_record == expected.authentication_record
-                    && t.max_age_seconds == expected.max_age_seconds,
+                    && t.max_age_seconds == expected.max_age_seconds
+                    && t.observed_at == expected.observed_at,
                 "evidence-tool-pin-mismatch",
             )?;
         }
@@ -494,6 +497,7 @@ impl ArtifactEvidence {
                 found.scope == expected.scope
                     && found.tested_subject == expected.tested_subject
                     && found.omissions == expected.omissions
+                    && found.exception_ids == expected.exception_ids
                     && found.outcome == Outcome::Passed
                     && found.enforcement == Enforcement::Enforced,
                 "required-coverage-not-enforced",

@@ -5,6 +5,7 @@ use armorer::{
 };
 use std::{fs, path::Path, process::Command};
 
+/// Create an isolated consumer whose source and build script must never execute during preview.
 fn fixture() -> tempfile::TempDir {
     let root = tempfile::tempdir().unwrap();
     fs::create_dir(root.path().join("src")).unwrap();
@@ -24,7 +25,9 @@ fn fixture() -> tempfile::TempDir {
     root
 }
 
+/// Capture every consumer file so preview tests detect unintended mutations.
 fn snapshot(root: &Path) -> std::collections::BTreeMap<String, Vec<u8>> {
+    /// Recursively record each relative file path and its exact bytes in the isolated fixture.
     fn walk(root: &Path, path: &Path, output: &mut std::collections::BTreeMap<String, Vec<u8>>) {
         for entry in fs::read_dir(path).unwrap() {
             let path = entry.unwrap().path();
@@ -44,6 +47,7 @@ fn snapshot(root: &Path) -> std::collections::BTreeMap<String, Vec<u8>> {
 }
 
 #[test]
+/// Check deterministic creation previews, unchanged plan identity and preserved consumer files.
 fn creation_is_exact_deterministic_read_only_and_keeps_v1_plan_identity() {
     let root = fixture();
     fs::write(root.path().join("deny.toml"), "bespoke policy").unwrap();
@@ -73,6 +77,7 @@ fn creation_is_exact_deterministic_read_only_and_keeps_v1_plan_identity() {
 }
 
 #[test]
+/// Expose complete custom preimages while rejecting apply and preserving every file.
 fn conflicts_show_all_custom_bytes_and_block_apply() {
     let root = fixture();
     let custom = "# λ custom\r\n[toolchain]\r\nchannel = \"stable\"\r\ncomponents = [\"rust-src\"]";
@@ -92,6 +97,7 @@ fn conflicts_show_all_custom_bytes_and_block_apply() {
 }
 
 #[test]
+/// Distinguish unchanged and owned-update previews without altering ownership or file bytes.
 fn owned_update_and_unchanged_views_preserve_ownership_rules() {
     let root = fixture();
     let plan = inspect(root.path(), "plan").unwrap();
@@ -136,6 +142,7 @@ fn owned_update_and_unchanged_views_preserve_ownership_rules() {
 }
 
 #[test]
+/// Keep the blocking legacy toolchain visible when the proposed TOML already matches.
 fn legacy_toolchain_is_visible_even_when_toml_has_no_diff() {
     let root = fixture();
     let plan = inspect(root.path(), "plan").unwrap();
@@ -163,6 +170,7 @@ fn legacy_toolchain_is_visible_even_when_toml_has_no_diff() {
 }
 
 #[test]
+/// Reject each changed saved-plan input while preserving the resulting consumer state.
 fn saved_plan_preview_rejects_stale_input_without_mutation() {
     for input in [
         "armorer.toml",
@@ -184,6 +192,7 @@ fn saved_plan_preview_rejects_stale_input_without_mutation() {
 }
 
 #[test]
+/// Reject invalid or oversized text with a complete error response and no partial preview.
 fn invalid_utf8_and_oversized_review_views_fail_without_partial_output() {
     for content in [vec![0xff, 0xfe], vec![b'x'; 600_000], vec![b'x'; 1_048_577]] {
         let root = fixture();
@@ -205,6 +214,7 @@ fn invalid_utf8_and_oversized_review_views_fail_without_partial_output() {
 
 #[cfg(unix)]
 #[test]
+/// Reject redirected inputs without exposing or changing the external destination bytes.
 fn symlink_inputs_fail_without_reading_the_destination() {
     let root = fixture();
     let outside = tempfile::tempdir().unwrap();
@@ -229,6 +239,7 @@ fn symlink_inputs_fail_without_reading_the_destination() {
 }
 
 #[test]
+/// Require the approved saved-plan digest and reject altered proposed contents.
 fn cli_saved_preview_requires_both_digest_and_plan_and_rejects_forgery() {
     let root = fixture();
     let plan = inspect(root.path(), "plan").unwrap();
@@ -261,6 +272,7 @@ fn cli_saved_preview_requires_both_digest_and_plan_and_rejects_forgery() {
 
 #[cfg(unix)]
 #[test]
+/// Use the independent patch program to reconstruct exact proposed bytes across text edge cases.
 fn independent_patch_reconstructs_exact_proposed_bytes() {
     for before in [
         None,
@@ -299,6 +311,7 @@ fn independent_patch_reconstructs_exact_proposed_bytes() {
 }
 
 #[test]
+/// Check that the preview alias matches the direct view while default plan output stays compatible.
 fn plan_preview_alias_matches_the_exact_view_and_default_plan_is_unchanged() {
     let root = fixture();
     let run = |args: &[&str]| {

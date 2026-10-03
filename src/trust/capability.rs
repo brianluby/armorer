@@ -121,6 +121,7 @@ pub struct CapabilityConfig {
 }
 
 impl CapabilityConfig {
+    /// Bind exact config/catalog bytes and current review, requiring baseline and applicable Apple policies.
     pub fn validate(
         &self,
         config: &Config,
@@ -247,21 +248,7 @@ impl Catalog {
                     && !a.pins.is_empty(),
                 "adapter-incompatible",
             )?;
-            let expected = match a.id {
-                AdapterId::RustNative => CapabilityId::DependencyPolicy,
-                AdapterId::AppleNative => CapabilityId::AppleSigning,
-                AdapterId::CargoCyclonedx => CapabilityId::CargoSbom,
-                AdapterId::GithubSigstore => CapabilityId::PlatformAttestations,
-                AdapterId::Codeql => CapabilityId::Codeql,
-                AdapterId::CargoVet => CapabilityId::CargoVet,
-                AdapterId::CargoAuditable => CapabilityId::EmbeddedMetadata,
-                AdapterId::Syft => CapabilityId::NativeSbom,
-                AdapterId::HardenRunner => CapabilityId::LinuxEgress,
-                AdapterId::IndependentRebuild => CapabilityId::IndependentRebuild,
-                AdapterId::Scorecard => CapabilityId::Scorecard,
-                AdapterId::DistBuildOnly => CapabilityId::DistBuild,
-                AdapterId::CratesIo => CapabilityId::RegistryPublish,
-            };
+            let expected = adapter_capability(a.id);
             require(a.capability == expected, "adapter-capability-mismatch")?;
             let mut pins = std::collections::BTreeSet::new();
             for pin in &a.pins {
@@ -288,5 +275,24 @@ impl Catalog {
             )?;
         }
         Ok(())
+    }
+}
+
+/// Share the exact reviewed adapter/capability relation across explicit catalog versions.
+pub(crate) fn adapter_capability(id: AdapterId) -> CapabilityId {
+    match id {
+        AdapterId::RustNative => CapabilityId::DependencyPolicy,
+        AdapterId::AppleNative => CapabilityId::AppleSigning,
+        AdapterId::CargoCyclonedx => CapabilityId::CargoSbom,
+        AdapterId::GithubSigstore => CapabilityId::PlatformAttestations,
+        AdapterId::Codeql => CapabilityId::Codeql,
+        AdapterId::CargoVet => CapabilityId::CargoVet,
+        AdapterId::CargoAuditable => CapabilityId::EmbeddedMetadata,
+        AdapterId::Syft => CapabilityId::NativeSbom,
+        AdapterId::HardenRunner => CapabilityId::LinuxEgress,
+        AdapterId::IndependentRebuild => CapabilityId::IndependentRebuild,
+        AdapterId::Scorecard => CapabilityId::Scorecard,
+        AdapterId::DistBuildOnly => CapabilityId::DistBuild,
+        AdapterId::CratesIo => CapabilityId::RegistryPublish,
     }
 }

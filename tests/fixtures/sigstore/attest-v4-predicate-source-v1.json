@@ -1,0 +1,38 @@
+{
+  "purpose": "Immutable producer-source qualification; synthetic semantic tests do not establish a signature or producer proof",
+  "previous_source_receipt": {
+    "path": "attest-v4-producer-source.json",
+    "sha256": "1f12d410a5b3ba045d22f146da6643b33476b3d315de8fdf361c553d038b5e1d",
+    "size": 3963
+  },
+  "action": {
+    "repository": "actions/attest",
+    "commit": "f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6"
+  },
+  "library": {
+    "name": "@actions/attest",
+    "version": "3.2.0",
+    "distribution": {
+      "url": "https://registry.npmjs.org/@actions/attest/-/attest-3.2.0.tgz",
+      "integrity": "sha512-Mdpqfyfp4dp7VZt9lVBmQTlnpK0PBrIXSblzeseP4w6Gn4Bbl5bpScJ+8zgwOMfTz1049wPzSUda5XtTYIZloQ==",
+      "sha256": "6353f793ebd7d64a4ca8274b56dd61b62d7bdf550d3f952d3e419effad621b0c",
+      "size": 15558
+    },
+    "provenance_source": {
+      "sha256": "d195149b5a29a6e97c06097a6c68becdf1848e1b453bc5b566c2c4aaaddf138d",
+      "size": 3885
+    }
+  },
+  "build_type": "https://actions.github.io/buildtypes/workflow/v1",
+  "builder": {
+    "claim": "job_workflow_ref",
+    "format": "https://github.com/{job_workflow_ref}"
+  },
+  "internal_runner": {
+    "claim": "runner_environment",
+    "required": "github-hosted"
+  },
+  "executed": false,
+  "accepted_catalog": false,
+  "own_current_producer_signed_positive": false
+}

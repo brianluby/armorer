@@ -1,6 +1,7 @@
 # Reviewed local apply and recovery
 
-This development slice applies only `rust-toolchain.toml`. Custom workflow and
+The version-one `apply` command manages only `rust-toolchain.toml`.
+For explicit five-file provisioning, use [version-two bootstrap](bootstrap-v2.md). Custom workflow and
 license-policy files stay untouched. Reviewed workflow catalogs, pin upgrades,
 GitHub capability checks, credentials, signing and publication are separate gates.
 Applying a toolchain does not make the repository fully configured or CI verified.

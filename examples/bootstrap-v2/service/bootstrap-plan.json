@@ -1,0 +1,138 @@
+{
+  "capability_state": "unknown",
+  "catalog_sha256": "e21e6cbd2cdd1125dbb9817116b1f46d043807b4d92128abc9dc07256dbb4b13",
+  "changes": [
+    {
+      "after_sha256": "6affe9f9586ede46a67b6e569ccb851d24bf2bf34c62fd9df23c690bf17a4805",
+      "before_content": null,
+      "before_sha256": null,
+      "disposition": "create",
+      "owned": false,
+      "path": ".armorer/ci-policy.toml",
+      "proposed_content": "# Fixture-only decision for this dependency-free MIT example.\n# Replace with the consuming owner's reviewed dependency policy.\nschema_version = 1\n\n[licenses]\nallow = [\"MIT\"]\n\n[advisories]\nexceptions = []\n\n[sources]\nallow_git = []\n\n[bans]\nmultiple_versions = \"warn\"\ndeny = []\n",
+      "unified_diff": "--- /dev/null\n+++ b/.armorer/ci-policy.toml\n@@ -0,0 +1,16 @@\n+# Fixture-only decision for this dependency-free MIT example.\n+# Replace with the consuming owner's reviewed dependency policy.\n+schema_version = 1\n+\n+[licenses]\n+allow = [\"MIT\"]\n+\n+[advisories]\n+exceptions = []\n+\n+[sources]\n+allow_git = []\n+\n+[bans]\n+multiple_versions = \"warn\"\n+deny = []\n"
+    },
+    {
+      "after_sha256": "d54919c9b41be91ffb665eb631a27aeed4ebb482339a64977a968798645f1ed1",
+      "before_content": null,
+      "before_sha256": null,
+      "disposition": "create",
+      "owned": false,
+      "path": ".github/workflows/armorer-build.yml",
+      "proposed_content": "name: Armorer unsigned build\n\non:\n  workflow_dispatch:\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: armorer-build-${{ github.workflow }}-${{ github.ref }}\n  cancel-in-progress: false\n\njobs:\n  build:\n    uses: brianluby/armorer-workflows/.github/workflows/rust-build.yml@772ca83e386c883c88cc3b936d69f8cb3216c91e\n",
+      "unified_diff": "--- /dev/null\n+++ b/.github/workflows/armorer-build.yml\n@@ -0,0 +1,15 @@\n+name: Armorer unsigned build\n+\n+on:\n+  workflow_dispatch:\n+\n+permissions:\n+  contents: read\n+\n+concurrency:\n+  group: armorer-build-${{ github.workflow }}-${{ github.ref }}\n+  cancel-in-progress: false\n+\n+jobs:\n+  build:\n+    uses: brianluby/armorer-workflows/.github/workflows/rust-build.yml@772ca83e386c883c88cc3b936d69f8cb3216c91e\n"
+    },
+    {
+      "after_sha256": "a21d50bad4351d48e7dfb251cd78cc217deff02a513938e70653805bf3a7de47",
+      "before_content": null,
+      "before_sha256": null,
+      "disposition": "create",
+      "owned": false,
+      "path": ".github/workflows/armorer-ci.yml",
+      "proposed_content": "name: Armorer CI\n\non:\n  pull_request:\n  push:\n  workflow_dispatch:\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: armorer-ci-${{ github.workflow }}-${{ github.ref }}\n  cancel-in-progress: true\n\njobs:\n  verify:\n    uses: brianluby/armorer-workflows/.github/workflows/rust-ci.yml@772ca83e386c883c88cc3b936d69f8cb3216c91e\n",
+      "unified_diff": "--- /dev/null\n+++ b/.github/workflows/armorer-ci.yml\n@@ -0,0 +1,17 @@\n+name: Armorer CI\n+\n+on:\n+  pull_request:\n+  push:\n+  workflow_dispatch:\n+\n+permissions:\n+  contents: read\n+\n+concurrency:\n+  group: armorer-ci-${{ github.workflow }}-${{ github.ref }}\n+  cancel-in-progress: true\n+\n+jobs:\n+  verify:\n+    uses: brianluby/armorer-workflows/.github/workflows/rust-ci.yml@772ca83e386c883c88cc3b936d69f8cb3216c91e\n"
+    },
+    {
+      "after_sha256": "15b01fb0ddd0d3d16bfe95c9afae1a1ecdd78e8cefc0630f61ed65b21906cefa",
+      "before_content": null,
+      "before_sha256": null,
+      "disposition": "create",
+      "owned": false,
+      "path": "armorer.lock",
+      "proposed_content": "schema_version = 1\nconfig_sha256 = \"7cc49b48e0565119e6681b0456556146c5291968d95e514cdf1aa8751f48df18\"\nruntime_version = \"0.1.0\"\n\n[workflows]\nrepository = \"brianluby/armorer-workflows\"\ncommit = \"772ca83e386c883c88cc3b936d69f8cb3216c91e\"\n\n[tools.actionlint--aarch64-apple-darwin]\nversion = \"1.7.12\"\nsha256 = \"aba9ced2dee8d27fecca3dc7feb1a7f9a52caefa1eb46f3271ea66b6e0e6953f\"\n\n[tools.actionlint--aarch64-unknown-linux-gnu]\nversion = \"1.7.12\"\nsha256 = \"325e971b6ba9bfa504672e29be93c24981eeb1c07576d730e9f7c8805afff0c6\"\n\n[tools.actionlint--x86_64-unknown-linux-gnu]\nversion = \"1.7.12\"\nsha256 = \"8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8\"\n\n[tools.cargo-cyclonedx--aarch64-apple-darwin]\nversion = \"0.5.9\"\nsha256 = \"4c53dfa21e70b65bf7f8d2592aadde3bcb02c1a40b6ec63b877e5ca65a29e180\"\n\n[tools.cargo-cyclonedx--aarch64-unknown-linux-gnu]\nversion = \"0.5.9\"\nsha256 = \"7bf131ca5389b07a4f10c182bcf8a5ad339d64408b6f0d8f6834a0bd6120a06a\"\n\n[tools.cargo-cyclonedx--x86_64-unknown-linux-gnu]\nversion = \"0.5.9\"\nsha256 = \"fb8dbee9f182173e062a64a387b21a0badc6fab8b2abf9294973f012972bf6d8\"\n\n[tools.cargo-deny--aarch64-apple-darwin]\nversion = \"0.20.2\"\nsha256 = \"fe67d82a10d8597a3549364cb733a3f9cc1bfff9031b7ae46384a9f2a72090c3\"\n\n[tools.cargo-deny--aarch64-unknown-linux-gnu]\nversion = \"0.20.2\"\nsha256 = \"995c82be0defc7a025cae49a2aa2644ce8245c9a3318fc4103907c6a285e8c7d\"\n\n[tools.cargo-deny--x86_64-unknown-linux-gnu]\nversion = \"0.20.2\"\nsha256 = \"9f12ed4c49936e09b48bf862b595cde2fe64fcbd9d74dfacac6131ca824c8d5f\"\n\n[tools.cyclonedx--aarch64-apple-darwin]\nversion = \"0.33.1\"\nsha256 = \"750c148780154833f6401f9067d08c5a4c31567b6ee3c26c062c3a95c62d741c\"\n\n[tools.cyclonedx--aarch64-unknown-linux-gnu]\nversion = \"0.33.1\"\nsha256 = \"b2e9fdf9665ef49868a2ec012171c6e785dcd69745bc5869e53e4f4bfb096a5f\"\n\n[tools.cyclonedx--x86_64-unknown-linux-gnu]\nversion = \"0.33.1\"\nsha256 = \"bfc8b2538da86fe239bc53658bbb63c1c8c510a293c1e6891aa5bea5d3c58746\"\n\n[tools.gitleaks--aarch64-apple-darwin]\nversion = \"8.30.1\"\nsha256 = \"b40ab0ae55c505963e365f271a8d3846efbc170aa17f2607f13df610a9aeb6a5\"\n\n[tools.gitleaks--aarch64-unknown-linux-gnu]\nversion = \"8.30.1\"\nsha256 = \"e4a487ee7ccd7d3a7f7ec08657610aa3606637dab924210b3aee62570fb4b080\"\n\n[tools.gitleaks--x86_64-unknown-linux-gnu]\nversion = \"8.30.1\"\nsha256 = \"551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb\"\n\n[tools.zizmor--aarch64-apple-darwin]\nversion = \"1.30.1\"\nsha256 = \"e28d22b087f9ebb8d99da6e740d348c930f559961c7c3f12badda54f882195a2\"\n\n[tools.zizmor--aarch64-unknown-linux-gnu]\nversion = \"1.30.1\"\nsha256 = \"7ff1dce33bdd18fd2a4affe63bdd47efcccca97b2cec1c1863ec26e9e2647540\"\n\n[tools.zizmor--x86_64-unknown-linux-gnu]\nversion = \"1.30.1\"\nsha256 = \"e65324f4430c2717591937edcec90ccbefaf14c174f8ec9415e03ca875b46e1a\"\n",
+      "unified_diff": "--- /dev/null\n+++ b/armorer.lock\n@@ -0,0 +1,79 @@\n+schema_version = 1\n+config_sha256 = \"7cc49b48e0565119e6681b0456556146c5291968d95e514cdf1aa8751f48df18\"\n+runtime_version = \"0.1.0\"\n+\n+[workflows]\n+repository = \"brianluby/armorer-workflows\"\n+commit = \"772ca83e386c883c88cc3b936d69f8cb3216c91e\"\n+\n+[tools.actionlint--aarch64-apple-darwin]\n+version = \"1.7.12\"\n+sha256 = \"aba9ced2dee8d27fecca3dc7feb1a7f9a52caefa1eb46f3271ea66b6e0e6953f\"\n+\n+[tools.actionlint--aarch64-unknown-linux-gnu]\n+version = \"1.7.12\"\n+sha256 = \"325e971b6ba9bfa504672e29be93c24981eeb1c07576d730e9f7c8805afff0c6\"\n+\n+[tools.actionlint--x86_64-unknown-linux-gnu]\n+version = \"1.7.12\"\n+sha256 = \"8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8\"\n+\n+[tools.cargo-cyclonedx--aarch64-apple-darwin]\n+version = \"0.5.9\"\n+sha256 = \"4c53dfa21e70b65bf7f8d2592aadde3bcb02c1a40b6ec63b877e5ca65a29e180\"\n+\n+[tools.cargo-cyclonedx--aarch64-unknown-linux-gnu]\n+version = \"0.5.9\"\n+sha256 = \"7bf131ca5389b07a4f10c182bcf8a5ad339d64408b6f0d8f6834a0bd6120a06a\"\n+\n+[tools.cargo-cyclonedx--x86_64-unknown-linux-gnu]\n+version = \"0.5.9\"\n+sha256 = \"fb8dbee9f182173e062a64a387b21a0badc6fab8b2abf9294973f012972bf6d8\"\n+\n+[tools.cargo-deny--aarch64-apple-darwin]\n+version = \"0.20.2\"\n+sha256 = \"fe67d82a10d8597a3549364cb733a3f9cc1bfff9031b7ae46384a9f2a72090c3\"\n+\n+[tools.cargo-deny--aarch64-unknown-linux-gnu]\n+version = \"0.20.2\"\n+sha256 = \"995c82be0defc7a025cae49a2aa2644ce8245c9a3318fc4103907c6a285e8c7d\"\n+\n+[tools.cargo-deny--x86_64-unknown-linux-gnu]\n+version = \"0.20.2\"\n+sha256 = \"9f12ed4c49936e09b48bf862b595cde2fe64fcbd9d74dfacac6131ca824c8d5f\"\n+\n+[tools.cyclonedx--aarch64-apple-darwin]\n+version = \"0.33.1\"\n+sha256 = \"750c148780154833f6401f9067d08c5a4c31567b6ee3c26c062c3a95c62d741c\"\n+\n+[tools.cyclonedx--aarch64-unknown-linux-gnu]\n+version = \"0.33.1\"\n+sha256 = \"b2e9fdf9665ef49868a2ec012171c6e785dcd69745bc5869e53e4f4bfb096a5f\"\n+\n+[tools.cyclonedx--x86_64-unknown-linux-gnu]\n+version = \"0.33.1\"\n+sha256 = \"bfc8b2538da86fe239bc53658bbb63c1c8c510a293c1e6891aa5bea5d3c58746\"\n+\n+[tools.gitleaks--aarch64-apple-darwin]\n+version = \"8.30.1\"\n+sha256 = \"b40ab0ae55c505963e365f271a8d3846efbc170aa17f2607f13df610a9aeb6a5\"\n+\n+[tools.gitleaks--aarch64-unknown-linux-gnu]\n+version = \"8.30.1\"\n+sha256 = \"e4a487ee7ccd7d3a7f7ec08657610aa3606637dab924210b3aee62570fb4b080\"\n+\n+[tools.gitleaks--x86_64-unknown-linux-gnu]\n+version = \"8.30.1\"\n+sha256 = \"551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb\"\n+\n+[tools.zizmor--aarch64-apple-darwin]\n+version = \"1.30.1\"\n+sha256 = \"e28d22b087f9ebb8d99da6e740d348c930f559961c7c3f12badda54f882195a2\"\n+\n+[tools.zizmor--aarch64-unknown-linux-gnu]\n+version = \"1.30.1\"\n+sha256 = \"7ff1dce33bdd18fd2a4affe63bdd47efcccca97b2cec1c1863ec26e9e2647540\"\n+\n+[tools.zizmor--x86_64-unknown-linux-gnu]\n+version = \"1.30.1\"\n+sha256 = \"e65324f4430c2717591937edcec90ccbefaf14c174f8ec9415e03ca875b46e1a\"\n"
+    },
+    {
+      "after_sha256": "24ef3b9d3edbd850aa386cb0a98e10450b0030991a4537cb359f54d49dbbb33a",
+      "before_content": null,
+      "before_sha256": null,
+      "disposition": "create",
+      "owned": false,
+      "path": "rust-toolchain.toml",
+      "proposed_content": "[toolchain]\nchannel = \"1.95.0\"\nprofile = \"minimal\"\ncomponents = [\"clippy\", \"rustfmt\"]\n",
+      "unified_diff": "--- /dev/null\n+++ b/rust-toolchain.toml\n@@ -0,0 +1,4 @@\n+[toolchain]\n+channel = \"1.95.0\"\n+profile = \"minimal\"\n+components = [\"clippy\", \"rustfmt\"]\n"
+    }
+  ],
+  "config_sha256": "7cc49b48e0565119e6681b0456556146c5291968d95e514cdf1aa8751f48df18",
+  "findings": [
+    {
+      "code": "github-capabilities-unchecked",
+      "detail": "Authenticated GitHub capability preflight remains required."
+    },
+    {
+      "code": "release-runtime-unavailable",
+      "detail": "Callers provide CI and manual unsigned builds; secure publication, final-byte attestations and Apple finalization remain required."
+    }
+  ],
+  "input_preimages": {
+    "LICENSE": "b93d125f37d7a3001fccdf01be31445511b443012eef3c182a80dde7edd3b7eb"
+  },
+  "intent": {
+    "deliverables": [
+      {
+        "binary": "bootstrap-service",
+        "feature_set": "standard",
+        "id": "primary",
+        "package": "bootstrap-service",
+        "profile": "service",
+        "targets": [
+          "x86_64-unknown-linux-gnu",
+          "aarch64-apple-darwin"
+        ]
+      }
+    ],
+    "feature_sets": {
+      "standard": {
+        "default_features": true,
+        "features": []
+      }
+    },
+    "manifest": "Cargo.toml",
+    "policy": {
+      "attestations": "required",
+      "license_file": "LICENSE"
+    },
+    "repository": "example/bootstrap-service",
+    "schema_version": 1,
+    "toolchain": "1.95.0"
+  },
+  "mode": "bootstrap-plan",
+  "plan_sha256": "91a08f6e58f3fd8ecc8ae7a8fee96be684c233cb4394901c3afb646186c3c2ed",
+  "policy_content": "# Fixture-only decision for this dependency-free MIT example.\n# Replace with the consuming owner's reviewed dependency policy.\nschema_version = 1\n\n[licenses]\nallow = [\"MIT\"]\n\n[advisories]\nexceptions = []\n\n[sources]\nallow_git = []\n\n[bans]\nmultiple_versions = \"warn\"\ndeny = []\n",
+  "preserved_inputs": {
+    ".armorer/state.json": null,
+    "rust-toolchain": null
+  },
+  "recovery_required": false,
+  "runtime_version": "0.1.0",
+  "schema_version": 2,
+  "state_sha256": null,
+  "workspace": {
+    "cargo_config_present": false,
+    "cargo_lock_present": true,
+    "inputs": {
+      "Cargo.lock": "91e8cc4ef6dfe88da8fba4e9269797c4a50e9e67e96ced9165fcd61f9c665f58",
+      "Cargo.toml": "48fba6ac9de16a218b8c4039e0fa0aeb517e0d391762a490fd786c6d0f607ffc",
+      "src/main.rs": "target-path-present"
+    },
+    "packages": [
+      {
+        "features": {},
+        "license": "MIT",
+        "links": null,
+        "name": "bootstrap-service",
+        "rust_version": null,
+        "targets": [
+          {
+            "kind": [
+              "bin"
+            ],
+            "name": "bootstrap-service",
+            "required-features": []
+          }
+        ],
+        "version": "0.1.0"
+      }
+    ]
+  }
+}
