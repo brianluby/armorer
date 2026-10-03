@@ -63,6 +63,22 @@ repairs the artifact-scope defect identified at `c815a065fb08`; open #15–19 re
 their old heads and missing check. Complete own producer/consumer qualification
 and production acceptance remain separate from the repaired source.
 
+## The separate workflow candidate
+
+Workflow main remains `772ca83e386c883c88cc3b936d69f8cb3216c91e`, matching the
+embedded catalog pin. Workflow PR #20 at `853437cb1c9cbb9a60b2186ebb637ce56d3f6b51`
+is stacked on #19's native prerequisite observer. The
+[candidate workflow guide](candidate-workflow-prerequisites.md) records fixed
+read-only configuration observations, ephemeral read-token isolation and complete
+unsigned Apple intake. Its two distinct native qualification runs pass on all
+three supported hosts, while operational authority stays false.
+
+The [scoped workflow review](../reviews/2026-10-02-workflow-prerequisites.md)
+retains source and local test limitations. These helpers are not integrated into
+main's CLI/callers; unsigned intake does not implement protected Developer ID
+signing, notarization or immutable publication. The production administrative-read
+credential binding and current-attempt environment approval remain open.
+
 ## Integrate with care
 
 The [original review packet](../reviews/2026-10-02-open-prs.md) retains the first

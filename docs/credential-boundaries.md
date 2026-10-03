@@ -78,6 +78,14 @@ fields; they do not replace secret handling or independent policy approval.
 
 Give each protected job its own purpose. **This is the way.**
 
+The [candidate workflow guide](candidate-workflow-prerequisites.md#preserve-the-exact-credential-boundary)
+records one exact new qualification interface: ephemeral `github.token` through
+`ARMORER_READ_TOKEN`, isolated into the pinned native child as `GH_TOKEN`.
+It is a read-process variable, not a repository secret to provision. The candidate
+observer recognizes the two named environments without creating jobs or accessing
+their secrets. Production administrative-read and Apple credential bindings,
+effective current-attempt approvals and rotation remain unqualified.
+
 ## Review signing approval before releasing credentials
 
 The future signing adapter must validate the exact source/run/attempt and unsigned
@@ -95,6 +103,12 @@ publication and tag movement remain disabled. A native reference fixture does
 not exercise the consuming repository's production credentials.
 
 Hold credentials until the handoff is verified. **This is the way.**
+
+The [candidate unsigned intake](candidate-workflow-prerequisites.md#freeze-the-complete-unsigned-apple-handoff)
+now snapshots and inspects a complete handoff before a future transformation.
+It receives no credential, executes no payload and keeps all signing authority
+false. Its byte/shape checks cannot replace the protected approval or Developer
+ID/notarization/final-byte evidence required above.
 
 ## Prepare a rotation record
 

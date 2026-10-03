@@ -8,6 +8,12 @@ This guide is a manual preparation checklist. Main check/plan do not contact
 GitHub, configure settings or authenticate capability observations. A completed
 checklist does not constitute a producer rehearsal or secure publication result.
 
+The workflow repository now has a separately labelled
+[candidate prerequisite observer](candidate-workflow-prerequisites.md#observe-configuration-without-granting-authority).
+It performs fixed authenticated native reads and retains blocking states, while
+all current-attempt, signing and publication authority stays false. It is not
+integrated into current main check/plan or the catalog's pinned callers.
+
 ## Check account and visibility
 
 For GitHub.com on current plans, the documented platform matrix is:
@@ -73,10 +79,14 @@ Replace `OWNER/REPO` with the intended repository and use the configured scoped
 identity locally. On the owner's workstation, prefix the command with `rtk proxy`.
 Never put a token value in a command, guide or receipt.
 
-The API documents a successful enabled response with `enabled: true` and
-`enforced_by_owner`; disabled settings return 404. Retain HTTP outcome, repository,
-observer role and time. If visibility/permission is uncertain, a 404 is not a
-positive capability observation; 403 or a failed read leaves the gate unproven.
+The API documents an enabled response with `enabled: true` and
+`enforced_by_owner`, and lists 404 for a disabled setting. A manual read of
+Armorer on 2026-10-02 America/Los_Angeles using the sample's API version instead
+returned HTTP 200 with `enabled: false` and `enforced_by_owner: false`.
+Treat explicit false as disabled and retain the actual response; do not rely on
+status 200 alone. Retain HTTP outcome, repository, observer role and time.
+If visibility/permission is uncertain, a 404 cannot distinguish an absent or
+disabled resource from a hidden one. A 403 or failed read leaves the gate unproven.
 This sample reads settings only. See
 [the endpoint and Administration-read requirement](https://docs.github.com/en/rest/repos/repos#check-if-immutable-releases-are-enabled-for-a-repository).
 
@@ -105,6 +115,14 @@ positive evidence for that same capability, with enforced state. A JSON producer
 record or a settings screenshot alone does not authenticate the whole gate.
 The [capability contract](trust-contracts-v1.md#capabilities-prerequisites-and-lifecycle)
 defines consistency checks; the future preflight must authenticate observations.
+The candidate observer reports prerequisite `configured`/`disabled`/`denied`/
+`unknown`/`error` states. Those adapter observations do not supply the frozen
+capability contract's release enforcement or current-job authorization.
+
+The same manual snapshot returned 404 for both Armorer release environments.
+Their visibility/existence remains unproven under that read identity. These
+read-only observations changed no setting and establish no protected current-job
+approval or production credential binding.
 
 Keep credential **names**, scopes, ownership and approval boundaries in the
 eventual adapter setup guide. The owner provisions values locally. Presence cannot

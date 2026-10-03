@@ -10,6 +10,9 @@ Main is `96457ee418439dde097339cfcd374c08f2cc98ad`; the combined candidate is
 `brianluby/armorer-workflows@772ca83e386c883c88cc3b936d69f8cb3216c91e`.
 Candidate guides remain separate from main's commands. Preserve source identities
 when these boundaries change.
+The separately reviewed workflow candidate is
+`853437cb1c9cbb9a60b2186ebb637ce56d3f6b51`; its observer and unsigned intake do
+not change the embedded workflow pin or grant protected production authority.
 
 Count what stands. Keep the missing proof visible. **This is the way.**
 
@@ -26,9 +29,9 @@ Neither word supplies production qualification.
 | Onboarding for library, CLI and service | [Onboarding](onboarding.md), [profiles](profiles.md), [workspace example](../examples/profile-workspace/README.md); validated metadata selections and temporary native fixture builds | Accepted full packaging/release adoption remains pending |
 | New versus existing adoption | [Profiles](profiles.md#bring-an-existing-project), [candidate bootstrap](candidate-bootstrap.md), [candidate upgrades](candidate-upgrades.md); unowned/owned conflicts and preserved custom files tested | Promote candidate commands only after accepted integration; qualify adopter-specific prerequisites |
 | Public/private account and capability matrix | [Platform guide](platform-prerequisites.md); primary GitHub sources and explicit adapter limitations | Authenticated preflight, private-positive qualification and repository-specific effective settings |
-| Manual settings and required scopes | [Platform guide](platform-prerequisites.md#inspect-release-immutability); documented Administration-read endpoint and unknown/403 behavior | Accepted scoped identity adapter and fresh authenticated observations near publication |
-| Exact credential names and local setup without collection | [Credential boundaries](credential-boundaries.md); pinned CI/build source needs no provisioned secrets, manual admin-read uses owner's configured identity | Exact names/provider setup for future signing, preflight and publishing adapters remain undefined |
-| Apple approvals and rotation | [Credential boundaries](credential-boundaries.md#review-signing-approval-before-releasing-credentials); decision sequence and protected-environment duties prepared | Accepted production adapter, exact secret bindings, effective approvals and hosted rotation/handoff rehearsal |
+| Manual settings and required scopes | [Platform guide](platform-prerequisites.md#inspect-release-immutability), [candidate observer](candidate-workflow-prerequisites.md); Administration-read endpoint, exact prerequisite states and bounded native qualification | Accepted production scoped identity integration and fresh observations near publication; current-attempt approval remains unsupported |
+| Exact credential names and local setup without collection | [Credential boundaries](credential-boundaries.md); current CI/build needs no provisioned secrets; candidate qualification uses ephemeral `ARMORER_READ_TOKEN` and isolated `GH_TOKEN` | Production administrative-read, signing and publishing credential names/provider setup remain undefined |
+| Apple approvals and rotation | [Credential boundaries](credential-boundaries.md#review-signing-approval-before-releasing-credentials), [unsigned intake](candidate-workflow-prerequisites.md); complete frozen handoff and decision sequence prepared | Accepted protected signing adapter, exact secret bindings, effective approvals and hosted production rotation/handoff rehearsal |
 | Check/plan/apply examples | [Main CLI](cli-reference.md), [onboarding](onboarding.md), [apply](apply.md); validated read-only discovery, exact preview, digest/ownership/recovery boundaries | No multi-file authority is implied by main's toolchain-only plan |
 | Upgrade/migration examples | [Candidate upgrades](candidate-upgrades.md); all-profile integrated same-catalog migration and preserved customization/reversal tests | Accepted CLI integration and actual two-accepted-catalog migration evidence |
 | Exact-byte verification and per-artifact claims | [Trust contracts](trust-contracts-v1.md), [offline verifier](offline-verifier.md), [candidate complete verifier](candidate-verification.md); independent authority, exact artifact scope and native-v3 resolved root features with no fallback | Own complete genuine signed positive/negative producer/consumer qualification and production authority |
@@ -86,7 +89,7 @@ the documented 0/2 statuses and four open findings. All 172 copied files match
 the original archive plus supplied config; no build output or consumer mutation
 was created. This is discovery evidence, not a signed release rehearsal.
 
-The expanded guide set passes checks for 43 Markdown files, local file/heading
+The expanded guide set passes checks for 45 Markdown files, local file/heading
 links, balanced fences, shell syntax and the parsed dogfood TOML. This validation
 checks documentation structure and the described current exercise; it does not
 exercise a missing protected release adapter.
@@ -96,6 +99,14 @@ pinned nested CI workflow. The credential guide records the actual no-secret,
 contents-read interfaces. No credential value, provider setting or pilot checkout
 was inspected or changed. Armorer's release list is empty; private vulnerability
 reporting still returns disabled. The pending channel question remains unresolved.
+
+The separate workflow candidate's capability and unsigned intake native runs
+pass on Linux x64, Linux ARM and macOS at exact head `853437cb1c9c`. Local
+capability and validator-build-step suites pass 19 and three tests respectively.
+The 24-test intake suite could not load locally because `jsonschema` is absent;
+no local intake result or complete own signed rehearsal is inferred from hosted
+qualification. The [workflow review](../reviews/2026-10-02-workflow-prerequisites.md)
+records this source boundary and the two distinct runs.
 
 ## Next actions require their own evidence
 
