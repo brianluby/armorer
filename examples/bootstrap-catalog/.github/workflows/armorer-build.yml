@@ -1,0 +1,15 @@
+name: Armorer unsigned build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: armorer-build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    uses: brianluby/armorer-workflows/.github/workflows/rust-build.yml@772ca83e386c883c88cc3b936d69f8cb3216c91e

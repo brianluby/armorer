@@ -23,6 +23,9 @@ struct Cli {
 enum Operation {
     /// Validate selections and report unmet setup requirements (JSON; exit 2 until ready).
     Check,
+    /// Print the authenticated embedded bootstrap tool/workflow catalog (no downloads).
+    Catalog,
+
     /// Preview changes without writing repository files (JSON).
     Plan {
         /// Include exact before/proposed text and complete diffs in a review envelope.
@@ -81,6 +84,10 @@ enum SchemaKind {
 /// conversion failures to `Error::Json`; output is left to the caller.
 fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
     match cli.command {
+        Operation::Catalog => Ok((
+            serde_json::to_value(armorer::catalog::reviewed()?).map_err(|_| Error::Json)?,
+            0,
+        )),
         Operation::Schema { kind } => {
             let schema = match kind {
                 SchemaKind::Config => schemars::schema_for!(Config),
