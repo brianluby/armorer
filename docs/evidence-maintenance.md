@@ -21,6 +21,7 @@ root_packet=$(mktemp -d) || exit 1
   > "$root_packet/trusted-root.candidate.jsonl"
 root_export_status=$?
 printf 'Root export exit status: %s\n' "$root_export_status"
+test "$root_export_status" -eq 0 || exit "$root_export_status"
 ```
 
 Only exit 0 supplies a candidate export to review. A failed or partial export is

@@ -17,17 +17,17 @@ dependencies. Inspection does not build or execute it.
 ```sh
 armorer_binary="$PWD/target/debug/armorer"
 armorer_training_root="$(mktemp -d /tmp/armorer-training.XXXXXX)" || exit 1
-mkdir "$armorer_training_root/src"
-cat > "$armorer_training_root/Cargo.toml" <<'TOML'
+mkdir "$armorer_training_root/src" || exit 1
+cat > "$armorer_training_root/Cargo.toml" <<'TOML' || exit 1
 [package]
 name = "training-cli"
 version = "0.1.0"
 edition = "2024"
 TOML
-cat > "$armorer_training_root/src/main.rs" <<'RUST'
+cat > "$armorer_training_root/src/main.rs" <<'RUST' || exit 1
 fn main() { println!("This is the way."); }
 RUST
-cat > "$armorer_training_root/armorer.toml" <<'TOML'
+cat > "$armorer_training_root/armorer.toml" <<'TOML' || exit 1
 schema_version = 1
 repository = "example/training-cli"
 toolchain = "1.95.0"
@@ -50,8 +50,8 @@ license_file = "LICENSE"
 attestations = "required"
 TOML
 "$armorer_binary" --repository "$armorer_training_root" plan \
-  > "$armorer_training_root-plan.json"
-cat "$armorer_training_root-plan.json"
+  > "$armorer_training_root-plan.json" || exit 1
+cat "$armorer_training_root-plan.json" || exit 1
 "$armorer_binary" --repository "$armorer_training_root" check
 ```
 

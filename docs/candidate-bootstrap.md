@@ -27,7 +27,7 @@ Set the first two paths to your reviewed accepted checkout and its compiled bina
 candidate_checkout=/path/to/reviewed-accepted-checkout
 armorer_candidate=/path/to/reviewed-accepted-binary
 training_dir=$(mktemp -d) || exit 1
-cp -R "$candidate_checkout/examples/bootstrap-v2/cli" "$training_dir/project"
+cp -R "$candidate_checkout/examples/bootstrap-v2/cli" "$training_dir/project" || exit 1
 project="$training_dir/project"
 policy="$project/ci-policy.reviewed.toml"
 if "$armorer_candidate" --repository "$project" bootstrap check --policy "$policy"; then

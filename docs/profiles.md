@@ -33,10 +33,10 @@ from the Armorer checkout in a POSIX shell:
 ```sh
 armorer_binary="$PWD/target/debug/armorer"
 armorer_profile_root="$(mktemp -d /tmp/armorer-profiles.XXXXXX)" || exit 1
-cp -R examples/profile-workspace/. "$armorer_profile_root/"
+cp -R examples/profile-workspace/. "$armorer_profile_root/" || exit 1
 "$armorer_binary" --repository "$armorer_profile_root" plan \
-  > "$armorer_profile_root-plan.json"
-cat "$armorer_profile_root-plan.json"
+  > "$armorer_profile_root-plan.json" || exit 1
+cat "$armorer_profile_root-plan.json" || exit 1
 "$armorer_binary" --repository "$armorer_profile_root" check
 ```
 
