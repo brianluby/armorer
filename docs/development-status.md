@@ -107,8 +107,15 @@ only the issuer helper and its two Node test files. It rejects four inherited
 startup transport variables before OIDC credential reads/HTTP. Review and local
 compatibility evidence are in the same continuation; each new hosted run retains
 its own result. All three prerequisite and unsigned-intake jobs pass at
-`3fac9a1cef3d`; runtime-validation and combined runs were queued at the retained
-observation. No combined positive is inferred.
+`3fac9a1cef3d`; the formerly queued runtime-validation run now passes all 12
+jobs and the same combined run passes all 33 jobs, including all three native
+collection/writer joins. The [transport continuation](../reviews/2026-10-03-workflow-transport-cleanup.md)
+retains that terminal receipt and a reproduced shared-adapter cleanup fault at
+`3fac9a1cef3d`: its leader-status guard leaves a pipe-holding descendant running
+in an owned timeout control. Successor `b2b9fbc9846d5aa4bf1dbdb8e8618bddad25e23c`
+repairs that shared guard and adds the base-adapter regression in a two-file patch.
+Its 32 affected local tests, separate prerequisite/intake jobs and all 12 runtime
+jobs pass; the earlier joined success supplies no terminal result for its new combined run.
 
 ## Integrate with care
 
@@ -137,9 +144,9 @@ Keep every earned protection. **This is the way.**
 
 ## Earn the release
 
-Documentation head `c2cc95b31b509511b9c803a0fc9fe4a5a0e7e273` passed all three
+Documentation head `f872f0c1eec363fdd8838f98fd7435b6a3c7791a` passed all three
 Development jobs in
-[run 37106974827](https://github.com/brianluby/armorer/actions/runs/37106974827),
+[run 37107732903](https://github.com/brianluby/armorer/actions/runs/37107732903),
 including genuine-signature fixtures, schema checks and workflow audits. That
 receipt covers the documented main runtime and training additions at that exact
 head. It does not accept #21 or qualify a complete signed release.

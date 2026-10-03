@@ -89,7 +89,7 @@ effective current-attempt approvals and rotation remain unqualified.
 ## Match the candidate helper's exact read interface
 
 These interfaces belong to workflow candidate
-[`3fac9a1cef3d9a5c4ac6f5c79c99d9255f63200a`](https://github.com/brianluby/armorer-workflows/tree/3fac9a1cef3d9a5c4ac6f5c79c99d9255f63200a).
+[`b2b9fbc9846d5aa4bf1dbdb8e8618bddad25e23c`](https://github.com/brianluby/armorer-workflows/tree/b2b9fbc9846d5aa4bf1dbdb8e8618bddad25e23c).
 They are not generated main callers or production signing-secret definitions.
 Use the fixed helper's declared name; a similarly named variable does not supply
 the same interface.

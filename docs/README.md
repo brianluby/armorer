@@ -77,6 +77,8 @@ The [identity-interface continuation](../reviews/2026-10-03-identity-prerequisit
 checks implemented credential names and original-proof export lifetimes.
 The [cleanup continuation](../reviews/2026-10-03-workflow-cleanup.md) retains the
 latest process/schema regressions and failed Linux collection receipt.
+The [transport continuation](../reviews/2026-10-03-workflow-transport-cleanup.md)
+records the successor's terminal joined rehearsal, shared-reader fault and tested successor repair.
 
 Contributors follow [the contributor guide](../CONTRIBUTING.md) and
 [the writing creed](writing-guide.md). Update behavior guides when behavior

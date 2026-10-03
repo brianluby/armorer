@@ -1,7 +1,7 @@
 # Bring the whole cargo. Prove who carried it.
 
 Candidate guide: workflow source
-[`3fac9a1cef3d9a5c4ac6f5c79c99d9255f63200a`](https://github.com/brianluby/armorer-workflows/tree/3fac9a1cef3d9a5c4ac6f5c79c99d9255f63200a).
+[`b2b9fbc9846d5aa4bf1dbdb8e8618bddad25e23c`](https://github.com/brianluby/armorer-workflows/tree/b2b9fbc9846d5aa4bf1dbdb8e8618bddad25e23c).
 Armorer's embedded workflow pin remains `772ca83e386c883c88cc3b936d69f8cb3216c91e`.
 These internal interfaces prepare a fixed controller. They are not main CLI
 commands or an accepted protected release procedure.
@@ -134,8 +134,8 @@ keeps its historical source and receipts. This guide adds no live private
 producer-OIDC positive, complete signed rehearsal or human acceptance.
 The [final payload guide](candidate-final-payloads.md) follows the fixed
 transformation/inventory order and its unverified result. Read the exact candidate
-[combined contract](https://github.com/brianluby/armorer-workflows/blob/3fac9a1cef3d9a5c4ac6f5c79c99d9255f63200a/docs/combined-handoff-v1.md)
-and [policy contract](https://github.com/brianluby/armorer-workflows/blob/3fac9a1cef3d9a5c4ac6f5c79c99d9255f63200a/docs/independent-policy-v1.md)
+[combined contract](https://github.com/brianluby/armorer-workflows/blob/b2b9fbc9846d5aa4bf1dbdb8e8618bddad25e23c/docs/combined-handoff-v1.md)
+and [policy contract](https://github.com/brianluby/armorer-workflows/blob/b2b9fbc9846d5aa4bf1dbdb8e8618bddad25e23c/docs/independent-policy-v1.md)
 before qualifying an integration.
 
 Earn each proof. Hold the remaining gates. **This is the way.**
@@ -194,3 +194,32 @@ or policy siblings cannot substitute for failed collection. The
 step outcomes without attributing an unproven root cause.
 
 Keep the failure visible. Earn the whole handoff again. **This is the way.**
+
+## Preserve the shared-reader fault and its repair
+
+At `3fac9a1cef3d`, the source/controller/mapped-worker readers have the
+exited-leader group cleanup repair. The shared `QualifiedGhApi` used for artifact
+and policy collection still gates group termination on a live leader. An owned
+fault control reproduces a surviving pipe-holding descendant after read timeout.
+The [transport review](../reviews/2026-10-03-workflow-transport-cleanup.md) records
+the exact method, affected callers and fixture limitation; it does not establish
+that pinned genuine `gh` creates this fault. A failed read supplies no completed
+cleanup proof. Qualify the shared reader repair before relying on complete native
+process-group termination; retain exact source/job/byte and credential bounds.
+
+At `3fac9a1cef3d`, the [combined run](https://github.com/brianluby/armorer-workflows/actions/runs/37107472496)
+now passes all 33 jobs, including all three collection/writer joins for its fixed
+nine-selection/eighteen-archive fixture. Its [runtime run](https://github.com/brianluby/armorer-workflows/actions/runs/37107472105)
+passes all 12 jobs. These receipts are separate from the earlier failed attempt
+and the cleanup fault at that head. No live protected producer or complete signed
+release is earned by either receipt.
+
+Successor `b2b9fbc9846d` removes the shared reader's live-leader guard and adds
+its own exited-leader regression. It still uses the fixed request/credential
+boundary; workflow/action/tool/lock pins are unchanged. The same method now
+attempts group termination on exit and timeout. The [transport review](../reviews/2026-10-03-workflow-transport-cleanup.md)
+records 32 passing affected tests and exact-host receipts; this does not contain a child
+that escapes its process group or prove descendant termination when the OS denies
+signaling. Review those assumptions before granting protected operation authority.
+
+Finish the cleanup. Keep the failure visible. **This is the way.**

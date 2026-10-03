@@ -11,7 +11,7 @@ Main is `96457ee418439dde097339cfcd374c08f2cc98ad`; the combined candidate is
 Candidate guides remain separate from main's commands. Preserve source identities
 when these boundaries change.
 The separately reviewed workflow integration candidate is
-`3fac9a1cef3d9a5c4ac6f5c79c99d9255f63200a`; its observer and unsigned intake do
+`b2b9fbc9846d5aa4bf1dbdb8e8618bddad25e23c`; its observer and unsigned intake do
 not change the embedded workflow pin or grant protected production authority.
 
 Count what stands. Keep the missing proof visible. **This is the way.**
@@ -54,10 +54,10 @@ Earn the last column. **This is the way.**
 
 ## Retained validation boundary
 
-Documentation head `c2cc95b31b509511b9c803a0fc9fe4a5a0e7e273` passes formatting,
+Documentation head `f872f0c1eec363fdd8838f98fd7435b6a3c7791a` passes formatting,
 strict Clippy, locked build and 95 local tests, with one genuine Sigstore test
 ignored locally. Its Linux x64, Linux ARM and macOS Development jobs all pass in
-[run 37106974827](https://github.com/brianluby/armorer/actions/runs/37106974827),
+[run 37107732903](https://github.com/brianluby/armorer/actions/runs/37107732903),
 including genuine-signature fixtures, schema checks and workflow audits. This
 receipt belongs to [draft #22](https://github.com/brianluby/armorer/pull/22), whose
 main runtime source is unchanged; it supplies no candidate-integration or complete
@@ -98,7 +98,7 @@ the documented 0/2 statuses and four open findings. All 172 copied files match
 the original archive plus supplied config; no build output or consumer mutation
 was created. This is discovery evidence, not a signed release rehearsal.
 
-The expanded guide set passes checks for 51 Markdown files, 346 local links
+The expanded guide set passes checks for 52 Markdown files, 355 local links
 (including 37 heading links), balanced fences and 29 shell blocks. The retained
 parsed dogfood TOML validation is unchanged. This validation
 checks documentation structure and the described current exercise; it does not
@@ -135,6 +135,17 @@ and execution of the workflow's schema code. Its all-host prerequisite/intake an
 The earlier successful joined fixture cannot qualify that failed attempt.
 Successor `3fac9a1cef3d` passes 12 issuer and 13 mapped Node tests locally,
 including startup-transport rejection before OIDC credential reads/HTTP.
+
+The [transport continuation](../reviews/2026-10-03-workflow-transport-cleanup.md)
+retains the same `3fac9a1cef3d` runtime/combined runs reaching success: all 12
+runtime jobs and all 33 combined jobs, including all three writer joins, pass.
+A separate owned fault control reproduces incomplete exited-leader cleanup in
+shared `QualifiedGhApi`; the capability adapter's actual `response` control
+passes. Successor `b2b9fbc9846d` repairs the shared guard and passes 32 cleanup/
+build/policy/combined transport tests; all 12 runtime jobs and all three jobs in
+each prerequisite/intake run pass. Its separate combined run remains live at the
+retained observation. No genuine native-tool exploitation or complete signed
+release is inferred.
 
 ## Next actions require their own evidence
 

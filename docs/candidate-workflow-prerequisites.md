@@ -1,7 +1,7 @@
 # Inspect the handoff before opening the vault
 
 Candidate source: `brianluby/armorer-workflows`
-[`3fac9a1cef3d9a5c4ac6f5c79c99d9255f63200a`](https://github.com/brianluby/armorer-workflows/tree/3fac9a1cef3d9a5c4ac6f5c79c99d9255f63200a),
+[`b2b9fbc9846d5aa4bf1dbdb8e8618bddad25e23c`](https://github.com/brianluby/armorer-workflows/tree/b2b9fbc9846d5aa4bf1dbdb8e8618bddad25e23c),
 the reviewed successor in workflow integration PR #21, preserving the stack through #20.
 The catalog still pins accepted workflow main `772ca83e386c883c88cc3b936d69f8cb3216c91e`.
 This guide prepares review of internal candidate interfaces. Armorer's current
@@ -105,7 +105,7 @@ paths become invalid outside the context manager.
 The upstream combined collector has a smaller current bound: 1–32 selections and
 2–64 artifacts on one page. Its bound governs that composed path. The intake's
 64-selection limit cannot expand the collector or justify subset verification.
-See the [exact combined collector contract](https://github.com/brianluby/armorer-workflows/blob/3fac9a1cef3d9a5c4ac6f5c79c99d9255f63200a/docs/combined-handoff-v1.md).
+See the [exact combined collector contract](https://github.com/brianluby/armorer-workflows/blob/b2b9fbc9846d5aa4bf1dbdb8e8618bddad25e23c/docs/combined-handoff-v1.md).
 
 Apple CLI/service payloads must be thin little-endian ARM64 Mach-O executables
 with a bounded executable entry, the fixed loader and an explicit macOS platform
@@ -118,16 +118,16 @@ notarization result. Library source archives remain opaque.
 The final assembler still rejects unsigned Apple executables. Intake success
 reports `unsigned-apple-payloads-inspected`, retains exact bytes and keeps producer,
 writer, catalog, protected-environment, cryptographic, signing and publication
-authority false. The [exact intake contract](https://github.com/brianluby/armorer-workflows/blob/3fac9a1cef3d9a5c4ac6f5c79c99d9255f63200a/docs/apple-payload-intake-v1.md)
+authority false. The [exact intake contract](https://github.com/brianluby/armorer-workflows/blob/b2b9fbc9846d5aa4bf1dbdb8e8618bddad25e23c/docs/apple-payload-intake-v1.md)
 defines the supported format and file-reader assumptions.
 
 Carry the whole handoff. Accept no missing sibling. **This is the way.**
 
 ## Keep qualification and production evidence separate
 
-At reviewed successor `3fac9a1cef3d`, all three native jobs pass in the
-[prerequisite qualification run](https://github.com/brianluby/armorer-workflows/actions/runs/37107472089)
-and [unsigned intake run](https://github.com/brianluby/armorer-workflows/actions/runs/37107472088).
+At reviewed successor `b2b9fbc9846d`, all three native jobs pass in the
+[prerequisite qualification run](https://github.com/brianluby/armorer-workflows/actions/runs/37108079026)
+and [unsigned intake run](https://github.com/brianluby/armorer-workflows/actions/runs/37108079033).
 The first uses an unprivileged workflow token; the second qualifies unsigned
 fixtures and actual native payload shape without executing them. Linux intake
 success does not establish an Apple native positive.
@@ -148,7 +148,10 @@ nonempty schema validity alone cannot prove the complete expected selection set.
 The `9d857a80f094` combined rehearsal fails Linux x64/ARM collection while macOS passes;
 it is distinct from the preceding all-host success. Successor `3fac9a1cef3d` adds
 the [OIDC startup environment guard](credential-boundaries.md#match-the-candidate-helpers-exact-read-interface);
-its new hosted receipts are separate. Hosted qualification remains
+its new hosted receipts are separate. The [transport continuation](../reviews/2026-10-03-workflow-transport-cleanup.md)
+records the preceding `3fac9a1cef3d` joined success and its shared-reader fault,
+then the two-file `b2b9fbc9846d` cleanup repair and separate hosted receipts. The
+capability adapter uses its own `response` entry point and cleanup. Hosted qualification remains
 separate from an Armorer own signed rehearsal.
 
 Required next evidence includes accepted controller/context/catalog/root,
