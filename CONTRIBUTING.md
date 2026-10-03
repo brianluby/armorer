@@ -14,9 +14,10 @@ cargo build --locked
 If workstation configuration sets an unavailable compiler wrapper, set `RUSTC_WRAPPER` to an empty value. Ensure PATH resolves the pinned toolchain rather than a system installation. CI places the toolchain's bin directory first.
 
 Regenerate schemas after changing serialized contracts. Build the checkout's
-binary in a fixed target directory and stage all 23 outputs before replacing
+binary in a fixed target directory and stage all 24 outputs before replacing
 committed files. Missing binaries or failed generation preserve the old schemas;
-an installed `armorer` on PATH is never used:
+an installed `armorer` on PATH is never used. Stage the whole set. Keep the old
+schemas if generation fails. **This is the way.**
 
 ```sh
 (
@@ -36,7 +37,7 @@ an installed `armorer` on PATH is never used:
     cargo-graph-v2:cargo-graph-v2 verification-context:verification-context-v1 \
     native-catalog-v2:native-catalog-v2 runtime-distribution-v1:runtime-distribution-v1 \
     verification-context-v2:verification-context-v2 \
-+    verification-context-v3:verification-context-v3; do
+    verification-context-v3:verification-context-v3; do
     kind="${entry%%:*}"
     filename="${entry#*:}"
     target/debug/armorer schema "$kind" > "$armorer_schema_staging/$filename.json"
