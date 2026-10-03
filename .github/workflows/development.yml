@@ -51,8 +51,11 @@ jobs:
             target/debug/armorer schema "$kind" > "/tmp/armorer-$kind.json"
             diff -u "schemas/$kind-v1.json" "/tmp/armorer-$kind.json"
           done
+          target/debug/armorer schema cargo-graph-v2 > /tmp/armorer-cargo-graph-v2.json
+          diff -u schemas/cargo-graph-v2.json /tmp/armorer-cargo-graph-v2.json
       - name: Independently validate example schemas
         run: |
           python3 -m venv /tmp/armorer-schema-venv
           /tmp/armorer-schema-venv/bin/python -m pip install --require-hashes --only-binary=:all: -r requirements-schema.txt
           /tmp/armorer-schema-venv/bin/python scripts/validate-contract-examples.py
+          /tmp/armorer-schema-venv/bin/python scripts/validate-graph-v2.py
