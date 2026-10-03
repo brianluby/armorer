@@ -1,5 +1,8 @@
 # Synthetic version-one trust examples
 
+Train on fixtures. Bring real evidence to a release.
+**This is the way.**
+
 **Every credential-free pin, bundle, root, review, Apple assertion and platform
 reference here is synthetic and unauthenticated. Do not install these pins or
 use these policies for releases.** Asset bytes in integrity tests are exactly
@@ -26,3 +29,5 @@ Regenerate deterministic data with `python3 scripts/generate-contract-fixtures.p
 Run `cargo test --locked --test trust_contracts`. Schema export/consistency is
 checked for every old and new schema. [Contract reference](../../docs/trust-contracts-v1.md)
 describes structural/semantic/runtime gates and handoffs.
+
+Keep the synthetic label attached to every result. **This is the way.**

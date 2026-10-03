@@ -9,6 +9,8 @@ Know your task. Take the guide that serves it. Keep the evidence close.
 Read [onboarding](onboarding.md) for your first inspection, then
 [the CLI reference](cli-reference.md) for exact commands and status codes.
 Use [apply and recovery](apply.md) when you are ready to approve a local change.
+Read [the bootstrap catalog](bootstrap-catalog.md) to inspect reviewed pins and
+[the offline verifier](offline-verifier.md) to understand individual evidence proofs.
 These guides describe the implementation on `main`; the
 [development map](development-status.md) marks work still under PR review.
 
@@ -21,6 +23,8 @@ These guides describe the implementation on `main`; the
 | [Trust examples](../examples/trust-v1/README.md) | Synthetic examples for contract validation |
 | [Architecture](../ARCHITECTURE.md) | Accepted design direction and proposed future interfaces |
 | [Implementation plan](../IMPLEMENTATION_PLAN.md) | Delivery slices, operational gates and pilot work |
+| [Documentation delivery plan](documentation-plan.md) | Current guides, remaining operational documentation and their implementation gates |
+| [Release readiness](release-readiness.md) | Required evidence and the operator's path through incomplete release gates |
 | [Research](../RESEARCH.md) | Dated primary-source research |
 | [Supply-chain assessment](supply-chain-assessment.md) | Optional defenses and publishing-adapter boundaries |
 

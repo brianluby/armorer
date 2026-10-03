@@ -1,5 +1,8 @@
 # Reviewed bootstrap catalog foundation
 
+Inspect the authority before you forge a lock. Keep each native target bound to
+its own bytes. **This is the way.**
+
 This #4 slice supplies an independently anchored, immutable bootstrap catalog,
 v1-compatible lock rendering and fixed CI/unsigned-build caller templates. It
 performs no adoption or consumer mutation. Explicit project policy and multi-file
@@ -45,6 +48,9 @@ The old v1 reader permits these identifier keys; existing imported unqualified
 locks are preserved and require an explicit #5 migration rather than silent rewrite.
 The workflow's pinned runtime tool catalog remains authoritative during download.
 
+Review the pins. Preserve existing locks until a migration is approved.
+**This is the way.**
+
 `caller_workflows` renders two fixed files shown in [examples](../examples/bootstrap-catalog/README.md).
 CI supports ordinary PR/push/manual events; the build caller is explicitly manual
 and unsigned. Both jobs pin the reviewed full workflow commit and grant only
@@ -75,6 +81,10 @@ write these callers or policy. Review an additive versioned provisioning plan
 and its compatibility boundary before extending mutation targets.
 
 ## Local candidate receipt — 2026-10-02
+
+This original receipt records the catalog slice before integration with other
+main changes. Preserve its counts and source scope; use
+[the development map](development-status.md) for the current merged boundary.
 
 Pinned Rust 1.95.0 locked build, fmt, strict all-target/all-feature Clippy and
 **75 tests** pass (9 library, 10 apply, 6 catalog, 24 inspection,
