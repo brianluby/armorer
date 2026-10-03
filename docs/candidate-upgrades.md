@@ -7,9 +7,10 @@ for command availability and remaining gates. The candidate label identifies
 this guide's original qualification boundary.
 
 Candidate guide: [PR #21 at `56d7380a5534`](https://github.com/brianluby/armorer/tree/56d7380a5534583b7973b5eedc55a1223b46b60e).
-Use the exact candidate binary, an isolated consumer and independently reviewed
-policy. These commands are absent from the current main CLI. Begin with
-[candidate bootstrap](candidate-bootstrap.md) for the example paths and policy.
+`upgrade` is available in accepted main. Use a binary built from a reviewed
+accepted checkout, an isolated consumer and independently reviewed policy. Use
+the exact source above only to reproduce its retained qualification. Begin with
+the [bootstrap walkthrough](candidate-bootstrap.md) for the example paths and policy.
 
 Every change needs its own approval. **This is the way.**
 

@@ -7,9 +7,10 @@ for command availability and remaining gates. The candidate label identifies
 this guide's original qualification boundary.
 
 Candidate guide: [PR #21 at `56d7380a5534`](https://github.com/brianluby/armorer/tree/56d7380a5534583b7973b5eedc55a1223b46b60e).
-Main has no complete-release or historical-comparison CLI. These procedures
-describe the reviewed candidate's commands. This successor repairs the earlier
-artifact-scope defect and adds independently approved resolved root features; the
+Accepted main provides `verify-release` and `verify-historical-bytes`. Use a binary
+built from a reviewed accepted checkout for current verification, or the exact
+source above to reproduce its retained qualification. That successor repaired the earlier
+artifact-scope defect and added independently approved resolved root features; the
 [feature-authority review](../reviews/2026-10-02-pr21-resolved-features.md) records
 that source boundary. Complete own signed producer/consumer qualification and
 production acceptance remain open. The latest
@@ -20,7 +21,7 @@ Inspect the evidence. Earn the verdict. **This is the way.**
 
 ## Supply authority through an independent path
 
-Set `armorer_candidate` to the exact candidate binary. Obtain the expected context
+Set `armorer_candidate` to the reviewed accepted binary. Obtain the expected context
 digest through independent review. Keep trusted inputs outside the downloaded
 asset directory and under separate ownership. Hashing a context offered with a
 release does not approve it.

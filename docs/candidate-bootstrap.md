@@ -7,25 +7,26 @@ for command availability and remaining gates. The candidate label identifies
 this guide's original qualification boundary.
 
 Candidate guide: [PR #21 at `56d7380a5534`](https://github.com/brianluby/armorer/tree/56d7380a5534583b7973b5eedc55a1223b46b60e).
-These commands are absent from the main source in the
-[development map](development-status.md). Use a binary built from that exact
-reviewed candidate. Keep production adoption behind its remaining review gates.
+`bootstrap` is available in accepted main. For current adoption, use a binary
+built from a reviewed accepted checkout as described in [onboarding](onboarding.md).
+Use the exact source above only when reproducing its retained qualification.
+Production adoption still requires the operational gates in the acceptance ledger.
 
 Know what you are carrying. **This is the way.**
 
 ## Inspect a training project
 
-The candidate contains dependency-free `library`, `cli` and `service` fixtures in
+Accepted main contains dependency-free `library`, `cli` and `service` fixtures in
 `examples/bootstrap-v2/`. Each has a Cargo.lock, license and explicit fixture-only
 CI policy. Copy one to temporary storage. Keep review packets outside the project.
 Rust 1.95.0 must already be installed; discovery never installs it.
 
-Set the first two paths to your reviewed checkout and its compiled binary:
+Set the first two paths to your reviewed accepted checkout and its compiled binary:
 
 ```sh
-candidate_checkout=/path/to/reviewed-candidate-checkout
-armorer_candidate=/path/to/reviewed-candidate-binary
-training_dir=$(mktemp -d)
+candidate_checkout=/path/to/reviewed-accepted-checkout
+armorer_candidate=/path/to/reviewed-accepted-binary
+training_dir=$(mktemp -d) || exit 1
 cp -R "$candidate_checkout/examples/bootstrap-v2/cli" "$training_dir/project"
 project="$training_dir/project"
 policy="$project/ci-policy.reviewed.toml"
