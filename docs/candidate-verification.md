@@ -1,11 +1,11 @@
 # Verify the cargo. Hold the trust boundary.
 
-Candidate guide: [PR #21 at `aff8c041c410`](https://github.com/brianluby/armorer/tree/aff8c041c410c79674c484fc29b8adbd2ca727b9).
+Candidate guide: [PR #21 at `0ef1145bf7d6`](https://github.com/brianluby/armorer/tree/0ef1145bf7d6fc8a92a276ace0fe13dc6dab0baa).
 Main has no complete-release or historical-comparison CLI. These procedures
 describe the reviewed candidate's commands. This successor repairs the earlier
-artifact-scope defect and passes the new scope regression; the
-[successor review](../reviews/2026-10-02-pr21-context-ordering.md) records that
-source boundary. Complete own signed producer/consumer qualification and
+artifact-scope defect and adds independently approved resolved root features; the
+[feature-authority review](../reviews/2026-10-02-pr21-resolved-features.md) records
+that source boundary. Complete own signed producer/consumer qualification and
 production acceptance remain open.
 
 Inspect the evidence. Earn the verdict. **This is the way.**
@@ -22,8 +22,9 @@ The trusted directory contains `armorer.toml`, `armorer.lock`, `Cargo.lock`,
 
 | Mode | Context file | Meaning |
 | --- | --- | --- |
-| `native-v2` | `armorer-verification-context-v2.json` | Runtime archive and target-specific native member authority |
-| `legacy-v1` | `armorer-verification-context.json` | Frozen catalog v1 and exact distribution identities; genuine signatures still required |
+| `native-v3` | `armorer-verification-context-v3.json` | Native v2 runtime authority plus an independently approved exact resolved root-feature set for every selection |
+| `native-v2` | `armorer-verification-context-v2.json` | Native runtime authority; defaults disabled and root features exactly equal to literal requests |
+| `legacy-v1` | `armorer-verification-context.json` | Frozen catalog v1 and exact distributions; the same literal feature restriction and genuine signatures still required |
 
 The digest binds configuration/lock/catalog/policy, source/ref, caller and reusable
 signer pins, run/attempt, selected deliverables, native validator and evidence
@@ -36,7 +37,7 @@ not establish accepted production roots or upstream tool authenticity.
   --directory /path/to/downloaded-release \
   --trusted-inputs /path/to/independently-reviewed-inputs \
   --expect-context-sha256 "$approved_context_sha256" \
-  --context-kind native-v2 \
+  --context-kind native-v3 \
   --gh /path/to/qualified/gh \
   --trusted-root /path/to/approved/trusted-root.json \
   --cyclonedx /path/to/qualified/cyclonedx
@@ -63,7 +64,7 @@ that gate. Library source packages do not require executable signing. Fixed
 codesign requests an online ticket check, but the system ticket store may supply
 the result; this establishes no fresh-service-response guarantee or authenticated
 producer submission UUID. See the
-[exact native Apple contract](https://github.com/brianluby/armorer/blob/aff8c041c410c79674c484fc29b8adbd2ca727b9/docs/apple-native-verification-v1.md).
+[exact native Apple contract](https://github.com/brianluby/armorer/blob/0ef1145bf7d6fc8a92a276ace0fe13dc6dab0baa/docs/apple-native-verification-v1.md).
 
 The implemented success report uses `status: authenticated-release-files`,
 `cryptographic_release_authenticated: true` and `provenance_verified: true` with
@@ -79,6 +80,52 @@ source/signer override or automatic historical fallback.
 
 Keep the evidence bound to the artifact. Hold the remaining acceptance gates.
 **This is the way.**
+
+## Approve every activated root feature
+
+Requested flags can activate other package features, and defaults can activate
+additional members. Review the complete set against separately reviewed immutable
+source, package, target, default-feature decision and requested flags.
+[Cargo's feature reference](https://doc.rust-lang.org/cargo/reference/features.html)
+explains that expansion. The downloaded graph cannot approve its own expectation.
+
+Native v3 retains the native catalog v2 and Cargo graph v2 formats. Its outer
+context adds `root_features`, keyed by `deliverable_id--target--feature_set`.
+Each selection needs one sorted, unique list. For a separately reviewed `extra`
+feature that activates `implied`, the relevant context fragment could be:
+
+```json
+{
+  "root_features": {
+    "app--x86_64-unknown-linux-gnu--optional": ["extra", "implied"]
+  }
+}
+```
+
+This fragment illustrates shape; it is neither a complete context nor an approval.
+Include every activated root feature, including default members when enabled.
+An independently approved empty set can cover a package without a default
+feature. Do not infer that absence from offered release bytes.
+
+The reader rejects missing/extra selection keys, duplicate or unsorted features,
+control characters, lists above 1,024 entries and omitted requested features.
+The graph's actual root set must equal the approved set; additions and omissions
+fail with `cargo-graph-resolved-feature-mismatch`. Approval digest checking still
+precedes JSON decoding and offered release/tool reads.
+
+Older contexts have no independent resolved-feature field. Default-enabled
+selections fail with `cargo-graph-resolved-feature-expectation-required`; expanded
+root sets fail with `cargo-graph-unapproved-root-feature`. Review a separate v3
+context for such selections. Keep the intended flags and defaults; an error does
+not authorize reducing the selection or trying another mode.
+
+The retained producer graph can aggregate host and target observations. V3 adds
+independent root-set authority; it does not remove that producer limitation or
+derive an approval from Cargo on the consumer. Review the limitation with the
+source and exact selection. See the
+[candidate contract](https://github.com/brianluby/armorer/blob/0ef1145bf7d6fc8a92a276ace0fe13dc6dab0baa/docs/resolved-root-features-v3.md).
+
+Approve the complete set. Accept no extra armor. **This is the way.**
 
 ## Compare historical bytes only by explicit decision
 
@@ -108,13 +155,14 @@ signer, provenance or build environment. Actual-clock policy/root/historical
 review validity is checked before and after comparison; the frozen policy's root
 review requirement does not mean this operation uses a signature verifier.
 
-The [source limits and recovery guide](https://github.com/brianluby/armorer/blob/aff8c041c410c79674c484fc29b8adbd2ca727b9/docs/historical-verification.md)
+The [source limits and recovery guide](https://github.com/brianluby/armorer/blob/0ef1145bf7d6fc8a92a276ace0fe13dc6dab0baa/docs/historical-verification.md)
 define byte/count/time bounds. Keep failed evidence and obtain corrected files or
 a newly independently approved policy. Explicit historical matching never becomes
 a fallback after authenticated verification fails.
 
-The [integration review](../reviews/2026-10-02-pr21-context-ordering.md) records ordinary
-tests and hosted native checks separately from the missing complete own signed
+The [feature-authority review](../reviews/2026-10-02-pr21-resolved-features.md) records
+focused local tests, the hosted ARM failure and contributor-guide finding
+separately from the missing complete own signed
 producer positive, protected Apple production, immutable publication and pilots.
 v0.1 targets SLSA Build L2. No candidate file report earns that level by itself.
 

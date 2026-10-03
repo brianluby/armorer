@@ -40,7 +40,7 @@ future operational scope or hosted Armorer dogfooding.
 | --- | --- | --- |
 | New/existing adoption for library, CLI and service | [Candidate bootstrap and recovery](candidate-bootstrap.md) at #21's exact head; all three integrated profile regressions and temporary guide procedures pass | Reviewed integration and accepted provisioning; local configuration is not release evidence |
 | Upgrade, migration and exact rollback | [Candidate upgrades](candidate-upgrades.md); integrated CLI and forward/reverse fault tests | Accepted integration; actual migration between two independently accepted catalogs |
-| Complete-release and historical verification | [Candidate verification](candidate-verification.md); explicit context/mode routing and repaired subject binding at `3a21085a5864` | Genuine complete positive/negative controls and independent acceptance |
+| Complete-release and historical verification | [Candidate verification](candidate-verification.md); repaired subject binding and explicit native-v3 resolved root-feature authority at `0ef1145bf7d6` | Genuine complete positive/negative controls and independent acceptance |
 | Native Apple consumer checks | Exact #21 consumer contract, limits and hosted native receipt | Accepted integration; protected production signing remains separate |
 | Account/visibility matrix and manual settings | Source-checked matrix and manual observation guide | Qualified preflight plus repository/account-specific evidence |
 | Credential names, scopes, approvals and rotation | [Credential guide](credential-boundaries.md): exact current no-secret interfaces, planned boundaries and rotation record | Reviewed protected adapters define exact names/scopes and qualify provider setup/rotation |

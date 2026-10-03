@@ -54,7 +54,7 @@ that candidate; they do not accept the entire stack or complete a release.
 | [#18: Complete-release CLI](https://github.com/brianluby/armorer/pull/18) | #17 | Explicit-context verification over the strict offline consumer | [`a5d19efa10b3`](https://github.com/brianluby/armorer/blob/a5d19efa10b3b5596930ad5eedb75ce7c18598a0/docs/verify-release-cli.md) |
 | [#19: Native Apple consumer](https://github.com/brianluby/armorer/pull/19) | #18 | Native Developer ID, team, certificate, hardened runtime, timestamp and ticket checks | [`6c0c3d192360`](https://github.com/brianluby/armorer/blob/6c0c3d192360b9dc983533f427babe323eb0baeb/docs/apple-native-verification-v1.md) |
 | [#20: Preview helper documentation](https://github.com/brianluby/armorer/pull/20) | main | Comments documenting existing preview helpers and regression tests | [`29c8e6fadf7f`](https://github.com/brianluby/armorer/blob/29c8e6fadf7f2c4e98eb67cbae42938e4e8b2b16/tests/preview.rs) |
-| [#21: Combined source](https://github.com/brianluby/armorer/pull/21) | main | Bootstrap, upgrades, preview and strict verification; repaired artifact scope and stronger context-first regression | [`aff8c041c410`](https://github.com/brianluby/armorer/blob/aff8c041c410c79674c484fc29b8adbd2ca727b9/docs/source-integration-v1.md) |
+| [#21: Combined source](https://github.com/brianluby/armorer/pull/21) | main | Bootstrap, upgrades, preview and strict verification; repaired artifact scope and independently approved resolved root features | [`0ef1145bf7d6`](https://github.com/brianluby/armorer/blob/0ef1145bf7d6fc8a92a276ace0fe13dc6dab0baa/docs/source-integration-v1.md) |
 
 Use the separately labelled candidate guides for [bootstrap](candidate-bootstrap.md),
 [upgrades and reversal](candidate-upgrades.md), and
@@ -74,8 +74,13 @@ The [successor review](../reviews/2026-10-02-integration-pr21-successor.md) reco
 its later repair without rewriting that first snapshot.
 The [test-only continuation](../reviews/2026-10-02-pr21-context-ordering.md)
 records the latest exact context-error ordering regression.
-It reconciles the original structural conflicts and assigns distinct ADRs 0009,
-0010 and 0011 in the candidate. Main still lacks those integrated interfaces.
+The [resolved-feature continuation](../reviews/2026-10-02-pr21-resolved-features.md)
+records the explicit native-v3 successor, exact root-feature comparison and a
+confirmed contributor schema-loop typo at the newer head. The candidate exposes
+24 schemas; main retains 14. Older contexts reject default/expanded feature sets
+instead of choosing an expectation from offered graphs.
+The combined candidate reconciles the original structural conflicts and assigns
+distinct ADRs 0009, 0010 and 0011. Main still lacks those integrated interfaces.
 
 Retain preview, catalog, bootstrap/upgrade and verification interfaces together.
 Retain each stack's schema, workflow-audit and genuine native integration gates.
@@ -97,7 +102,13 @@ Open #15–20 retain passing hosted Rust checks. #21's source-repair local suite
 integrations remain ignored locally. Its later test-only head `aff8c041c410`
 passes both integrated CLI tests locally. All three native hosted Rust jobs in
 [run 37101218059](https://github.com/brianluby/armorer/actions/runs/37101218059)
-report success at that latest head. Several
+report success at that head.
+That receipt belongs to `aff8c041c410`; the later resolved-feature head
+`0ef1145bf7d6` passes 30 focused graph/context/CLI tests and 25 trust-contract
+tests locally, but its ARM hosted bootstrap suite fails with transaction
+contention in [run 37102828787](https://github.com/brianluby/armorer/actions/runs/37102828787).
+The [feature review](../reviews/2026-10-02-pr21-resolved-features.md) records the
+failure and contributor schema-loop finding. Several
 automated reviews failed or skipped work; they supply no approval. The new Apple
 consumer's hosted reference checks do not implement protected Apple production.
 Its online ticket request does not guarantee a fresh service response or

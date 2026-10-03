@@ -6,7 +6,7 @@ and [ticket #14's local acceptance map](../IMPLEMENTATION_PLAN.md#14-open-source
 It is not a tracker update or ticket closure.
 
 Main is `96457ee418439dde097339cfcd374c08f2cc98ad`; the combined candidate is
-`aff8c041c410c79674c484fc29b8adbd2ca727b9`. The embedded workflow foundation is
+`0ef1145bf7d6fc8a92a276ace0fe13dc6dab0baa`. The embedded workflow foundation is
 `brianluby/armorer-workflows@772ca83e386c883c88cc3b936d69f8cb3216c91e`.
 Candidate guides remain separate from main's commands. Preserve source identities
 when these boundaries change.
@@ -31,7 +31,7 @@ Neither word supplies production qualification.
 | Apple approvals and rotation | [Credential boundaries](credential-boundaries.md#review-signing-approval-before-releasing-credentials); decision sequence and protected-environment duties prepared | Accepted production adapter, exact secret bindings, effective approvals and hosted rotation/handoff rehearsal |
 | Check/plan/apply examples | [Main CLI](cli-reference.md), [onboarding](onboarding.md), [apply](apply.md); validated read-only discovery, exact preview, digest/ownership/recovery boundaries | No multi-file authority is implied by main's toolchain-only plan |
 | Upgrade/migration examples | [Candidate upgrades](candidate-upgrades.md); all-profile integrated same-catalog migration and preserved customization/reversal tests | Accepted CLI integration and actual two-accepted-catalog migration evidence |
-| Exact-byte verification and per-artifact claims | [Trust contracts](trust-contracts-v1.md), [offline verifier](offline-verifier.md), [candidate complete verifier](candidate-verification.md); independent authority, scope and no subset/fallback rules | Own complete genuine signed positive/negative producer/consumer qualification and production authority |
+| Exact-byte verification and per-artifact claims | [Trust contracts](trust-contracts-v1.md), [offline verifier](offline-verifier.md), [candidate complete verifier](candidate-verification.md); independent authority, exact artifact scope and native-v3 resolved root features with no fallback | Own complete genuine signed positive/negative producer/consumer qualification and production authority |
 | Online/offline roots | [Evidence maintenance](evidence-maintenance.md); current primary root-export command, offline transport limits and independent policy/context renewal | Owner-approved production root export/import/renewal and applicable Apple online limits |
 | Explicit historical policy | [Candidate verification](candidate-verification.md#compare-historical-bytes-only-by-explicit-decision); exact source allowlist, weaker result and no modern fallback | Accepted integrated command and independently approved real historical identities |
 | Advisory outage behavior | [Evidence maintenance](evidence-maintenance.md#hold-the-gate-during-an-outage); pinned CI freshly fetches feeds and enforces offline checks/freshness | Qualified release evidence/controller resumption; local semantic checks alone cannot establish live CI behavior |
@@ -67,6 +67,17 @@ receipts separate from complete producer/publication acceptance; the
 [ordering continuation](../reviews/2026-10-02-pr21-context-ordering.md) records
 the latest test-only diff and exact-head run.
 
+The later `0ef1145bf7d6fc8a92a276ace0fe13dc6dab0baa` successor adds explicit v3
+resolved-feature authority. Its focused graph, release-context and integrated CLI
+suites pass 30 tests; three native integrations remain ignored in those local
+suites. All 23 earlier schema files are byte-identical and the added v3 exporter
+matches the committed schema. The
+[feature review](../reviews/2026-10-02-pr21-resolved-features.md) records that scope
+and a contributor schema-loop typo separately from operational acceptance. Its
+25 trust-contract tests also pass locally. The new candidate's hosted ARM
+bootstrap test fails with transaction contention; its earlier heads' green runs
+do not qualify this successor.
+
 The new own-source inspection exports documentation head
 `b2c50c216830cc8f1c9e3627e7b292f09220354a`, whose runtime source matches main,
 copies only explicit training intent into the temporary project, and validates
@@ -75,7 +86,7 @@ the documented 0/2 statuses and four open findings. All 172 copied files match
 the original archive plus supplied config; no build output or consumer mutation
 was created. This is discovery evidence, not a signed release rehearsal.
 
-The expanded guide set passes checks for 41 Markdown files, local file/heading
+The expanded guide set passes checks for 43 Markdown files, local file/heading
 links, balanced fences, shell syntax and the parsed dogfood TOML. This validation
 checks documentation structure and the described current exercise; it does not
 exercise a missing protected release adapter.

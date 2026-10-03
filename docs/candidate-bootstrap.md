@@ -1,6 +1,6 @@
 # Equip the candidate. Keep the approval.
 
-Candidate guide: [PR #21 at `aff8c041c410`](https://github.com/brianluby/armorer/tree/aff8c041c410c79674c484fc29b8adbd2ca727b9).
+Candidate guide: [PR #21 at `0ef1145bf7d6`](https://github.com/brianluby/armorer/tree/0ef1145bf7d6fc8a92a276ace0fe13dc6dab0baa).
 These commands are absent from the main source in the
 [development map](development-status.md). Use a binary built from that exact
 reviewed candidate. Keep production adoption behind its remaining review gates.
@@ -110,7 +110,7 @@ lock may remain, and byte restoration does not promise inode or timestamp
 restoration. Recover v1 transactions with v1 `recover`; use
 [candidate upgrades](candidate-upgrades.md) for explicit ownership migration.
 
-The [source contract and fault coverage](https://github.com/brianluby/armorer/blob/aff8c041c410c79674c484fc29b8adbd2ca727b9/docs/bootstrap-v2.md)
+The [source contract and fault coverage](https://github.com/brianluby/armorer/blob/0ef1145bf7d6fc8a92a276ace0fe13dc6dab0baa/docs/bootstrap-v2.md)
 give the detailed version limits. The
 [integration review](../reviews/2026-10-02-pr21-context-ordering.md) records exact-head
 tests, open findings and acceptance boundaries. Hosted production, final-byte
