@@ -122,7 +122,9 @@ historical reversal and uncommitted recovery. Restored bytes establish no
 historical authenticity or safe fallback after failed signature verification.
 
 The [exact source guide](https://github.com/brianluby/armorer/blob/0ef1145bf7d6fc8a92a276ace0fe13dc6dab0baa/docs/upgrades.md)
-and [integration review](../reviews/2026-10-02-pr21-context-ordering.md) retain detailed
-contracts, fault-test evidence and the missing two-accepted-catalog gate.
+and [previous review](../reviews/2026-10-02-pr21-context-ordering.md) retain detailed
+contracts, fault-test evidence and the missing two-accepted-catalog gate. The
+[latest review](../reviews/2026-10-02-pr21-resolved-features.md) keeps the new
+head's passing local tests separate from its hosted ARM failure.
 
 Keep both approvals. Keep every receipt. **This is the way.**

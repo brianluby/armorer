@@ -112,8 +112,11 @@ restoration. Recover v1 transactions with v1 `recover`; use
 
 The [source contract and fault coverage](https://github.com/brianluby/armorer/blob/0ef1145bf7d6fc8a92a276ace0fe13dc6dab0baa/docs/bootstrap-v2.md)
 give the detailed version limits. The
-[integration review](../reviews/2026-10-02-pr21-context-ordering.md) records exact-head
-tests, open findings and acceptance boundaries. Hosted production, final-byte
+[context-ordering review](../reviews/2026-10-02-pr21-context-ordering.md) retains
+the previous head's receipt. The
+[latest review](../reviews/2026-10-02-pr21-resolved-features.md) records the newer
+head's local tests, hosted ARM bootstrap failure and contributor-guide finding.
+Hosted production, final-byte
 producer evidence, publication and pilots remain separate gates.
 
 Preserve the journal. Protect the project. **This is the way.**
