@@ -1,6 +1,6 @@
 # Equip the candidate. Keep the approval.
 
-Candidate guide: [PR #21 at `0ef1145bf7d6`](https://github.com/brianluby/armorer/tree/0ef1145bf7d6fc8a92a276ace0fe13dc6dab0baa).
+Candidate guide: [PR #21 at `56d7380a5534`](https://github.com/brianluby/armorer/tree/56d7380a5534583b7973b5eedc55a1223b46b60e).
 These commands are absent from the main source in the
 [development map](development-status.md). Use a binary built from that exact
 reviewed candidate. Keep production adoption behind its remaining review gates.
@@ -105,17 +105,22 @@ Policy expiry cannot prevent uncommitted recovery. A commit-marker error retains
 final bytes and journal because persistence may be uncertain.
 
 Do not delete a journal to clear a conflict. `.armorer/apply.lock` serializes
-Armorer writers; it cannot serialize arbitrary editors. Empty parents and the
+Armorer writers; it cannot serialize arbitrary editors. The current candidate's
+guard explicitly unlocks when the operation ends, even if a duplicate descriptor
+remains temporarily open. A genuine active writer still blocks another writer;
+an empty persistent lock file is not an active transaction. Empty parents and the
 lock may remain, and byte restoration does not promise inode or timestamp
 restoration. Recover v1 transactions with v1 `recover`; use
 [candidate upgrades](candidate-upgrades.md) for explicit ownership migration.
 
-The [source contract and fault coverage](https://github.com/brianluby/armorer/blob/0ef1145bf7d6fc8a92a276ace0fe13dc6dab0baa/docs/bootstrap-v2.md)
+The [source contract and fault coverage](https://github.com/brianluby/armorer/blob/56d7380a5534583b7973b5eedc55a1223b46b60e/docs/bootstrap-v2.md)
 give the detailed version limits. The
 [context-ordering review](../reviews/2026-10-02-pr21-context-ordering.md) retains
 the previous head's receipt. The
-[latest review](../reviews/2026-10-02-pr21-resolved-features.md) records the newer
-head's local tests, hosted ARM bootstrap failure and contributor-guide finding.
+[feature review](../reviews/2026-10-02-pr21-resolved-features.md) retains the
+preceding head's failed ARM receipt. The
+[latest review](../reviews/2026-10-03-pr21-evidence-and-locks.md) records the lock
+repair, affected-scope tests and remaining contributor-guide finding.
 Hosted production, final-byte
 producer evidence, publication and pilots remain separate gates.
 

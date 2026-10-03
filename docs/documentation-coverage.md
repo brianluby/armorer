@@ -6,7 +6,7 @@ and [ticket #14's local acceptance map](../IMPLEMENTATION_PLAN.md#14-open-source
 It is not a tracker update or ticket closure.
 
 Main is `96457ee418439dde097339cfcd374c08f2cc98ad`; the combined candidate is
-`0ef1145bf7d6fc8a92a276ace0fe13dc6dab0baa`. The embedded workflow foundation is
+`56d7380a5534583b7973b5eedc55a1223b46b60e`. The embedded workflow foundation is
 `brianluby/armorer-workflows@772ca83e386c883c88cc3b936d69f8cb3216c91e`.
 Candidate guides remain separate from main's commands. Preserve source identities
 when these boundaries change.
@@ -37,7 +37,7 @@ Neither word supplies production qualification.
 | Exact-byte verification and per-artifact claims | [Trust contracts](trust-contracts-v1.md), [offline verifier](offline-verifier.md), [candidate complete verifier](candidate-verification.md); independent authority, exact artifact scope and native-v3 resolved root features with no fallback | Own complete genuine signed positive/negative producer/consumer qualification and production authority |
 | Online/offline roots | [Evidence maintenance](evidence-maintenance.md); current primary root-export command, offline transport limits and independent policy/context renewal | Owner-approved production root export/import/renewal and applicable Apple online limits |
 | Explicit historical policy | [Candidate verification](candidate-verification.md#compare-historical-bytes-only-by-explicit-decision); exact source allowlist, weaker result and no modern fallback | Accepted integrated command and independently approved real historical identities |
-| Advisory outage behavior | [Evidence maintenance](evidence-maintenance.md#hold-the-gate-during-an-outage); pinned CI freshly fetches feeds and enforces offline checks/freshness | Qualified release evidence/controller resumption; local semantic checks alone cannot establish live CI behavior |
+| Advisory outage behavior | [Evidence maintenance](evidence-maintenance.md#hold-the-gate-during-an-outage), [candidate producer evidence](candidate-producer-evidence.md); pinned CI fetch gate and candidate complete handoff/source/advisory freshness checks | Qualified authenticated release controller and resumption; unsigned consistency alone cannot establish protected production behavior |
 | Partial draft retry/conflict handling | [Release recovery](release-recovery.md#choose-the-recovery-branch); current receipt identity guards plus prepared decisions | Authenticated owned receipts, remote backend, serialized preconditions and fault/race qualification |
 | Post-publication incident/new-version recovery | [Release recovery](release-recovery.md#respond-to-a-published-failure), [incident record](release-incident-template.md); original evidence preserved, corrected version separate | Qualified backend, concrete owner-authorized incident actions and operational exercise |
 | Alias update failure | [Release recovery](release-recovery.md#resume-only-the-authorized-alias-change); separate immutable-release and alias evidence | Accepted alias adapter, newest-stable decision, authorization and exact readback/race tests |
@@ -54,10 +54,10 @@ Earn the last column. **This is the way.**
 
 ## Retained validation boundary
 
-Documentation head `6af9a20ca68a98c36a05b70a730a595a04a74c23` passes formatting,
+Documentation head `fea6a5eeb58614c2dff6cb1c26e129b568254cfb` passes formatting,
 strict Clippy, locked build and 95 local tests, with one genuine Sigstore test
 ignored locally. Its Linux x64, Linux ARM and macOS Development jobs all pass in
-[run 37102251043](https://github.com/brianluby/armorer/actions/runs/37102251043),
+[run 37104507124](https://github.com/brianluby/armorer/actions/runs/37104507124),
 including genuine-signature fixtures, schema checks and workflow audits. This
 receipt belongs to [draft #22](https://github.com/brianluby/armorer/pull/22), whose
 main runtime source is unchanged; it supplies no candidate-integration or complete
@@ -77,9 +77,18 @@ suites. All 23 earlier schema files are byte-identical and the added v3 exporter
 matches the committed schema. The
 [feature review](../reviews/2026-10-02-pr21-resolved-features.md) records that scope
 and a contributor schema-loop typo separately from operational acceptance. Its
-25 trust-contract tests also pass locally. The new candidate's hosted ARM
+25 trust-contract tests also pass locally. That candidate's hosted ARM
 bootstrap test fails with transaction contention; its earlier heads' green runs
 do not qualify this successor.
+
+The next successor `56d7380a5534583b7973b5eedc55a1223b46b60e` tightens exact
+tool/database observation and coverage-exception binding and releases transaction
+locks explicitly before descriptor closure. Its apply/bootstrap/upgrade/trust
+suites pass 73 tests locally. All three hosted Rust jobs pass in
+[run 37104573003](https://github.com/brianluby/armorer/actions/runs/37104573003).
+The [evidence and lock continuation](../reviews/2026-10-03-pr21-evidence-and-locks.md)
+retains that new receipt; it does not erase the earlier failure, fix the remaining
+contributor typo or qualify a complete own signed release.
 
 The new own-source inspection exports documentation head
 `b2c50c216830cc8f1c9e3627e7b292f09220354a`, whose runtime source matches main,
@@ -89,8 +98,9 @@ the documented 0/2 statuses and four open findings. All 172 copied files match
 the original archive plus supplied config; no build output or consumer mutation
 was created. This is discovery evidence, not a signed release rehearsal.
 
-The expanded guide set passes checks for 45 Markdown files, local file/heading
-links, balanced fences, shell syntax and the parsed dogfood TOML. This validation
+The expanded guide set passes checks for 47 Markdown files, 313 local links
+(including 33 heading links), balanced fences and 29 shell blocks. The retained
+parsed dogfood TOML validation is unchanged. This validation
 checks documentation structure and the described current exercise; it does not
 exercise a missing protected release adapter.
 

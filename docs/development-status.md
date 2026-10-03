@@ -54,7 +54,7 @@ that candidate; they do not accept the entire stack or complete a release.
 | [#18: Complete-release CLI](https://github.com/brianluby/armorer/pull/18) | #17 | Explicit-context verification over the strict offline consumer | [`a5d19efa10b3`](https://github.com/brianluby/armorer/blob/a5d19efa10b3b5596930ad5eedb75ce7c18598a0/docs/verify-release-cli.md) |
 | [#19: Native Apple consumer](https://github.com/brianluby/armorer/pull/19) | #18 | Native Developer ID, team, certificate, hardened runtime, timestamp and ticket checks | [`6c0c3d192360`](https://github.com/brianluby/armorer/blob/6c0c3d192360b9dc983533f427babe323eb0baeb/docs/apple-native-verification-v1.md) |
 | [#20: Preview helper documentation](https://github.com/brianluby/armorer/pull/20) | main | Comments documenting existing preview helpers and regression tests | [`29c8e6fadf7f`](https://github.com/brianluby/armorer/blob/29c8e6fadf7f2c4e98eb67cbae42938e4e8b2b16/tests/preview.rs) |
-| [#21: Combined source](https://github.com/brianluby/armorer/pull/21) | main | Bootstrap, upgrades, preview and strict verification; repaired artifact scope and independently approved resolved root features | [`0ef1145bf7d6`](https://github.com/brianluby/armorer/blob/0ef1145bf7d6fc8a92a276ace0fe13dc6dab0baa/docs/source-integration-v1.md) |
+| [#21: Combined source](https://github.com/brianluby/armorer/pull/21) | main | Bootstrap, upgrades, preview and strict verification; repaired artifact scope, exact evidence observations and independently approved resolved root features | [`56d7380a5534`](https://github.com/brianluby/armorer/blob/56d7380a5534583b7973b5eedc55a1223b46b60e/docs/source-integration-v1.md) |
 
 Use the separately labelled candidate guides for [bootstrap](candidate-bootstrap.md),
 [upgrades and reversal](candidate-upgrades.md), and
@@ -70,7 +70,9 @@ embedded catalog pin. Workflow PR #20 at `853437cb1c9cbb9a60b2186ebb637ce56d3f6b
 is stacked on #19's native prerequisite observer. The
 [candidate workflow guide](candidate-workflow-prerequisites.md) records fixed
 read-only configuration observations, ephemeral read-token isolation and complete
-unsigned Apple intake. Its two distinct native qualification runs pass on all
+unsigned Apple intake. The [producer evidence guide](candidate-producer-evidence.md)
+also covers complete build/policy collection, freshness and private proof boundaries.
+Its two distinct prerequisite/intake native qualification runs pass on all
 three supported hosts, while operational authority stays false.
 
 The [scoped workflow review](../reviews/2026-10-02-workflow-prerequisites.md)
@@ -106,9 +108,9 @@ Keep every earned protection. **This is the way.**
 
 ## Earn the release
 
-Documentation head `6af9a20ca68a98c36a05b70a730a595a04a74c23` passed all three
+Documentation head `fea6a5eeb58614c2dff6cb1c26e129b568254cfb` passed all three
 Development jobs in
-[run 37102251043](https://github.com/brianluby/armorer/actions/runs/37102251043),
+[run 37104507124](https://github.com/brianluby/armorer/actions/runs/37104507124),
 including genuine-signature fixtures, schema checks and workflow audits. That
 receipt covers the documented main runtime and training additions at that exact
 head. It does not accept #21 or qualify a complete signed release.
@@ -124,7 +126,14 @@ That receipt belongs to `aff8c041c410`; the later resolved-feature head
 tests locally, but its ARM hosted bootstrap suite fails with transaction
 contention in [run 37102828787](https://github.com/brianluby/armorer/actions/runs/37102828787).
 The [feature review](../reviews/2026-10-02-pr21-resolved-features.md) records the
-failure and contributor schema-loop finding. Several
+failure and contributor schema-loop finding. Its successor `56d7380a5534` binds
+independently expected observation times and coverage exception use, and explicitly
+unlocks completed transactions even when duplicate descriptors remain open.
+It passes 73 affected-scope local tests and all three hosted Rust jobs in
+[run 37104573003](https://github.com/brianluby/armorer/actions/runs/37104573003).
+The [latest continuation](../reviews/2026-10-03-pr21-evidence-and-locks.md) retains
+that fresh receipt alongside the earlier failure; the contributor typo remains.
+Several
 automated reviews failed or skipped work; they supply no approval. The new Apple
 consumer's hosted reference checks do not implement protected Apple production.
 Its online ticket request does not guarantee a fresh service response or

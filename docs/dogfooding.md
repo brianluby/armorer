@@ -69,6 +69,11 @@ receipt or passing development matrix cannot establish release rehearsal.
 
 ## Rehearse the complete producer and consumer without publication
 
+Review [candidate producer evidence](candidate-producer-evidence.md) before
+assembling the rehearsal: retain complete build/policy pairs from one attempt,
+authenticate original producer/writer proofs separately and keep fresh policy
+and independently approved consumer context with the complete selection.
+
 The future accepted controller must use protected rehearsal source and independent
 rehearsal authority. Validate build-to-sign handoff, isolate credentials, sign and
 notarize Apple executables, package final bytes, authenticate inventory and every

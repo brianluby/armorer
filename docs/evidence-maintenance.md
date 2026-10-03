@@ -69,6 +69,15 @@ and source types define these checks. A timestamp in a producer JSON record does
 not prove that observation occurred. Review-record validation does not prove a
 human performed the review. Future adapters must authenticate those records.
 
+At [candidate #21](candidate-verification.md#keep-approved-observations-and-exception-use-exact),
+tool/database `observed_at` must exactly match the independently approved
+requirement, and required coverage must retain the exact approved `exception_ids`.
+Renewing an observation or changing exception use therefore needs renewed
+independent requirements/context approval. A producer cannot freshen its label
+or attach a merely allowed exception to an exception-free coverage requirement.
+This tightening is candidate behavior; main's earlier validator has its own source
+boundary.
+
 Keep units, source and uncertainty with every observation.
 **This is the way.**
 
@@ -95,6 +104,12 @@ evidence consistency/freshness; they do not exercise the reusable workflow's
 live fetcher or establish production release readiness. Optional reporting
 capabilities remain governed by explicit independent policy. Reporting success
 cannot satisfy a required capability.
+
+The separate [candidate producer reader](candidate-producer-evidence.md#watch-policy-time-and-advisory-outages)
+already checks complete build/policy handoffs, retained advisory bytes, age from
+observation start and UTC exception expiry again at the final boundary. Its
+unsigned consistency and native storage observations do not authenticate producer
+claims or grant protected finalization authority.
 
 For resumption, obtain a successful authenticated observation or independently
 approved replacement input. Inspect source/run/attempt, policy/catalog/tool/root

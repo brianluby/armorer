@@ -1,6 +1,6 @@
 # Change the armor. Retain the old plates.
 
-Candidate guide: [PR #21 at `0ef1145bf7d6`](https://github.com/brianluby/armorer/tree/0ef1145bf7d6fc8a92a276ace0fe13dc6dab0baa).
+Candidate guide: [PR #21 at `56d7380a5534`](https://github.com/brianluby/armorer/tree/56d7380a5534583b7973b5eedc55a1223b46b60e).
 Use the exact candidate binary, an isolated consumer and independently reviewed
 policy. These commands are absent from the current main CLI. Begin with
 [candidate bootstrap](candidate-bootstrap.md) for the example paths and policy.
@@ -121,10 +121,14 @@ and reconcile that binding before enabling CI. `configured` stays false for
 historical reversal and uncommitted recovery. Restored bytes establish no
 historical authenticity or safe fallback after failed signature verification.
 
-The [exact source guide](https://github.com/brianluby/armorer/blob/0ef1145bf7d6fc8a92a276ace0fe13dc6dab0baa/docs/upgrades.md)
+The [exact source guide](https://github.com/brianluby/armorer/blob/56d7380a5534583b7973b5eedc55a1223b46b60e/docs/upgrades.md)
 and [previous review](../reviews/2026-10-02-pr21-context-ordering.md) retain detailed
 contracts, fault-test evidence and the missing two-accepted-catalog gate. The
-[latest review](../reviews/2026-10-02-pr21-resolved-features.md) keeps the new
+[feature review](../reviews/2026-10-02-pr21-resolved-features.md) keeps the preceding
 head's passing local tests separate from its hosted ARM failure.
+The [latest continuation](../reviews/2026-10-03-pr21-evidence-and-locks.md) records
+the shared lock repair, 21 passing upgrade tests and the successor's fresh hosted
+receipt. Recovery still requires matching journal/preimages and independent
+reverse approval; a lock-lifetime repair grants no broader restoration authority.
 
 Keep both approvals. Keep every receipt. **This is the way.**

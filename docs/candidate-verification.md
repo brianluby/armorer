@@ -1,12 +1,14 @@
 # Verify the cargo. Hold the trust boundary.
 
-Candidate guide: [PR #21 at `0ef1145bf7d6`](https://github.com/brianluby/armorer/tree/0ef1145bf7d6fc8a92a276ace0fe13dc6dab0baa).
+Candidate guide: [PR #21 at `56d7380a5534`](https://github.com/brianluby/armorer/tree/56d7380a5534583b7973b5eedc55a1223b46b60e).
 Main has no complete-release or historical-comparison CLI. These procedures
 describe the reviewed candidate's commands. This successor repairs the earlier
 artifact-scope defect and adds independently approved resolved root features; the
 [feature-authority review](../reviews/2026-10-02-pr21-resolved-features.md) records
 that source boundary. Complete own signed producer/consumer qualification and
-production acceptance remain open.
+production acceptance remain open. The latest
+[evidence and lock review](../reviews/2026-10-03-pr21-evidence-and-locks.md)
+records exact observation/exception binding and transaction lifetime repairs.
 
 Inspect the evidence. Earn the verdict. **This is the way.**
 
@@ -64,7 +66,7 @@ that gate. Library source packages do not require executable signing. Fixed
 codesign requests an online ticket check, but the system ticket store may supply
 the result; this establishes no fresh-service-response guarantee or authenticated
 producer submission UUID. See the
-[exact native Apple contract](https://github.com/brianluby/armorer/blob/0ef1145bf7d6fc8a92a276ace0fe13dc6dab0baa/docs/apple-native-verification-v1.md).
+[exact native Apple contract](https://github.com/brianluby/armorer/blob/56d7380a5534583b7973b5eedc55a1223b46b60e/docs/apple-native-verification-v1.md).
 
 The implemented success report uses `status: authenticated-release-files`,
 `cryptographic_release_authenticated: true` and `provenance_verified: true` with
@@ -80,6 +82,28 @@ source/signer override or automatic historical fallback.
 
 Keep the evidence bound to the artifact. Hold the remaining acceptance gates.
 **This is the way.**
+
+## Keep approved observations and exception use exact
+
+The independent evidence requirements bind each tool/database observation's
+`observed_at`, along with its kind, version, byte identity, authentication record
+and age ceiling. A producer-supplied fresh timestamp cannot renew an approved
+older observation. Any different time fails with `evidence-tool-pin-mismatch`,
+even if both observations would otherwise be fresh.
+
+Required coverage also binds the exact `exception_ids` vector. A reviewed allowed
+exception record does not authorize using it for coverage approved without that
+exception. Adding or removing an expected ID fails with
+`required-coverage-not-enforced`. Obtain a new independent requirement/context
+approval when observation or exception use changes; all other scope, expiry and
+nonwaivable requirements still apply.
+
+These are semantic checks, with unchanged schema shapes. Neither a matching
+timestamp nor a structural exception record proves authentic observation or human
+approval. The [producer guide](candidate-producer-evidence.md) keeps native
+transport, source/job/writer proofs and final cryptographic evidence separate.
+
+Bring renewed proof. Never renew its label alone. **This is the way.**
 
 ## Approve every activated root feature
 
@@ -123,7 +147,7 @@ The retained producer graph can aggregate host and target observations. V3 adds
 independent root-set authority; it does not remove that producer limitation or
 derive an approval from Cargo on the consumer. Review the limitation with the
 source and exact selection. See the
-[candidate contract](https://github.com/brianluby/armorer/blob/0ef1145bf7d6fc8a92a276ace0fe13dc6dab0baa/docs/resolved-root-features-v3.md).
+[candidate contract](https://github.com/brianluby/armorer/blob/56d7380a5534583b7973b5eedc55a1223b46b60e/docs/resolved-root-features-v3.md).
 
 Approve the complete set. Accept no extra armor. **This is the way.**
 
@@ -155,13 +179,15 @@ signer, provenance or build environment. Actual-clock policy/root/historical
 review validity is checked before and after comparison; the frozen policy's root
 review requirement does not mean this operation uses a signature verifier.
 
-The [source limits and recovery guide](https://github.com/brianluby/armorer/blob/0ef1145bf7d6fc8a92a276ace0fe13dc6dab0baa/docs/historical-verification.md)
+The [source limits and recovery guide](https://github.com/brianluby/armorer/blob/56d7380a5534583b7973b5eedc55a1223b46b60e/docs/historical-verification.md)
 define byte/count/time bounds. Keep failed evidence and obtain corrected files or
 a newly independently approved policy. Explicit historical matching never becomes
 a fallback after authenticated verification fails.
 
-The [feature-authority review](../reviews/2026-10-02-pr21-resolved-features.md) records
-focused local tests, the hosted ARM failure and contributor-guide finding
+The [feature-authority review](../reviews/2026-10-02-pr21-resolved-features.md) retains
+the preceding head's focused tests and failed ARM receipt. The
+[latest review](../reviews/2026-10-03-pr21-evidence-and-locks.md) records the evidence
+and lock repairs, affected-scope validation and remaining contributor-guide typo
 separately from the missing complete own signed
 producer positive, protected Apple production, immutable publication and pilots.
 v0.1 targets SLSA Build L2. No candidate file report earns that level by itself.
