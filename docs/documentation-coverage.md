@@ -30,7 +30,7 @@ Neither word supplies production qualification.
 | New versus existing adoption | [Profiles](profiles.md#bring-an-existing-project), [candidate bootstrap](candidate-bootstrap.md), [candidate upgrades](candidate-upgrades.md); unowned/owned conflicts and preserved custom files tested | Promote candidate commands only after accepted integration; qualify adopter-specific prerequisites |
 | Public/private account and capability matrix | [Platform guide](platform-prerequisites.md); primary GitHub sources and explicit adapter limitations | Authenticated preflight, private-positive qualification and repository-specific effective settings |
 | Manual settings and required scopes | [Platform guide](platform-prerequisites.md#inspect-release-immutability), [candidate observer](candidate-workflow-prerequisites.md); Administration-read endpoint, exact prerequisite states and bounded native qualification | Accepted production scoped identity integration and fresh observations near publication; current-attempt approval remains unsupported |
-| Exact credential names and local setup without collection | [Credential boundaries](credential-boundaries.md); current CI/build needs no provisioned secrets; candidate qualification uses ephemeral `ARMORER_READ_TOKEN` and isolated `GH_TOKEN` | Production administrative-read, signing and publishing credential names/provider setup remain undefined |
+| Exact credential names and local setup without collection | [Credential boundaries](credential-boundaries.md); current no-secret CI/build; exact candidate Python/Node read variables, separate platform runtime/OIDC service names and private-proof expiry | Production administrative-read, signing and publishing credential names/provider setup remain undefined |
 | Apple approvals and rotation | [Credential boundaries](credential-boundaries.md#review-signing-approval-before-releasing-credentials), [unsigned intake](candidate-workflow-prerequisites.md); complete frozen handoff and decision sequence prepared | Accepted protected signing adapter, exact secret bindings, effective approvals and hosted production rotation/handoff rehearsal |
 | Check/plan/apply examples | [Main CLI](cli-reference.md), [onboarding](onboarding.md), [apply](apply.md); validated read-only discovery, exact preview, digest/ownership/recovery boundaries | No multi-file authority is implied by main's toolchain-only plan |
 | Upgrade/migration examples | [Candidate upgrades](candidate-upgrades.md); all-profile integrated same-catalog migration and preserved customization/reversal tests | Accepted CLI integration and actual two-accepted-catalog migration evidence |
@@ -54,10 +54,10 @@ Earn the last column. **This is the way.**
 
 ## Retained validation boundary
 
-Documentation head `375298dfbf87d621c7d88306008fe93d58970746` passes formatting,
+Documentation head `77356344a813f8ad71be8d2a0aac3a445d928876` passes formatting,
 strict Clippy, locked build and 95 local tests, with one genuine Sigstore test
 ignored locally. Its Linux x64, Linux ARM and macOS Development jobs all pass in
-[run 37105227772](https://github.com/brianluby/armorer/actions/runs/37105227772),
+[run 37106073975](https://github.com/brianluby/armorer/actions/runs/37106073975),
 including genuine-signature fixtures, schema checks and workflow audits. This
 receipt belongs to [draft #22](https://github.com/brianluby/armorer/pull/22), whose
 main runtime source is unchanged; it supplies no candidate-integration or complete
@@ -98,8 +98,8 @@ the documented 0/2 statuses and four open findings. All 172 copied files match
 the original archive plus supplied config; no build output or consumer mutation
 was created. This is discovery evidence, not a signed release rehearsal.
 
-The expanded guide set passes checks for 49 Markdown files, 328 local links
-(including 33 heading links), balanced fences and 29 shell blocks. The retained
+The expanded guide set passes checks for 50 Markdown files, 337 local links
+(including 35 heading links), balanced fences and 29 shell blocks. The retained
 parsed dogfood TOML validation is unchanged. This validation
 checks documentation structure and the described current exercise; it does not
 exercise a missing protected release adapter.
@@ -121,6 +121,12 @@ that exact head. The [integration review](../reviews/2026-10-03-workflow-integra
 retains the distinct combined caller run, whose three native collection/writer-join
 jobs pass for the fixed nine-selection/eighteen-archive fixture; no complete own signed
 rehearsal or production approval is inferred from these scoped qualifications.
+
+The [identity-interface continuation](../reviews/2026-10-03-identity-prerequisites.md)
+source-checks dedicated read/runtime/OIDC names and issuer/mapped/writer original-
+handle expiry. Local Node v22.22.3 passes 11 issuer tests, 12 mapped tests and one
+writer test script containing 35 protocol groups. Synthetic issuer/service data
+and owned subprocesses do not establish live protected producer acceptance.
 
 ## Next actions require their own evidence
 

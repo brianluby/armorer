@@ -139,3 +139,39 @@ and [policy contract](https://github.com/brianluby/armorer-workflows/blob/e88e25
 before qualifying an integration.
 
 Earn each proof. Hold the remaining gates. **This is the way.**
+
+## Use original identity proofs within their lifetimes
+
+The fixed controller must derive source, caller/signer pins, run/attempt, exact
+job display names and native runner from independent intent. Map the active job
+through source/API observations first. Job ID and check-run ID are separate;
+the signed OIDC claim must match the independently mapped check-run identity.
+The mapped helper observes again after issuer verification and rejects source,
+job or prerequisite changes. An artifact-writer observation separately binds
+each completed uploader's native check to its artifact-service backend ID.
+
+| Interface | Required original object and export lifetime | What remains unproven |
+| --- | --- | --- |
+| `producerContextRecord` | Module-created private issuer proof; before JWT expiry, no clock rollback, at most 300 seconds since observation | Effective protection/approval, artifact producer, accepted catalog and release authority |
+| `mappedProducerContextRecord` | Original joined private proof; native observation at most 30 seconds old, plus a still-live issuer proof | Effective protection/approval, artifact producer, accepted catalog and release authority |
+| `artifactWriterRecord` | Original process-local observation handle; at most 30,000 milliseconds old and no clock rollback | Producer OIDC, accepted catalog, payload download/verification and signing/publication authority |
+
+OIDC acceptance also bounds token issue age to five minutes and lifetime to ten
+minutes, with no clock-skew grace. The export's 300-second window never extends
+JWT expiry. The mapped export's 30-second native window never extends the issuer
+proof. Seconds and milliseconds are explicit above; do not compare mixed units.
+
+Copied/deserialized records, reconstructed handles and private-object JSON are
+not credentials or continuing permits. Do not edit audit times to retry expiry.
+Obtain fresh observations through the fixed helper with independent intent and
+recheck the complete same-attempt byte set. A new run/attempt must earn its own
+source/job/writer binding and approvals; an old draft's owner identity is separate.
+
+The [credential guide](credential-boundaries.md#match-the-candidate-helpers-exact-read-interface)
+names the implemented read/runtime/OIDC interfaces without collecting values.
+The [identity review](../reviews/2026-10-03-identity-prerequisites.md) records
+synthetic issuer/protocol tests. Those fixtures and native PR reader qualification
+do not supply an authorized live protected OIDC producer or current-attempt
+environment approval.
+
+Keep the original proof. Watch every clock. **This is the way.**

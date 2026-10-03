@@ -86,6 +86,54 @@ observer recognizes the two named environments without creating jobs or accessin
 their secrets. Production administrative-read and Apple credential bindings,
 effective current-attempt approvals and rotation remain unqualified.
 
+## Match the candidate helper's exact read interface
+
+These interfaces belong to workflow candidate
+[`e88e25fc46c1bb5298579c5cd49f52d43215b9e1`](https://github.com/brianluby/armorer-workflows/tree/e88e25fc46c1bb5298579c5cd49f52d43215b9e1).
+They are not generated main callers or production signing-secret definitions.
+Use the fixed helper's declared name; a similarly named variable does not supply
+the same interface.
+
+| Name | Source and consumer | Boundary |
+| --- | --- | --- |
+| `ARMORER_READ_TOKEN` | Qualification steps explicitly bind `github.token` for Python source/controller/transport/capability readers | Read-process input; native child receives the selected token as `GH_TOKEN` in a sterile environment |
+| `ARMORER_WORKFLOW_READ_TOKEN` | Qualification actions explicitly bind `github.token` for the fixed mapped-job worker and artifact-writer observer | A distinct Node/worker interface; mapped worker needs contents/actions read; writer observation also needs checks read |
+| `GH_TOKEN` | Fixed native subprocess adapter constructs this binding from its explicit read token | Ambient credentials or debug/proxy settings cannot replace the independently selected token |
+| `ACTIONS_RUNTIME_TOKEN` | Platform runtime supplies the artifact-service credential to the writer observer | Separate from REST read identity; used only for fixed read-only `ListArtifacts` POST, never create/finalize/delete/download-URL methods |
+| `ACTIONS_RESULTS_URL` | Platform context identifies the artifact receiver | Location metadata, not a credential; observer accepts only its fixed GitHub.com receiver origin |
+| `ACTIONS_ID_TOKEN_REQUEST_URL`, `ACTIONS_ID_TOKEN_REQUEST_TOKEN` | Platform supplies the request location and bearer credential to the fixed producer OIDC helper | Request service only; issuer/JWKS/audience are fixed separately and the bearer never goes to JWKS |
+
+The current development transport and combined collection jobs grant
+`contents: read`, `actions: read`, `checks: read` and bind the corresponding
+ephemeral read variable explicitly. They request no live OIDC and grant no
+signing/publication authority. The OIDC helper's real producer integration would
+need separately authorized `id-token: write` and qualification of its fixed
+service route and exact claims. Do not add that grant to consuming build jobs
+to reproduce a synthetic fixture.
+
+The artifact observer validates independent intent and fixed platform origin
+before consuming its two credentials. It removes the REST/runtime variable
+bindings from its own process environment; the credentials remain internal to
+the bounded observation. Repeated use cannot assume those bindings still exist.
+Deleting environment bindings is not memory zeroization or protection from
+hostile code already in the same process.
+
+Runtime-token decoding supplies routing IDs only. The artifact-service response
+must join independent native job/check records and exact artifact identities.
+OIDC needs native RS256 verification and exact independent source/caller/signer/
+run/attempt/check-run claims. Neither a decoded token, configured environment nor
+copied audit JSON can grant a protected operation. Keep original private proofs
+within their [documented lifetimes](candidate-producer-evidence.md#use-original-identity-proofs-within-their-lifetimes).
+
+No operator token-export command belongs here. The owner keeps credential values
+within platform/local provisioning. The
+[identity-interface review](../reviews/2026-10-03-identity-prerequisites.md)
+records source checks and synthetic test scope. Actual protected signing,
+administrative-read App bindings and publication setup still require their
+accepted production adapters.
+
+Name the interface. Keep the credential inside it. **This is the way.**
+
 ## Review signing approval before releasing credentials
 
 The future signing adapter must validate the exact source/run/attempt and unsigned

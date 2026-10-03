@@ -119,9 +119,9 @@ Keep every earned protection. **This is the way.**
 
 ## Earn the release
 
-Documentation head `375298dfbf87d621c7d88306008fe93d58970746` passed all three
+Documentation head `77356344a813f8ad71be8d2a0aac3a445d928876` passed all three
 Development jobs in
-[run 37105227772](https://github.com/brianluby/armorer/actions/runs/37105227772),
+[run 37106073975](https://github.com/brianluby/armorer/actions/runs/37106073975),
 including genuine-signature fixtures, schema checks and workflow audits. That
 receipt covers the documented main runtime and training additions at that exact
 head. It does not accept #21 or qualify a complete signed release.

@@ -73,6 +73,8 @@ the [evidence and lock continuation](../reviews/2026-10-03-pr21-evidence-and-loc
 The separate [workflow prerequisite review](../reviews/2026-10-02-workflow-prerequisites.md)
 and [integration continuation](../reviews/2026-10-03-workflow-integration.md)
 retain the source and qualification boundary behind the operational preparation.
+The [identity-interface continuation](../reviews/2026-10-03-identity-prerequisites.md)
+checks implemented credential names and original-proof export lifetimes.
 
 Contributors follow [the contributor guide](../CONTRIBUTING.md) and
 [the writing creed](writing-guide.md). Update behavior guides when behavior
