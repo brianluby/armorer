@@ -58,6 +58,7 @@ pub struct ReleaseSelection {
 #[serde(deny_unknown_fields)]
 pub struct ReleaseExpectations {
     #[schemars(range(min = 1, max = 1))]
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub schema_version: u32,
     pub inputs: InputIdentity,
     pub caller_workflow: WorkflowIdentity,
@@ -66,7 +67,9 @@ pub struct ReleaseExpectations {
     pub verification_policy: ByteIdentity,
     pub native_sbom_validator: ByteIdentity,
     /// One exact signer per fixed scope; multiple policy candidates never select a signer implicitly.
+    #[schemars(extend("minProperties" = 5, "maxProperties" = 5, "required" = serde_json::json!(["final-artifact", "cargo-sbom-file", "sbom-predicate", "evidence-file", "inventory"])))]
     pub signers: BTreeMap<EvidenceScope, WorkflowIdentity>,
+    #[schemars(length(min = 1, max = 384))]
     pub selections: Vec<ReleaseSelection>,
     pub review: Review,
 }
@@ -76,6 +79,7 @@ pub struct ReleaseExpectations {
 #[serde(deny_unknown_fields)]
 pub struct ReleaseExpectationsV2 {
     #[schemars(range(min = 2, max = 2))]
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub schema_version: u32,
     pub runtime_source: crate::trust::Source,
     pub release: ReleaseExpectations,
@@ -86,6 +90,7 @@ pub struct ReleaseExpectationsV2 {
 #[serde(deny_unknown_fields)]
 pub struct ReleaseExpectationsV3 {
     #[schemars(range(min = 3, max = 3))]
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub schema_version: u32,
     pub runtime_source: crate::trust::Source,
     pub release: ReleaseExpectations,

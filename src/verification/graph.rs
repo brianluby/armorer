@@ -35,6 +35,7 @@ pub enum GraphGap {
 #[serde(deny_unknown_fields)]
 pub struct GraphSource {
     pub repository: String,
+    #[schemars(regex(pattern = "^[0-9a-f]{40}$(?![\\s\\S])"))]
     pub commit: String,
 }
 
@@ -42,10 +43,13 @@ pub struct GraphSource {
 #[serde(deny_unknown_fields)]
 pub struct GraphInputs {
     #[serde(rename = "armorer.toml")]
+    #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub config_sha256: String,
     #[serde(rename = "armorer.lock")]
+    #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub lock_sha256: String,
     #[serde(rename = "Cargo.lock")]
+    #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub cargo_lock_sha256: String,
 }
 
@@ -100,11 +104,14 @@ pub struct NativeLinkage {
 #[serde(deny_unknown_fields)]
 pub struct CargoGraphV2 {
     #[schemars(range(min = 2, max = 2))]
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub schema_version: u32,
     pub source: GraphSource,
     pub runtime_commit: String,
     /// Null identifies an unhosted development fixture and cannot satisfy release verification.
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub run_id: Option<u64>,
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub run_attempt: Option<u64>,
     pub input_sha256: GraphInputs,
     pub selection: Selection,

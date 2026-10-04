@@ -18,12 +18,18 @@ use std::{collections::BTreeMap, path::Path};
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Plan {
+    #[schemars(transform = crate::schema_bounds::unsigned)]
+    #[schemars(range(min = 2, max = 2))]
     pub schema_version: u32,
     pub runtime_version: String,
     pub mode: String,
+    #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub plan_sha256: String,
+    #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub config_sha256: String,
+    #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub catalog_sha256: String,
+    #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub state_sha256: Option<String>,
     pub intent: Config,
     pub workspace: Workspace,
@@ -42,8 +48,10 @@ pub struct Change {
     pub path: String,
     pub disposition: String,
     pub owned: bool,
+    #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub before_sha256: Option<String>,
     pub before_content: Option<String>,
+    #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub after_sha256: String,
     pub proposed_content: String,
     /// Complete linear replacement hunk, with no omitted conflict lines.

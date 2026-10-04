@@ -75,6 +75,7 @@ pub enum VerificationMode {
 pub struct VerificationPolicy {
     pub mode: VerificationMode,
     #[schemars(range(min = 1, max = 1))]
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub schema_version: u32,
     pub repository: String,
     /// Exact reviewed release refs and commits; no regex or latest-tag policy.

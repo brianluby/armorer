@@ -105,12 +105,15 @@
       "additionalProperties": false,
       "properties": {
         "Cargo.lock": {
+          "pattern": "^[0-9a-f]{64}$(?![\\s\\S])",
           "type": "string"
         },
         "armorer.lock": {
+          "pattern": "^[0-9a-f]{64}$(?![\\s\\S])",
           "type": "string"
         },
         "armorer.toml": {
+          "pattern": "^[0-9a-f]{64}$(?![\\s\\S])",
           "type": "string"
         }
       },
@@ -131,6 +134,7 @@
       "additionalProperties": false,
       "properties": {
         "commit": {
+          "pattern": "^[0-9a-f]{40}$(?![\\s\\S])",
           "type": "string"
         },
         "repository": {
@@ -265,6 +269,7 @@
     },
     "run_attempt": {
       "format": "uint64",
+      "maximum": 18446744073709551615,
       "minimum": 0,
       "type": [
         "integer",
@@ -274,6 +279,7 @@
     "run_id": {
       "description": "Null identifies an unhosted development fixture and cannot satisfy release verification.",
       "format": "uint64",
+      "maximum": 18446744073709551615,
       "minimum": 0,
       "type": [
         "integer",

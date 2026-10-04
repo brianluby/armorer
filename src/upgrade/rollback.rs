@@ -15,8 +15,10 @@ use std::path::Path;
 #[serde(deny_unknown_fields)]
 pub struct Restore {
     pub path: String,
+    #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub before_sha256: Option<String>,
     pub before_content: Option<String>,
+    #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub after_sha256: Option<String>,
     pub proposed_content: Option<String>,
     pub unified_diff: String,
@@ -24,9 +26,12 @@ pub struct Restore {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct RollbackPlan {
+    #[schemars(transform = crate::schema_bounds::unsigned)]
+    #[schemars(range(min = 1, max = 1))]
     pub schema_version: u32,
     pub contract: String,
     pub runtime_version: String,
+    #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub plan_sha256: String,
     pub allow_downgrade: bool,
     pub original_upgrade: Plan,

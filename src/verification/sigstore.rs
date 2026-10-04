@@ -207,18 +207,24 @@ impl OfflineVerifier {
             policy.roots.verifier == qualified_native_verifier()?,
             "unqualified-native-verifier-policy",
         )?;
-        let workspace = tempfile::Builder::new()
-            .prefix("armorer-verify-")
-            .tempdir()?;
+        let workspace = crate::filesystem::private_tempdir("armorer-verify-", None)?;
         let executable_copy = workspace.path().join("gh");
         let root_copy = workspace.path().join("trusted-root.jsonl");
-        let executable_identity = io::snapshot(executable, &executable_copy, io::MAX_VERIFIER)?;
+        let executable_identity = io::snapshot(
+            executable,
+            &executable_copy,
+            policy.roots.verifier.size.min(io::MAX_VERIFIER),
+        )?;
         require(
             executable_identity == policy.roots.verifier,
             "unapproved-verifier-bytes",
         )?;
         native_executable(&executable_copy)?;
-        let root_identity = io::snapshot(root, &root_copy, io::MAX_ROOT)?;
+        let root_identity = io::snapshot(
+            root,
+            &root_copy,
+            policy.roots.trusted_root.size.min(io::MAX_ROOT),
+        )?;
         require(
             root_identity == policy.roots.trusted_root,
             "unapproved-trusted-root-bytes",
@@ -290,12 +296,14 @@ impl OfflineVerifier {
                 && io::identity(&self.root, io::MAX_ROOT)? == self.policy.roots.trusted_root,
             "verifier-trust-snapshot-changed",
         )?;
-        let slot = tempfile::Builder::new()
-            .prefix("slot-")
-            .tempdir_in(self.workspace.path())?;
+        let slot = crate::filesystem::private_tempdir("slot-", Some(self.workspace.path()))?;
         let artifact_path = slot.path().join(&expected.subject_name);
         let bundle_path = slot.path().join("bundle.sigstore.json");
-        let subject = io::snapshot(artifact, &artifact_path, 1_073_741_824)?;
+        let subject = io::snapshot(
+            artifact,
+            &artifact_path,
+            expected_bytes.size.min(1_073_741_824),
+        )?;
         require(
             subject == *expected_bytes,
             "attestation-subject-byte-mismatch",

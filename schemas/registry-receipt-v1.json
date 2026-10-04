@@ -5,7 +5,7 @@
       "description": "An exact byte identity, independent of a filename or producer claim.",
       "properties": {
         "sha256": {
-          "pattern": "^[0-9a-f]{64}$",
+          "pattern": "^[0-9a-f]{64}$(?![\\s\\S])",
           "type": "string"
         },
         "size": {
@@ -43,6 +43,7 @@
           ]
         },
         "index_sha256": {
+          "pattern": "^[0-9a-f]{64}$(?![\\s\\S])",
           "type": [
             "string",
             "null"
@@ -117,6 +118,7 @@
     },
     "recorded_at": {
       "format": "uint64",
+      "maximum": 18446744073709551615,
       "minimum": 0,
       "type": "integer"
     },

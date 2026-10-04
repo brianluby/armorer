@@ -156,6 +156,10 @@ fn genuine_pinned_gh_verifies_and_every_offered_tamper_or_identity_error_fails()
         size: 2962,
     };
     expected_bytes.matches(&artifact_bytes).unwrap();
+    assert!(matches!(
+        verifier.verify(&artifact, &ByteIdentity::from_bytes(b"x"), &bundle, &expected),
+        Err(armorer::Error::Invalid(code)) if code == "verification-input-type-or-size"
+    ));
     let proof = verifier
         .verify(&artifact, &expected_bytes, &bundle, &expected)
         .unwrap();

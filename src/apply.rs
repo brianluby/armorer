@@ -580,23 +580,23 @@ fn apply_transaction(
         Ok(())
     })();
     if let Err(error) = result {
-        if rollback(&root, &journal).is_err() {
-            return Err(Error::Transaction(
-                "apply failed and recovery is required; journal preserved",
-            ));
+        if let Err(rollback) = rollback(&root, &journal) {
+            return Err(Error::TransactionRollback {
+                message: "apply failed and recovery is required; journal preserved",
+                cause: Box::new(error),
+                rollback: Box::new(rollback),
+            });
         }
         return Err(error);
     }
     journal.committed = true;
-    if json(&journal)
-        .and_then(|bytes| commit_marker(&root, &bytes))
-        .is_err()
-    {
+    if let Err(cause) = json(&journal).and_then(|bytes| commit_marker(&root, &bytes)) {
         // The marker may have persisted before directory sync failed. Both
         // journal states remain recoverable while every target holds after bytes.
-        return Err(Error::Transaction(
-            "commit marker write failed and recovery is required; journal preserved",
-        ));
+        return Err(Error::TransactionCause {
+            message: "commit marker write failed and recovery is required; journal preserved",
+            cause: Box::new(cause),
+        });
     }
     remove_journal(&root)?;
     Ok(receipt(plan, "applied", true))
@@ -866,6 +866,10 @@ mod tests {
         })
         .unwrap_err();
         assert!(error.to_string().contains("recovery is required"));
+        assert_eq!(error.code(), "transaction");
+        assert!(
+            matches!(&error, Error::TransactionRollback { cause, .. } if matches!(cause.as_ref(), Error::Transaction("injected failure")))
+        );
         assert!(root.path().join(JOURNAL).exists());
         assert_eq!(
             fs::read(root.path().join(TOOLCHAIN)).unwrap(),

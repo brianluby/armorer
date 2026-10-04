@@ -7,12 +7,23 @@ use serde::{Deserialize, Serialize};
 #[serde(deny_unknown_fields)]
 pub struct Authority {
     pub id: String,
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub revision: u32,
+    #[schemars(regex(
+        pattern = "^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}/[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$(?![\\s\\S])"
+    ))]
     pub workflow_repository: String,
+    #[schemars(regex(pattern = "^[0-9a-f]{40}$(?![\\s\\S])"))]
     pub workflow_commit: String,
+    #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub tools_sha256: String,
+    #[schemars(regex(
+        pattern = "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$(?![\\s\\S])"
+    ))]
     pub runtime_version: String,
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub config_schema_version: u32,
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub policy_schema_version: u32,
 }
 

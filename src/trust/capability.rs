@@ -63,10 +63,12 @@ pub enum Enforcement {
 #[serde(deny_unknown_fields)]
 pub struct CapabilityObservation {
     #[schemars(range(min = 1, max = 1))]
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub schema_version: u32,
     pub capability: CapabilityId,
     pub availability: Availability,
     pub enforcement: Enforcement,
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub observed_at: u64,
     pub evidence: Option<ByteIdentity>,
     pub limitations: Vec<String>,
@@ -113,7 +115,9 @@ impl CapabilityObservation {
 #[serde(deny_unknown_fields)]
 pub struct CapabilityConfig {
     #[schemars(range(min = 1, max = 1))]
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub schema_version: u32,
+    #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub config_sha256: String,
     pub catalog: ByteIdentity,
     pub decisions: BTreeMap<CapabilityId, CapabilityPolicy>,
@@ -207,6 +211,7 @@ pub struct CatalogPin {
 pub struct Adapter {
     pub id: AdapterId,
     pub capability: CapabilityId,
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub config_versions: Vec<u32>,
     pub runtime_versions: Vec<String>,
     pub workflow: WorkflowIdentity,
@@ -218,6 +223,7 @@ pub struct Adapter {
 #[serde(deny_unknown_fields)]
 pub struct Catalog {
     #[schemars(range(min = 1, max = 1))]
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub schema_version: u32,
     pub previous_catalog: Option<ByteIdentity>,
     pub adapters: Vec<Adapter>,

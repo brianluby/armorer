@@ -5,6 +5,7 @@
       "description": "Apple values remain producer assertions until independently checked on macOS.",
       "properties": {
         "certificate_sha256": {
+          "pattern": "^[0-9a-f]{64}$(?![\\s\\S])",
           "type": "string"
         },
         "hardened_runtime": {
@@ -53,6 +54,7 @@
       "properties": {
         "finished_at": {
           "format": "uint64",
+          "maximum": 18446744073709551615,
           "minimum": 0,
           "type": "integer"
         },
@@ -83,6 +85,7 @@
         },
         "started_at": {
           "format": "uint64",
+          "maximum": 18446744073709551615,
           "minimum": 0,
           "type": "integer"
         }
@@ -104,7 +107,7 @@
       "description": "An exact byte identity, independent of a filename or producer claim.",
       "properties": {
         "sha256": {
-          "pattern": "^[0-9a-f]{64}$",
+          "pattern": "^[0-9a-f]{64}$(?![\\s\\S])",
           "type": "string"
         },
         "size": {
@@ -242,15 +245,15 @@
       "additionalProperties": false,
       "properties": {
         "cargo_lock_sha256": {
-          "pattern": "^[0-9a-f]{64}$",
+          "pattern": "^[0-9a-f]{64}$(?![\\s\\S])",
           "type": "string"
         },
         "config_sha256": {
-          "pattern": "^[0-9a-f]{64}$",
+          "pattern": "^[0-9a-f]{64}$(?![\\s\\S])",
           "type": "string"
         },
         "lock_sha256": {
-          "pattern": "^[0-9a-f]{64}$",
+          "pattern": "^[0-9a-f]{64}$(?![\\s\\S])",
           "type": "string"
         },
         "run": {
@@ -260,6 +263,7 @@
           "$ref": "#/$defs/ByteIdentity"
         },
         "runtime_version": {
+          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$(?![\\s\\S])",
           "type": "string"
         },
         "source": {
@@ -316,13 +320,17 @@
       "properties": {
         "expires_at": {
           "format": "uint64",
-          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "minimum": 1,
           "type": "integer"
         },
         "owner": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])",
           "type": "string"
         },
         "rationale": {
+          "maxLength": 4096,
+          "minLength": 1,
           "type": "string"
         },
         "record": {
@@ -330,7 +338,8 @@
         },
         "reviewed_at": {
           "format": "uint64",
-          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "minimum": 1,
           "type": "integer"
         }
       },
@@ -348,11 +357,13 @@
       "properties": {
         "attempt": {
           "format": "uint64",
+          "maximum": 18446744073709551615,
           "minimum": 1,
           "type": "integer"
         },
         "id": {
           "format": "uint64",
+          "maximum": 18446744073709551615,
           "minimum": 1,
           "type": "integer"
         },
@@ -424,13 +435,14 @@
       "additionalProperties": false,
       "properties": {
         "commit": {
-          "pattern": "^[0-9a-f]{40}$",
+          "pattern": "^[0-9a-f]{40}$(?![\\s\\S])",
           "type": "string"
         },
         "git_ref": {
           "type": "string"
         },
         "repository": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}/[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$(?![\\s\\S])",
           "type": "string"
         }
       },
@@ -464,7 +476,8 @@
         },
         "max_age_seconds": {
           "format": "uint64",
-          "minimum": 0,
+          "maximum": 18446744073709551615,
+          "minimum": 1,
           "type": [
             "integer",
             "null"
@@ -475,6 +488,7 @@
         },
         "observed_at": {
           "format": "uint64",
+          "maximum": 18446744073709551615,
           "minimum": 0,
           "type": "integer"
         },
@@ -496,13 +510,16 @@
       "additionalProperties": false,
       "properties": {
         "commit": {
-          "pattern": "^[0-9a-f]{40}$",
+          "pattern": "^[0-9a-f]{40}$(?![\\s\\S])",
           "type": "string"
         },
         "path": {
+          "maxLength": 273,
+          "pattern": "^\\.github/workflows/[A-Za-z0-9][A-Za-z0-9_.-]*\\.yml$(?![\\s\\S])",
           "type": "string"
         },
         "repository": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}/[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$(?![\\s\\S])",
           "type": "string"
         }
       },
@@ -547,6 +564,7 @@
     },
     "recorded_at": {
       "format": "uint64",
+      "maximum": 18446744073709551615,
       "minimum": 0,
       "type": "integer"
     },
@@ -570,6 +588,8 @@
       "items": {
         "$ref": "#/$defs/BuildStep"
       },
+      "maxItems": 4,
+      "minItems": 2,
       "type": "array"
     },
     "tools": {

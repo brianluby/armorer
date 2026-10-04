@@ -5,7 +5,7 @@
       "description": "An exact byte identity, independent of a filename or producer claim.",
       "properties": {
         "sha256": {
-          "pattern": "^[0-9a-f]{64}$",
+          "pattern": "^[0-9a-f]{64}$(?![\\s\\S])",
           "type": "string"
         },
         "size": {
@@ -42,13 +42,14 @@
       "additionalProperties": false,
       "properties": {
         "commit": {
-          "pattern": "^[0-9a-f]{40}$",
+          "pattern": "^[0-9a-f]{40}$(?![\\s\\S])",
           "type": "string"
         },
         "git_ref": {
           "type": "string"
         },
         "repository": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}/[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$(?![\\s\\S])",
           "type": "string"
         }
       },
@@ -63,13 +64,16 @@
       "additionalProperties": false,
       "properties": {
         "commit": {
-          "pattern": "^[0-9a-f]{40}$",
+          "pattern": "^[0-9a-f]{40}$(?![\\s\\S])",
           "type": "string"
         },
         "path": {
+          "maxLength": 273,
+          "pattern": "^\\.github/workflows/[A-Za-z0-9][A-Za-z0-9_.-]*\\.yml$(?![\\s\\S])",
           "type": "string"
         },
         "repository": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}/[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$(?![\\s\\S])",
           "type": "string"
         }
       },
@@ -102,6 +106,8 @@
     },
     "members": {
       "additionalProperties": false,
+      "maxProperties": 3,
+      "minProperties": 3,
       "properties": {
         "aarch64-apple-darwin": {
           "$ref": "#/$defs/RuntimeMember"
@@ -113,6 +119,11 @@
           "$ref": "#/$defs/RuntimeMember"
         }
       },
+      "required": [
+        "x86_64-unknown-linux-gnu",
+        "aarch64-unknown-linux-gnu",
+        "aarch64-apple-darwin"
+      ],
       "type": "object"
     },
     "schema_version": {

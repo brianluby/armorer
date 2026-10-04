@@ -6,7 +6,6 @@ import os
 from pathlib import Path
 import platform
 import re
-import shutil
 import stat
 import subprocess
 
@@ -26,7 +25,7 @@ def identity(path, limit):
         raise ValueError('candidate file type or size')
     digest = hashlib.sha256()
     size = 0
-    with path.open('rb') as stream:
+    with os.fdopen(os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK), 'rb') as stream:
         opened = os.fstat(stream.fileno())
         if (opened.st_dev, opened.st_ino, opened.st_size) != (inspected.st_dev, inspected.st_ino, inspected.st_size):
             raise ValueError('candidate file changed')
@@ -65,7 +64,17 @@ def main():
     before = identity(root/'target/release/armorer', 128*1024*1024)
     args.output_directory.mkdir(mode=0o700, exist_ok=False)
     executable = args.output_directory/'armorer'
-    shutil.copyfile(root/'target/release/armorer', executable)
+    with os.fdopen(os.open(executable, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'wb') as output:
+        with os.fdopen(os.open(root/'target/release/armorer', os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK), 'rb') as source:
+            opened = os.fstat(source.fileno())
+            if not stat.S_ISREG(opened.st_mode) or opened.st_size != before['size']:
+                raise ValueError('candidate source changed before copy')
+            copied = 0
+            while block := source.read(65536):
+                copied += len(block)
+                if copied > before['size']:
+                    raise ValueError('candidate source grew during copy')
+                output.write(block)
     if identity(executable, 128*1024*1024) != before:
         raise ValueError('candidate copy mismatch')
     executable.chmod(0o400)
@@ -77,7 +86,8 @@ def main():
         'executable': before, 'version': '0.1.0', 'authenticated_provenance': False,
         'signing_authorized': False, 'release_acceptance': False}
     metadata = args.output_directory/'runtime-build.json'
-    metadata.write_text(json.dumps(observation, sort_keys=True, separators=(',', ':'))+'\n')
+    with os.fdopen(os.open(metadata, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'w', encoding='utf-8') as output:
+        output.write(json.dumps(observation, sort_keys=True, separators=(',', ':'))+'\n')
     metadata.chmod(0o400)
 
 

@@ -90,7 +90,9 @@ pub struct BuildStep {
     pub inputs: Vec<ByteIdentity>,
     pub output: ByteIdentity,
     pub run: RunIdentity,
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub started_at: u64,
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub finished_at: u64,
     pub outcome: Outcome,
     /// Digest of separately retained platform evidence, not a trust boolean.
@@ -119,7 +121,10 @@ pub struct ToolEvidence {
     pub version: String,
     pub bytes: ByteIdentity,
     pub authentication_record: ByteIdentity,
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub observed_at: u64,
+    #[schemars(transform = crate::schema_bounds::unsigned)]
+    #[schemars(range(min = 1))]
     pub max_age_seconds: Option<u64>,
 }
 
@@ -178,6 +183,7 @@ pub struct Coverage {
 #[serde(deny_unknown_fields)]
 pub struct AppleAssertions {
     pub team_id: String,
+    #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub certificate_sha256: String,
     pub hardened_runtime: bool,
     pub secure_timestamp: bool,
@@ -198,6 +204,7 @@ pub enum AppleTicketMode {
 #[serde(deny_unknown_fields)]
 pub struct ArtifactEvidence {
     #[schemars(range(min = 1, max = 1))]
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub schema_version: u32,
     pub inputs: InputIdentity,
     pub selection: Selection,
@@ -205,10 +212,12 @@ pub struct ArtifactEvidence {
     pub runner_label: String,
     /// Mutable hosted image identity, never a reproducibility guarantee.
     pub runner_image: String,
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub recorded_at: u64,
     pub tools: Vec<ToolEvidence>,
     pub coverage: Vec<Coverage>,
     pub exceptions: Vec<Exception>,
+    #[schemars(length(min = 2, max = 4))]
     pub steps: Vec<BuildStep>,
     pub apple_assertions: Option<AppleAssertions>,
 }
@@ -409,11 +418,15 @@ impl ArtifactEvidence {
 #[serde(deny_unknown_fields)]
 pub struct EvidenceRequirements {
     #[schemars(range(min = 1, max = 1))]
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub schema_version: u32,
     pub inputs: InputIdentity,
     pub selection: Selection,
     pub catalog: ByteIdentity,
+    #[schemars(transform = crate::schema_bounds::unsigned)]
+    #[schemars(range(min = 1))]
     pub max_age_seconds: u64,
+    #[schemars(extend("oneOf" = serde_json::json!([{"minProperties":2,"maxProperties":2,"required":["build","package"]},{"minProperties":4,"maxProperties":4,"required":["build","sign","notarize","package"]}])))]
     pub steps: std::collections::BTreeMap<StepKind, super::WorkflowIdentity>,
     pub tools: Vec<ToolEvidence>,
     pub required_coverage: Vec<Coverage>,

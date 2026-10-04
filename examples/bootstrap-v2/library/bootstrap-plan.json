@@ -97,7 +97,7 @@
     "toolchain": "1.95.0"
   },
   "mode": "bootstrap-plan",
-  "plan_sha256": "4d9a8390966b1c051fb10344e0a1af69c2b005b6012e9a0346971dc00f44cd10",
+  "plan_sha256": "7b51e848ce50bf4b5280ff82098d1870e9795da413654915953a5006e7e4af4b",
   "policy_content": "# Fixture-only decision for this dependency-free MIT example.\n# Replace with the consuming owner's reviewed dependency policy.\nschema_version = 1\n\n[licenses]\nallow = [\"MIT\"]\n\n[advisories]\nexceptions = []\n\n[sources]\nallow_git = []\n\n[bans]\nmultiple_versions = \"warn\"\ndeny = []\n",
   "preserved_inputs": {
     ".armorer/state.json": null,
@@ -112,7 +112,7 @@
     "cargo_lock_present": true,
     "inputs": {
       "Cargo.lock": "4747b0f0dce62536528581bad765727dd6a678e7e5571dca92ba7d66f0bb61f8",
-      "Cargo.toml": "ca914d7a05c207148f3ed98421091e23a8dc7ae2be29eeb1095d62bd376bec26",
+      "Cargo.toml": "cb3d894548bc1ad3581c6e7214eb889e22bb3e78feebd871023775d311127b53",
       "src/lib.rs": "target-path-present"
     },
     "packages": [

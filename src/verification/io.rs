@@ -6,7 +6,7 @@ use crate::{
 use serde::de::{DeserializeOwned, DeserializeSeed, Visitor};
 use sha2::{Digest, Sha256};
 use std::{
-    fs::{self, File, OpenOptions},
+    fs::{self, File},
     io::{Read, Write},
     path::Path,
 };
@@ -157,10 +157,7 @@ pub(crate) fn parse<T: DeserializeOwned>(bytes: &[u8]) -> Result<T> {
 /// Create a new byte-for-byte file while streaming its bounded SHA-256 identity.
 pub(crate) fn snapshot(source: &Path, destination: &Path, max: u64) -> Result<ByteIdentity> {
     let mut input = regular(source, max)?.take(max + 1);
-    let mut output = OpenOptions::new()
-        .create_new(true)
-        .write(true)
-        .open(destination)?;
+    let mut output = crate::filesystem::private_file(destination)?;
     let mut hash = Sha256::new();
     let mut size = 0_u64;
     let mut block = [0_u8; 65536];
@@ -208,10 +205,15 @@ pub(crate) fn identity(path: &Path, max: u64) -> Result<ByteIdentity> {
 
 /// Create an exact private snapshot without replacing an existing file, then restrict writes.
 pub(crate) fn write_readonly(path: &Path, bytes: &[u8]) -> Result<()> {
-    let mut file = OpenOptions::new().create_new(true).write(true).open(path)?;
+    let mut file = crate::filesystem::private_file(path)?;
     file.write_all(bytes)?;
     file.sync_all()?;
-    readonly(path, false)
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        file.set_permissions(fs::Permissions::from_mode(0o400))?;
+    }
+    Ok(())
 }
 
 /// Limit snapshot access to owner reads and optional approved native execution.
@@ -235,6 +237,35 @@ pub(crate) fn readonly(path: &Path, executable: bool) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    #[cfg(unix)]
+    /// Snapshot bytes are owner-only from the moment the destination exists.
+    fn snapshot_is_private_before_later_permission_hardening() {
+        use std::os::unix::fs::PermissionsExt;
+        let directory = tempfile::tempdir().unwrap();
+        let source = directory.path().join("source");
+        let destination = directory.path().join("snapshot");
+        fs::write(&source, b"private evidence").unwrap();
+        snapshot(&source, &destination, 1024).unwrap();
+        assert_eq!(
+            fs::metadata(destination).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+    }
+    #[test]
+    /// Expected-size limits reject an oversized source before a destination exists, and accept the boundary.
+    fn snapshot_size_gate_precedes_destination_creation() {
+        let directory = tempfile::tempdir().unwrap();
+        let source = directory.path().join("source");
+        let destination = directory.path().join("snapshot");
+        fs::write(&source, b"ab").unwrap();
+        assert!(
+            matches!(snapshot(&source, &destination, 1), Err(crate::Error::Invalid(code)) if code == "verification-input-type-or-size")
+        );
+        assert!(!destination.exists());
+        let identity = snapshot(&source, &destination, 2).unwrap();
+        assert_eq!(identity, crate::trust::ByteIdentity::from_bytes(b"ab"));
+    }
     #[test]
     /// Reject allocation-amplifying, ambiguous and trailing JSON while retaining ordinary values.
     fn untrusted_json_has_node_depth_duplicate_and_trailing_data_bounds() {

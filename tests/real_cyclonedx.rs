@@ -60,6 +60,10 @@ fn native_cyclonedx_validates_complete_documents_and_rejects_non_graph_field_err
         .matches(&fs::read(&executable).unwrap())
         .unwrap();
     let validator = OfflineSbomValidator::open(&executable, &expected_tool).unwrap();
+    assert!(matches!(
+        validator.validate(&fixture("minimal.cdx.json"), &ByteIdentity::from_bytes(b"x")),
+        Err(armorer::Error::Invalid(code)) if code == "verification-input-type-or-size"
+    ));
     for name in ["minimal", "optional", "zero-library"] {
         let path = fixture(&format!("{name}.cdx.json"));
         let bytes = fs::read(&path).unwrap();

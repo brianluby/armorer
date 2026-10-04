@@ -50,10 +50,10 @@ def qualify(destination):
     if len(binary) != BINARY_SIZE or hashlib.sha256(binary).hexdigest() != BINARY_SHA256:
         raise ValueError("unapproved Apple reference executable bytes")
     # This explicitly named legacy fixture reader grants no Armorer archive/release proof.
-    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     destination.mkdir(mode=0o700)
     output = destination / "payload.macho"
-    with output.open("xb") as writer:
+    with os.fdopen(os.open(output, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "wb") as writer:
         writer.write(binary)
     output.chmod(0o400)
     return output.resolve()

@@ -1,32 +1,22 @@
 """Independently check v2 graph schema/fixtures; establish no authenticity."""
-import copy
-import json
-from pathlib import Path
-from jsonschema import Draft202012Validator, ValidationError
+from schema_checks import ROOT, coverage, document, positive, rejection, validator
 
-root = Path(__file__).resolve().parent.parent
-schema = json.loads((root / "schemas/cargo-graph-v2.json").read_bytes())
-Draft202012Validator.check_schema(schema)
-validator = Draft202012Validator(schema)
-positive = 0
-negative = 0
-for path in sorted((root / "tests/fixtures/cargo-graph-v2").glob("*.graph.json")):
-    graph = json.loads(path.read_bytes())
-    validator.validate(graph)
-    positive += 1
-    for mutate in (
-        lambda r: r.update(schema_version=1),
-        lambda r: r.update(caller_command="build"),
-        lambda r: r.pop("nodes"),
-        lambda r: r["nodes"][0].update(unknown="unrecognized"),
-    ):
-        record = copy.deepcopy(graph)
-        mutate(record)
-        try:
-            validator.validate(record)
-        except ValidationError:
-            negative += 1
-        else:
-            raise AssertionError("invalid v2 graph structure accepted")
-assert positive == 3 and negative == 12
-print(f"v2 graph schema checked; {positive} positive fixtures; {negative} structural rejections")
+check = validator("cargo-graph-v2.json")
+paths = sorted((ROOT / "tests/fixtures/cargo-graph-v2").glob("*.graph.json"))
+if {path.name for path in paths} != {"minimal.graph.json", "optional.graph.json", "zero-library.graph.json"}:
+    raise ValueError("v2 graph fixture set changed; explicitly review fixture coverage")
+count = negative = 0
+for path in paths:
+    graph = document(path)
+    positive(check, graph, str(path))
+    count += 1
+    for label, mutate, keyword, location in [
+        ("unsupported version", lambda r: r.update(schema_version=1), "minimum", ["schema_version"]),
+        ("caller command", lambda r: r.update(caller_command="build"), "additionalProperties", []),
+        ("missing nodes", lambda r: r.pop("nodes"), "required", []),
+        ("unknown node field", lambda r: r["nodes"][0].update(unknown="unrecognized"), "additionalProperties", ["nodes", 0]),
+    ]:
+        rejection(check, graph, f"{path.name}: {label}", mutate, keyword, location)
+        negative += 1
+coverage("v2 graph", count, negative, 3, 12)
+print(f"v2 graph schema checked; {count} positive fixtures; {negative} structural rejections")

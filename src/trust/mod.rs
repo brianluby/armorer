@@ -30,9 +30,10 @@ pub(crate) fn require(ok: bool, code: &'static str) -> Result<()> {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ByteIdentity {
-    #[schemars(regex(pattern = "^[0-9a-f]{64}$"))]
+    #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub sha256: String,
     #[schemars(range(min = 1, max = 1073741824))]
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub size: u64,
 }
 
@@ -61,8 +62,11 @@ impl ByteIdentity {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Source {
+    #[schemars(regex(
+        pattern = "^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}/[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$(?![\\s\\S])"
+    ))]
     pub repository: String,
-    #[schemars(regex(pattern = "^[0-9a-f]{40}$"))]
+    #[schemars(regex(pattern = "^[0-9a-f]{40}$(?![\\s\\S])"))]
     pub commit: String,
     pub git_ref: String,
 }
@@ -88,9 +92,16 @@ pub(crate) fn release_tag(tag: &str) -> bool {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct WorkflowIdentity {
+    #[schemars(regex(
+        pattern = "^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}/[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$(?![\\s\\S])"
+    ))]
     pub repository: String,
+    #[schemars(regex(
+        pattern = "^\\.github/workflows/[A-Za-z0-9][A-Za-z0-9_.-]*\\.yml$(?![\\s\\S])"
+    ))]
+    #[schemars(length(max = 273))]
     pub path: String,
-    #[schemars(regex(pattern = "^[0-9a-f]{40}$"))]
+    #[schemars(regex(pattern = "^[0-9a-f]{40}$(?![\\s\\S])"))]
     pub commit: String,
 }
 
@@ -111,8 +122,10 @@ impl WorkflowIdentity {
 #[serde(deny_unknown_fields)]
 pub struct RunIdentity {
     #[schemars(range(min = 1))]
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub id: u64,
     #[schemars(range(min = 1))]
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub attempt: u64,
     pub workflow: WorkflowIdentity,
 }
@@ -129,13 +142,16 @@ impl RunIdentity {
 #[serde(deny_unknown_fields)]
 pub struct InputIdentity {
     pub source: Source,
-    #[schemars(regex(pattern = "^[0-9a-f]{64}$"))]
+    #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub config_sha256: String,
-    #[schemars(regex(pattern = "^[0-9a-f]{64}$"))]
+    #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub lock_sha256: String,
-    #[schemars(regex(pattern = "^[0-9a-f]{64}$"))]
+    #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub cargo_lock_sha256: String,
     pub runtime: ByteIdentity,
+    #[schemars(regex(
+        pattern = "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$(?![\\s\\S])"
+    ))]
     pub runtime_version: String,
     pub run: RunIdentity,
 }
@@ -179,9 +195,15 @@ pub(crate) fn asset_name(s: &str) -> bool {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Review {
+    #[schemars(regex(pattern = "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"))]
     pub owner: String,
+    #[schemars(length(min = 1, max = 4096))]
     pub rationale: String,
+    #[schemars(transform = crate::schema_bounds::unsigned)]
+    #[schemars(range(min = 1))]
     pub reviewed_at: u64,
+    #[schemars(transform = crate::schema_bounds::unsigned)]
+    #[schemars(range(min = 1))]
     pub expires_at: u64,
     pub record: ByteIdentity,
 }

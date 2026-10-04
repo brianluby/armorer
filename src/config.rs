@@ -18,12 +18,23 @@ pub const TARGETS: &[&str] = &[
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
+    #[schemars(transform = crate::schema_bounds::unsigned)]
+    #[schemars(range(min = 1, max = 1))]
     pub schema_version: u32,
+    #[schemars(regex(
+        pattern = "^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}/[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$(?![\\s\\S])"
+    ))]
     pub repository: String,
+    #[schemars(regex(
+        pattern = "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$(?![\\s\\S])"
+    ))]
     pub toolchain: String,
     #[serde(default = "manifest_default")]
+    #[schemars(regex(pattern = "^Cargo\\.toml$(?![\\s\\S])"))]
     pub manifest: String,
+    #[schemars(length(min = 1, max = 128))]
     pub deliverables: Vec<Deliverable>,
+    #[schemars(extend("minProperties" = 1, "maxProperties" = 128, "propertyNames" = serde_json::json!({"pattern":"^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"})))]
     pub feature_sets: BTreeMap<String, FeatureSet>,
     pub policy: Policy,
 }
@@ -36,11 +47,17 @@ fn manifest_default() -> String {
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Deliverable {
+    #[schemars(regex(pattern = "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"))]
     pub id: String,
     pub profile: Profile,
+    #[schemars(regex(pattern = "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"))]
     pub package: String,
+    #[schemars(regex(pattern = "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"))]
     pub binary: Option<String>,
+    #[schemars(length(min = 1, max = 3))]
+    #[schemars(extend("uniqueItems" = true, "items" = serde_json::json!({"enum": crate::config::TARGETS})))]
     pub targets: Vec<String>,
+    #[schemars(regex(pattern = "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"))]
     pub feature_set: String,
 }
 
@@ -57,6 +74,8 @@ pub enum Profile {
 pub struct FeatureSet {
     pub default_features: bool,
     #[serde(default)]
+    #[schemars(length(max = 128))]
+    #[schemars(extend("uniqueItems" = true))]
     pub features: Vec<String>,
 }
 
@@ -76,24 +95,39 @@ pub enum Attestations {
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Lock {
+    #[schemars(transform = crate::schema_bounds::unsigned)]
+    #[schemars(range(min = 1, max = 1))]
     pub schema_version: u32,
+    #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub config_sha256: String,
+    #[schemars(regex(
+        pattern = "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$(?![\\s\\S])"
+    ))]
     pub runtime_version: String,
     pub workflows: WorkflowPin,
+    #[schemars(extend("minProperties" = 1, "propertyNames" = serde_json::json!({"pattern":"^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"})))]
     pub tools: BTreeMap<String, ToolPin>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct WorkflowPin {
+    #[schemars(regex(
+        pattern = "^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}/[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$(?![\\s\\S])"
+    ))]
     pub repository: String,
+    #[schemars(regex(pattern = "^[0-9a-f]{40}$(?![\\s\\S])"))]
     pub commit: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ToolPin {
+    #[schemars(regex(
+        pattern = "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$(?![\\s\\S])"
+    ))]
     pub version: String,
+    #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub sha256: String,
 }
 
