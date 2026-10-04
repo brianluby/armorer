@@ -150,6 +150,7 @@ pub fn expected_assets(
 #[serde(deny_unknown_fields)]
 pub struct ReleaseInventory {
     #[schemars(range(min = 1, max = 1))]
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub schema_version: u32,
     pub inputs: InputIdentity,
     pub assets: Vec<Asset>,
@@ -179,6 +180,8 @@ impl ReleaseInventory {
             "release-input-mismatch",
         )?;
         let expected = expected_assets(config, policy)?;
+        let expected_by_name: BTreeMap<_, _> =
+            expected.iter().map(|asset| (&asset.name, asset)).collect();
         let mut actual = BTreeMap::new();
         for a in &self.assets {
             a.bytes.validate()?;
@@ -190,9 +193,8 @@ impl ReleaseInventory {
                 a.name != INVENTORY_NAME && a.name != INVENTORY_BUNDLE_NAME,
                 "inventory-hash-cycle",
             )?;
-            let spec = expected
-                .iter()
-                .find(|e| e.name == a.name)
+            let spec = expected_by_name
+                .get(&a.name)
                 .ok_or_else(|| crate::Error::Invalid("unexpected-asset".into()))?;
             require(
                 a.role == spec.role

@@ -11,6 +11,8 @@ use std::{
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CiPolicy {
+    #[schemars(transform = crate::schema_bounds::unsigned)]
+    #[schemars(range(min = 1, max = 1))]
     pub schema_version: u32,
     pub licenses: Licenses,
     pub advisories: Advisories,

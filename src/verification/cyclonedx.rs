@@ -79,11 +79,13 @@ impl OfflineSbomValidator {
             *independently_approved == qualified_native_validator()?,
             "unapproved-sbom-validator",
         )?;
-        let workspace = tempfile::Builder::new()
-            .prefix("armorer-sbom-validator-")
-            .tempdir()?;
+        let workspace = crate::filesystem::private_tempdir("armorer-sbom-validator-", None)?;
         let copy = workspace.path().join("cyclonedx");
-        let identity = io::snapshot(executable, &copy, io::MAX_VERIFIER)?;
+        let identity = io::snapshot(
+            executable,
+            &copy,
+            independently_approved.size.min(io::MAX_VERIFIER),
+        )?;
         require(
             identity == *independently_approved,
             "unapproved-sbom-validator-bytes",
@@ -110,11 +112,9 @@ impl OfflineSbomValidator {
             io::identity(&self.executable, io::MAX_VERIFIER)? == self.identity,
             "sbom-validator-snapshot-changed",
         )?;
-        let request = tempfile::Builder::new()
-            .prefix("request-")
-            .tempdir_in(self.workspace.path())?;
+        let request = crate::filesystem::private_tempdir("request-", Some(self.workspace.path()))?;
         let input = request.path().join("sbom.json");
-        let bytes = io::snapshot(sbom, &input, MAX_SBOM)?;
+        let bytes = io::snapshot(sbom, &input, expected_bytes.size)?;
         require(bytes == *expected_bytes, "sbom-document-byte-mismatch")?;
         let document: Value = io::parse(&io::read_bounded(&input, MAX_SBOM)?)?;
         require(

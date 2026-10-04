@@ -4,9 +4,11 @@
       "additionalProperties": false,
       "properties": {
         "sha256": {
+          "pattern": "^[0-9a-f]{64}$(?![\\s\\S])",
           "type": "string"
         },
         "version": {
+          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$(?![\\s\\S])",
           "type": "string"
         }
       },
@@ -20,9 +22,11 @@
       "additionalProperties": false,
       "properties": {
         "commit": {
+          "pattern": "^[0-9a-f]{40}$(?![\\s\\S])",
           "type": "string"
         },
         "repository": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}/[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$(?![\\s\\S])",
           "type": "string"
         }
       },
@@ -37,19 +41,26 @@
   "additionalProperties": false,
   "properties": {
     "config_sha256": {
+      "pattern": "^[0-9a-f]{64}$(?![\\s\\S])",
       "type": "string"
     },
     "runtime_version": {
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$(?![\\s\\S])",
       "type": "string"
     },
     "schema_version": {
       "format": "uint32",
-      "minimum": 0,
+      "maximum": 1,
+      "minimum": 1,
       "type": "integer"
     },
     "tools": {
       "additionalProperties": {
         "$ref": "#/$defs/ToolPin"
+      },
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"
       },
       "type": "object"
     },

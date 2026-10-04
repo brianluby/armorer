@@ -5,7 +5,7 @@
       "description": "An exact byte identity, independent of a filename or producer claim.",
       "properties": {
         "sha256": {
-          "pattern": "^[0-9a-f]{64}$",
+          "pattern": "^[0-9a-f]{64}$(?![\\s\\S])",
           "type": "string"
         },
         "size": {
@@ -53,15 +53,15 @@
       "additionalProperties": false,
       "properties": {
         "cargo_lock_sha256": {
-          "pattern": "^[0-9a-f]{64}$",
+          "pattern": "^[0-9a-f]{64}$(?![\\s\\S])",
           "type": "string"
         },
         "config_sha256": {
-          "pattern": "^[0-9a-f]{64}$",
+          "pattern": "^[0-9a-f]{64}$(?![\\s\\S])",
           "type": "string"
         },
         "lock_sha256": {
-          "pattern": "^[0-9a-f]{64}$",
+          "pattern": "^[0-9a-f]{64}$(?![\\s\\S])",
           "type": "string"
         },
         "run": {
@@ -71,6 +71,7 @@
           "$ref": "#/$defs/ByteIdentity"
         },
         "runtime_version": {
+          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$(?![\\s\\S])",
           "type": "string"
         },
         "source": {
@@ -99,11 +100,13 @@
       "properties": {
         "attempt": {
           "format": "uint64",
+          "maximum": 18446744073709551615,
           "minimum": 1,
           "type": "integer"
         },
         "id": {
           "format": "uint64",
+          "maximum": 18446744073709551615,
           "minimum": 1,
           "type": "integer"
         },
@@ -122,13 +125,14 @@
       "additionalProperties": false,
       "properties": {
         "commit": {
-          "pattern": "^[0-9a-f]{40}$",
+          "pattern": "^[0-9a-f]{40}$(?![\\s\\S])",
           "type": "string"
         },
         "git_ref": {
           "type": "string"
         },
         "repository": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}/[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$(?![\\s\\S])",
           "type": "string"
         }
       },
@@ -143,13 +147,16 @@
       "additionalProperties": false,
       "properties": {
         "commit": {
-          "pattern": "^[0-9a-f]{40}$",
+          "pattern": "^[0-9a-f]{40}$(?![\\s\\S])",
           "type": "string"
         },
         "path": {
+          "maxLength": 273,
+          "pattern": "^\\.github/workflows/[A-Za-z0-9][A-Za-z0-9_.-]*\\.yml$(?![\\s\\S])",
           "type": "string"
         },
         "repository": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}/[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$(?![\\s\\S])",
           "type": "string"
         }
       },

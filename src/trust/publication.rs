@@ -68,10 +68,12 @@ pub enum LifecycleStage {
 #[serde(deny_unknown_fields)]
 pub struct LifecycleRecord {
     #[schemars(range(min = 1, max = 1))]
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub schema_version: u32,
     pub inputs: InputIdentity,
     pub stage: LifecycleStage,
     pub policy: ByteIdentity,
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub recorded_at: u64,
     pub evidence: Vec<ByteIdentity>,
     pub limitations: Vec<String>,
@@ -120,9 +122,11 @@ pub enum GithubState {
 #[serde(deny_unknown_fields)]
 pub struct GithubReceipt {
     #[schemars(range(min = 1, max = 1))]
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub schema_version: u32,
     pub inputs: InputIdentity,
     pub tag: String,
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub release_id: u64,
     pub inventory: ByteIdentity,
     pub policy: ByteIdentity,
@@ -130,6 +134,7 @@ pub struct GithubReceipt {
     pub draft_download_receipt: Option<ByteIdentity>,
     pub approval: Option<Review>,
     pub immutable_setting: Option<CapabilityObservation>,
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub published_at: Option<u64>,
     pub release_attestation: Option<ByteIdentity>,
     pub provenance_verification: Option<ByteIdentity>,
@@ -278,6 +283,7 @@ pub struct CrateIntent {
 #[serde(deny_unknown_fields)]
 pub struct PublishSet {
     #[schemars(range(min = 1, max = 1))]
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub schema_version: u32,
     pub inputs: InputIdentity,
     pub registry: Registry,
@@ -345,6 +351,7 @@ pub struct CrateReceipt {
     pub version: String,
     pub state: RegistryState,
     pub registry_bytes: Option<ByteIdentity>,
+    #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub index_sha256: Option<String>,
     pub observation: Option<ByteIdentity>,
     pub conflict: Option<ConflictRecovery>,
@@ -354,10 +361,12 @@ pub struct CrateReceipt {
 #[serde(deny_unknown_fields)]
 pub struct RegistryReceipt {
     #[schemars(range(min = 1, max = 1))]
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub schema_version: u32,
     pub publish_set: ByteIdentity,
     pub registry: Registry,
     pub crates: Vec<CrateReceipt>,
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub recorded_at: u64,
 }
 

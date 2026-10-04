@@ -64,6 +64,7 @@ pub struct RuntimeMember {
 #[serde(deny_unknown_fields)]
 pub struct RuntimeDistributionV1 {
     #[schemars(range(min = 1, max = 1))]
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub schema_version: u32,
     pub version: String,
     pub source: Source,
@@ -72,6 +73,7 @@ pub struct RuntimeDistributionV1 {
     pub build_workflow: WorkflowIdentity,
     pub authentication_record: ByteIdentity,
     pub distribution: ByteIdentity,
+    #[schemars(extend("minProperties" = 3, "maxProperties" = 3, "required" = serde_json::json!(["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu", "aarch64-apple-darwin"])))]
     pub members: BTreeMap<NativeTarget, RuntimeMember>,
 }
 impl RuntimeDistributionV1 {
@@ -201,6 +203,7 @@ impl NativePin {
 pub struct NativeAdapter {
     pub id: AdapterId,
     pub capability: CapabilityId,
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub config_versions: Vec<u32>,
     pub runtime_versions: Vec<String>,
     pub workflow: WorkflowIdentity,
@@ -213,6 +216,7 @@ pub struct NativeAdapter {
 #[serde(deny_unknown_fields)]
 pub struct NativeCatalogV2 {
     #[schemars(range(min = 2, max = 2))]
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub schema_version: u32,
     pub previous_catalog: Option<ByteIdentity>,
     pub runtime: RuntimeDistributionV1,

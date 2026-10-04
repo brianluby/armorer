@@ -30,6 +30,24 @@ const MAX_TOTAL: u64 = 4 * 1024 * 1024 * 1024;
 const MAX_FILES: usize = 8194;
 const DEADLINE: Duration = Duration::from_secs(20 * 60);
 
+/// Check the complete authenticated claim before copying any asset bytes.
+fn preflight_assets(assets: &[Asset], retained_bytes: u64) -> Result<()> {
+    require(assets.len() <= MAX_FILES - 2, "release-file-count-limit")?;
+    let mut total = retained_bytes;
+    require(total <= MAX_TOTAL, "release-total-byte-limit")?;
+    for asset in assets {
+        require(
+            asset.bytes.size <= asset_cap(asset.role),
+            "release-asset-byte-limit",
+        )?;
+        total = total
+            .checked_add(asset.bytes.size)
+            .ok_or_else(|| Error::Invalid("release-total-byte-limit".into()))?;
+        require(total <= MAX_TOTAL, "release-total-byte-limit")?;
+    }
+    Ok(())
+}
+
 /// Complete authenticated file/graph/schema evidence, distinct from publication or operational acceptance.
 /// A failed required slot produces no result, and ordinary JSON cannot manufacture this result.
 /// ```compile_fail
@@ -60,9 +78,7 @@ impl AuthenticatedReleaseFiles {
             fs::symlink_metadata(directory)?.is_dir(),
             "release-download-directory-type",
         )?;
-        let workspace = tempfile::Builder::new()
-            .prefix("armorer-release-files-")
-            .tempdir()?;
+        let workspace = crate::filesystem::private_tempdir("armorer-release-files-", None)?;
         let inventory_path = workspace.path().join(INVENTORY_NAME);
         let bundle_path = workspace.path().join(INVENTORY_BUNDLE_NAME);
         let inventory_identity = io::snapshot(
@@ -96,15 +112,15 @@ impl AuthenticatedReleaseFiles {
         // No asset filenames, graph claims or other producer JSON are read before that authentication succeeds.
         let inventory: ReleaseInventory =
             io::parse(&io::read_bounded(&inventory_path, MAX_METADATA)?)?;
+        preflight_assets(
+            &inventory.assets,
+            inventory_identity.size + inventory_bundle.size,
+        )?;
         inventory.validate_against(
             context.config(),
             context.policy(),
             context.inputs(),
             sigstore::wall_time()?,
-        )?;
-        require(
-            inventory.assets.len() + 2 <= MAX_FILES,
-            "release-file-count-limit",
         )?;
         let names: BTreeSet<_> = inventory
             .assets
@@ -113,21 +129,16 @@ impl AuthenticatedReleaseFiles {
             .chain([INVENTORY_NAME.into(), INVENTORY_BUNDLE_NAME.into()])
             .collect();
         compare_directory(directory, &names)?;
-        let mut total = inventory_identity.size + inventory_bundle.size;
         let mut identities = BTreeMap::from([
             (INVENTORY_NAME.into(), inventory_identity),
             (INVENTORY_BUNDLE_NAME.into(), inventory_bundle),
         ]);
         for asset in &inventory.assets {
             deadline(started)?;
-            total = total
-                .checked_add(asset.bytes.size)
-                .ok_or_else(|| Error::Invalid("release-total-byte-limit".into()))?;
-            require(total <= MAX_TOTAL, "release-total-byte-limit")?;
             let cap = asset_cap(asset.role);
             require(asset.bytes.size <= cap, "release-asset-byte-limit")?;
             let path = workspace.path().join(&asset.name);
-            let identity = io::snapshot(&directory.join(&asset.name), &path, cap)?;
+            let identity = io::snapshot(&directory.join(&asset.name), &path, asset.bytes.size)?;
             require(
                 identity == asset.bytes,
                 "authenticated-release-asset-byte-mismatch",
@@ -441,6 +452,35 @@ fn compare_directory(directory: &Path, expected: &BTreeSet<String>) -> Result<()
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    /// A late oversized claim fails before any asset pathname or copy is attempted.
+    fn all_asset_budgets_are_preflighted() {
+        let asset = |size| Asset {
+            name: "not-opened.tar.gz".into(),
+            role: AssetRole::Distributable,
+            bytes: ByteIdentity {
+                sha256: "a".repeat(64),
+                size,
+            },
+            subjects: vec![],
+            predicate: None,
+            predicate_asset: None,
+        };
+        preflight_assets(&[asset(MAX_ASSET)], MAX_TOTAL - MAX_ASSET).unwrap();
+        assert!(
+            matches!(preflight_assets(&[asset(MAX_ASSET), asset(1)], MAX_TOTAL - MAX_ASSET).unwrap_err(), Error::Invalid(code) if code == "release-total-byte-limit")
+        );
+        assert!(
+            matches!(preflight_assets(&[asset(MAX_ASSET + 1)], 0).unwrap_err(), Error::Invalid(code) if code == "release-asset-byte-limit")
+        );
+        assert!(
+            matches!(preflight_assets(&[], u64::MAX).unwrap_err(), Error::Invalid(code) if code == "release-total-byte-limit")
+        );
+        let assets = vec![asset(1); MAX_FILES - 1];
+        assert!(
+            matches!(preflight_assets(&assets, 0).unwrap_err(), Error::Invalid(code) if code == "release-file-count-limit")
+        );
+    }
 
     /// Authenticated-looking bytes scoped to selection A cannot satisfy selection B's retained reference.
     #[test]

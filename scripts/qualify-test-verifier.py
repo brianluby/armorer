@@ -31,7 +31,7 @@ def fetch(name, limit):
 
 def qualify(destination):
     """Authenticate manifest, archive and executable, then create a new owned output."""
-    pins = json.loads(PINS.read_text())
+    pins = json.loads(PINS.read_text(encoding="utf-8"))
     if pins["version"] != "2.102.0" or pins["source_commit"] != "fc4b137cdef0a6bd28fd461b7cf9c84a5812a8cd":
         raise ValueError("unsupported verifier source/version")
     architecture = {"x86_64": "amd64", "aarch64": "arm64", "arm64": "arm64"}.get(platform.machine().lower())
@@ -74,15 +74,18 @@ def qualify(destination):
                 executable = stream.read(pin["executable"]["size"] + 1)
     if len(executable) != pin["executable"]["size"] or hashlib.sha256(executable).hexdigest() != pin["executable"]["sha256"]:
         raise ValueError("unapproved executable bytes")
-    destination.mkdir(parents=True, exist_ok=True)
+    destination.mkdir(mode=0o700, parents=True, exist_ok=True)
     output = destination / "gh"
     # A conflicting existing file is an error; do not replace an unrelated tool.
-    with output.open("xb") as stream:
+    with os.fdopen(os.open(output, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "wb") as stream:
         stream.write(executable)
     output.chmod(0o500)
     receipt = {"source_commit": pins["source_commit"], "version": pins["version"], "platform": key,
                "manifest_sha256": pins["manifest_sha256"], "archive": pin["archive"], "executable": pin["executable"]}
-    (destination / "qualification.json").write_text(json.dumps(receipt, indent=2) + "\n")
+    receipt_path = destination / "qualification.json"
+    with os.fdopen(os.open(receipt_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w", encoding="utf-8") as stream:
+        stream.write(json.dumps(receipt, indent=2) + "\n")
+    receipt_path.chmod(0o400)
     return output.resolve()
 
 

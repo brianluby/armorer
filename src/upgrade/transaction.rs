@@ -476,19 +476,22 @@ fn transaction(
         Ok(())
     })();
     if let Err(error) = result {
-        if rollback(&root, &j, &initial).is_err() {
-            return Err(Error::Transaction(
-                "upgrade failed; explicit recovery required; journal preserved",
-            ));
+        if let Err(rollback) = rollback(&root, &j, &initial) {
+            return Err(Error::TransactionRollback {
+                message: "upgrade failed; explicit recovery required; journal preserved",
+                cause: Box::new(error),
+                rollback: Box::new(rollback),
+            });
         }
         return Err(error);
     }
     j.committed = true;
     let committed = json(&j)?;
-    if commit_marker(&root, &committed).is_err() {
-        return Err(Error::Transaction(
-            "upgrade commit marker failed; recovery required; final bytes and journal preserved",
-        ));
+    if let Err(cause) = commit_marker(&root, &committed) {
+        return Err(Error::TransactionCause {
+            message: "upgrade commit marker failed; recovery required; final bytes and journal preserved",
+            cause: Box::new(cause),
+        });
     }
     remove_journal(&root, &committed)?;
     Ok(receipt(

@@ -1,5 +1,45 @@
 use armorer::verification::bundle::load_one;
 use std::{fs, path::Path};
+
+#[test]
+/// Oversized encoded input must be rejected before the decoder inspects or allocates its payload.
+fn oversized_encoded_payload_is_rejected_before_base64_decoding() {
+    let mut bundle: serde_json::Value =
+        serde_json::from_slice(&fs::read(fixture()).unwrap()).unwrap();
+    bundle["dsseEnvelope"]["payload"] = "!"
+        .repeat((17_usize * 1024 * 1024).div_ceil(3) * 4 + 4)
+        .into();
+    let file = tempfile::NamedTempFile::new().unwrap();
+    fs::write(file.path(), serde_json::to_vec(&bundle).unwrap()).unwrap();
+    assert!(
+        matches!(load_one(file.path()).unwrap_err(), armorer::Error::Invalid(code) if code == "attestation-payload-size-limit")
+    );
+}
+
+#[test]
+/// Preserve a legitimate exact-limit statement and reject a decoded overrun sharing its encoded length.
+fn payload_size_boundary_preserves_valid_base64_and_checks_decoded_size() {
+    use base64::{Engine, engine::general_purpose::STANDARD};
+    let mut bundle: serde_json::Value =
+        serde_json::from_slice(&fs::read(fixture()).unwrap()).unwrap();
+    for extra in [0, 1] {
+        let payload = format!(
+            "{{\"padding\":\"{}\"}}",
+            "x".repeat(17 * 1024 * 1024 - 14 + extra)
+        );
+        assert_eq!(payload.len(), 17 * 1024 * 1024 + extra);
+        bundle["dsseEnvelope"]["payload"] = STANDARD.encode(payload).into();
+        let file = tempfile::NamedTempFile::new().unwrap();
+        fs::write(file.path(), serde_json::to_vec(&bundle).unwrap()).unwrap();
+        if extra == 0 {
+            load_one(file.path()).unwrap();
+        } else {
+            assert!(
+                matches!(load_one(file.path()).unwrap_err(), armorer::Error::Invalid(code) if code == "attestation-payload-size-limit")
+            );
+        }
+    }
+}
 /// Locate the genuine bare upstream Sigstore bundle without executing its artifact.
 fn fixture() -> std::path::PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))

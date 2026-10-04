@@ -20,6 +20,7 @@ pub struct Workspace {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct Package {
     pub name: String,
     pub version: String,
@@ -31,6 +32,7 @@ pub struct Package {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct Target {
     pub name: String,
     pub kind: Vec<String>,
@@ -50,7 +52,50 @@ struct MetadataPackage {
     id: String,
     manifest_path: PathBuf,
     #[serde(flatten)]
-    package: Package,
+    package: CargoPackage,
+}
+
+// Cargo metadata is an extensible upstream response; public Armorer records
+// remain closed. Do not reject Cargo's other package/target fields.
+#[derive(Deserialize)]
+struct CargoPackage {
+    name: String,
+    version: String,
+    license: Option<String>,
+    rust_version: Option<String>,
+    links: Option<String>,
+    features: BTreeMap<String, Vec<String>>,
+    targets: Vec<CargoTarget>,
+}
+
+#[derive(Deserialize)]
+struct CargoTarget {
+    name: String,
+    kind: Vec<String>,
+    #[serde(default, rename = "required-features")]
+    required_features: Vec<String>,
+}
+
+impl From<CargoPackage> for Package {
+    fn from(package: CargoPackage) -> Self {
+        Self {
+            name: package.name,
+            version: package.version,
+            license: package.license,
+            rust_version: package.rust_version,
+            links: package.links,
+            features: package.features,
+            targets: package
+                .targets
+                .into_iter()
+                .map(|target| Target {
+                    name: target.name,
+                    kind: target.kind,
+                    required_features: target.required_features,
+                })
+                .collect(),
+        }
+    }
 }
 
 // Never execute a binary selected by repository-local PATH entries.
@@ -331,7 +376,8 @@ pub fn discover(root: &Path, config: &Config) -> Result<Workspace> {
             }
         }
     }
-    let temporary = tempfile::tempdir_in(temporary_parent)?;
+    let temporary =
+        crate::filesystem::private_tempdir("armorer-discovery-", Some(&temporary_parent))?;
     let snapshot_root = temporary.path().join("workspace");
     std::fs::create_dir(&snapshot_root)?;
     let snapshot_root = snapshot_root.canonicalize()?;
@@ -442,7 +488,7 @@ pub fn discover(root: &Path, config: &Config) -> Result<Workspace> {
         return Err(Error::Metadata);
     }
     let members: BTreeSet<_> = metadata.workspace_members.iter().collect();
-    let mut packages = Vec::new();
+    let mut packages: Vec<Package> = Vec::new();
     for mut entry in metadata.packages {
         if !members.contains(&entry.id) {
             continue;
@@ -452,7 +498,7 @@ pub fn discover(root: &Path, config: &Config) -> Result<Workspace> {
             .package
             .targets
             .sort_by(|a, b| (&a.name, &a.kind).cmp(&(&b.name, &b.kind)));
-        packages.push(entry.package);
+        packages.push(entry.package.into());
     }
     packages.sort_by(|a, b| a.name.cmp(&b.name));
     if packages.is_empty() {

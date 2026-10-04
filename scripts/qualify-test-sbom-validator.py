@@ -17,7 +17,7 @@ LIMIT = 128 * 1024 * 1024
 
 def qualify(destination):
     """Read exact native pins, rehash bounded official bytes and create only a new owned leaf."""
-    document = json.loads(PINS.read_text())
+    document = json.loads(PINS.read_text(encoding="utf-8"))
     if document["version"] != "0.33.1" or document["source_commit"] != SOURCE:
         raise ValueError("unsupported schema validator source")
     systems = {"Linux": "linux", "Darwin": "macos"}
@@ -36,11 +36,11 @@ def qualify(destination):
     if len(data) != pin["bytes"]["size"] or hashlib.sha256(data).hexdigest() != pin["bytes"]["sha256"]:
         raise ValueError("unapproved schema validator bytes")
     # The Rust integration test independently checks the compiled official pin before execution.
-    destination.mkdir(parents=True, exist_ok=True)
+    destination.mkdir(mode=0o700, parents=True, exist_ok=True)
     if destination.is_symlink():
         raise ValueError("schema validator output directory may not be a symlink")
     output = destination / "cyclonedx"
-    with output.open("xb") as handle:
+    with os.fdopen(os.open(output, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "wb") as handle:
         handle.write(data)
     output.chmod(0o500)
     return output.resolve()

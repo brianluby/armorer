@@ -10,6 +10,7 @@
       "additionalProperties": false,
       "properties": {
         "after_sha256": {
+          "pattern": "^[0-9a-f]{64}$(?![\\s\\S])",
           "type": "string"
         },
         "before_content": {
@@ -19,6 +20,7 @@
           ]
         },
         "before_sha256": {
+          "pattern": "^[0-9a-f]{64}$(?![\\s\\S])",
           "type": [
             "string",
             "null"
@@ -58,30 +60,41 @@
           "items": {
             "$ref": "#/$defs/Deliverable"
           },
+          "maxItems": 128,
+          "minItems": 1,
           "type": "array"
         },
         "feature_sets": {
           "additionalProperties": {
             "$ref": "#/$defs/FeatureSet"
           },
+          "maxProperties": 128,
+          "minProperties": 1,
+          "propertyNames": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"
+          },
           "type": "object"
         },
         "manifest": {
           "default": "Cargo.toml",
+          "pattern": "^Cargo\\.toml$(?![\\s\\S])",
           "type": "string"
         },
         "policy": {
           "$ref": "#/$defs/Policy"
         },
         "repository": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}/[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$(?![\\s\\S])",
           "type": "string"
         },
         "schema_version": {
           "format": "uint32",
-          "minimum": 0,
+          "maximum": 1,
+          "minimum": 1,
           "type": "integer"
         },
         "toolchain": {
+          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$(?![\\s\\S])",
           "type": "string"
         }
       },
@@ -99,18 +112,22 @@
       "additionalProperties": false,
       "properties": {
         "binary": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])",
           "type": [
             "string",
             "null"
           ]
         },
         "feature_set": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])",
           "type": "string"
         },
         "id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])",
           "type": "string"
         },
         "package": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])",
           "type": "string"
         },
         "profile": {
@@ -118,9 +135,16 @@
         },
         "targets": {
           "items": {
-            "type": "string"
+            "enum": [
+              "aarch64-apple-darwin",
+              "aarch64-unknown-linux-gnu",
+              "x86_64-unknown-linux-gnu"
+            ]
           },
-          "type": "array"
+          "maxItems": 3,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
         }
       },
       "required": [
@@ -143,7 +167,9 @@
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "maxItems": 128,
+          "type": "array",
+          "uniqueItems": true
         }
       },
       "required": [
@@ -168,6 +194,7 @@
       "type": "object"
     },
     "Package": {
+      "additionalProperties": false,
       "properties": {
         "features": {
           "additionalProperties": {
@@ -242,6 +269,7 @@
       "type": "string"
     },
     "Target": {
+      "additionalProperties": false,
       "properties": {
         "kind": {
           "items": {
@@ -305,6 +333,7 @@
       "type": "string"
     },
     "catalog_sha256": {
+      "pattern": "^[0-9a-f]{64}$(?![\\s\\S])",
       "type": "string"
     },
     "changes": {
@@ -314,6 +343,7 @@
       "type": "array"
     },
     "config_sha256": {
+      "pattern": "^[0-9a-f]{64}$(?![\\s\\S])",
       "type": "string"
     },
     "findings": {
@@ -338,6 +368,7 @@
       "type": "string"
     },
     "plan_sha256": {
+      "pattern": "^[0-9a-f]{64}$(?![\\s\\S])",
       "type": "string"
     },
     "policy_content": {
@@ -360,10 +391,12 @@
     },
     "schema_version": {
       "format": "uint32",
-      "minimum": 0,
+      "maximum": 2,
+      "minimum": 2,
       "type": "integer"
     },
     "state_sha256": {
+      "pattern": "^[0-9a-f]{64}$(?![\\s\\S])",
       "type": [
         "string",
         "null"

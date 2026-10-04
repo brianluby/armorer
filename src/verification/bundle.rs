@@ -61,6 +61,13 @@ fn bare(bytes: Vec<u8>) -> Result<UnverifiedBundle> {
             && bundle.verification_material.is_object(),
         "unsupported-or-ambiguous-attestation-bundle",
     )?;
+    // Base64 needs four encoded bytes for each three decoded bytes. Bound the
+    // encoded representation before decode allocates, then retain the exact
+    // decoded cap for the final (possibly padded) group.
+    require(
+        bundle.dsse_envelope.payload.len() <= MAX_PAYLOAD.div_ceil(3) * 4,
+        "attestation-payload-size-limit",
+    )?;
     let payload = STANDARD
         .decode(&bundle.dsse_envelope.payload)
         .map_err(|_| Error::Json)?;

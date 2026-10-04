@@ -16,15 +16,21 @@ use std::path::Path;
 #[serde(deny_unknown_fields)]
 pub struct Plan {
     pub runtime_version: String,
+    #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub plan_sha256: String,
+    #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub state_sha256: Option<String>,
     pub input_preimages: BTreeMap<String, Option<String>>,
+    #[schemars(transform = crate::schema_bounds::unsigned)]
+    #[schemars(range(min = 1, max = 1))]
     pub schema_version: u32,
     pub mode: String,
     pub repository: String,
     pub intent: Config,
     pub state: String,
+    #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub config_sha256: String,
+    #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub lock_sha256: Option<String>,
     pub capability_state: String,
     pub workspace: Workspace,
@@ -37,7 +43,9 @@ pub struct Plan {
 pub struct Change {
     pub path: String,
     pub disposition: String,
+    #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub before_sha256: Option<String>,
+    #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub after_sha256: String,
     pub proposed_content: String,
 }

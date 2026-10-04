@@ -403,21 +403,21 @@ fn transaction(
         Ok(())
     })();
     if let Err(error) = result {
-        if rollback(&root, &journal).is_err() {
-            return Err(Error::Transaction(
-                "bootstrap apply failed; explicit recovery required; journal preserved",
-            ));
+        if let Err(rollback) = rollback(&root, &journal) {
+            return Err(Error::TransactionRollback {
+                message: "bootstrap apply failed; explicit recovery required; journal preserved",
+                cause: Box::new(error),
+                rollback: Box::new(rollback),
+            });
         }
         return Err(error);
     }
     journal.committed = true;
-    if json(&journal)
-        .and_then(|bytes| commit_marker(&root, &bytes))
-        .is_err()
-    {
-        return Err(Error::Transaction(
-            "bootstrap commit marker failed; explicit recovery required; journal preserved",
-        ));
+    if let Err(cause) = json(&journal).and_then(|bytes| commit_marker(&root, &bytes)) {
+        return Err(Error::TransactionCause {
+            message: "bootstrap commit marker failed; explicit recovery required; journal preserved",
+            cause: Box::new(cause),
+        });
     }
     remove_journal(&root)?;
     Ok(receipt(plan, "applied", true))

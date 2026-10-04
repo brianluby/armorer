@@ -122,7 +122,7 @@ fn open(directory: &Path, context: &Value) -> armorer::Result<TrustedReleaseCont
         serde_json::from_value(write(&directory.join(CONTEXT_NAME), context)).unwrap();
     TrustedReleaseContext::open(directory, &identity.sha256)
 }
-/// Check host support explicitly; the production constructor still rejects all unsupported hosts.
+/// Select positive or unsupported-host assertions; never skip a test silently.
 fn supported() -> bool {
     qualified_native_validator().is_ok()
 }
@@ -209,12 +209,20 @@ fn exact_config_lock_catalog_policy_and_cargo_lock_substitution_fail() {
     }
 }
 
+#[cfg_attr(
+    not(any(
+        all(
+            target_os = "linux",
+            any(target_arch = "x86_64", target_arch = "aarch64")
+        ),
+        all(target_os = "macos", target_arch = "aarch64")
+    )),
+    ignore = "native SBOM identity is unsupported on this host"
+)]
 #[test]
 /// An approved digest does not excuse expired reviews or mismatched source, caller, workflow and run bindings.
 fn context_rejects_wrong_source_caller_workflow_run_trigger_and_review() {
-    if !supported() {
-        return;
-    }
+    qualified_native_validator().expect("required native identity on a supported host");
     for pointer in [
         "/inputs/source/commit",
         "/caller_workflow/commit",
@@ -244,12 +252,20 @@ fn context_rejects_wrong_source_caller_workflow_run_trigger_and_review() {
     assert!(open(directory.path(), &context).is_err());
 }
 
+#[cfg_attr(
+    not(any(
+        all(
+            target_os = "linux",
+            any(target_arch = "x86_64", target_arch = "aarch64")
+        ),
+        all(target_os = "macos", target_arch = "aarch64")
+    )),
+    ignore = "native SBOM identity is unsupported on this host"
+)]
 #[test]
 /// Selection roots and required pins/coverage/steps cannot silently disappear or be independently substituted.
 fn approved_context_still_requires_complete_baseline_selection_and_evidence() {
-    if !supported() {
-        return;
-    }
+    qualified_native_validator().expect("required native identity on a supported host");
     for case in 0..14 {
         let (directory, mut context) = fixture();
         let selected = &mut context["selections"][0];
@@ -299,12 +315,20 @@ fn approved_context_still_requires_complete_baseline_selection_and_evidence() {
     assert!(open(directory.path(), &context).is_err());
 }
 
+#[cfg_attr(
+    not(any(
+        all(
+            target_os = "linux",
+            any(target_arch = "x86_64", target_arch = "aarch64")
+        ),
+        all(target_os = "macos", target_arch = "aarch64")
+    )),
+    ignore = "native SBOM identity is unsupported on this host"
+)]
 #[test]
 /// Catalog admission and native validator approval remain independently enforced.
 fn context_rejects_missing_baseline_adapter_and_unqualified_validator() {
-    if !supported() {
-        return;
-    }
+    qualified_native_validator().expect("required native identity on a supported host");
     let (directory, mut context) = fixture();
     let mut catalog: Value =
         serde_json::from_slice(&fs::read(directory.path().join("catalog.json")).unwrap()).unwrap();
@@ -640,12 +664,20 @@ fn open_native(directory: &Path, outer: &Value) -> armorer::Result<TrustedReleas
     TrustedReleaseContext::open_native_v2(directory, &identity.sha256)
 }
 
+#[cfg_attr(
+    not(any(
+        all(
+            target_os = "linux",
+            any(target_arch = "x86_64", target_arch = "aarch64")
+        ),
+        all(target_os = "macos", target_arch = "aarch64")
+    )),
+    ignore = "native SBOM identity is unsupported on this host"
+)]
 #[test]
 /// Every target uses its executed members while retaining compressed archive digests in the lock.
 fn native_context_selects_target_members_and_never_reinterprets_v1_catalogs() {
-    if !supported() {
-        return;
-    }
+    qualified_native_validator().expect("required native identity on a supported host");
     let (directory, outer, catalog) = native_fixture();
     let context = open_native(directory.path(), &outer).unwrap();
     assert_eq!(context.selections().len(), 3);
@@ -671,12 +703,20 @@ fn native_context_selects_target_members_and_never_reinterprets_v1_catalogs() {
     );
 }
 
+#[cfg_attr(
+    not(any(
+        all(
+            target_os = "linux",
+            any(target_arch = "x86_64", target_arch = "aarch64")
+        ),
+        all(target_os = "macos", target_arch = "aarch64")
+    )),
+    ignore = "native SBOM identity is unsupported on this host"
+)]
 #[test]
 /// Wrong archive/member/target/kind/source/runtime/compiler and missing baseline pins fail closed.
 fn native_context_rejects_archive_member_and_cross_target_substitution() {
-    if !supported() {
-        return;
-    }
+    qualified_native_validator().expect("required native identity on a supported host");
     for case in 0..15 {
         let (directory, mut outer, mut catalog) = native_fixture();
         match case {
@@ -729,13 +769,21 @@ fn native_context_rejects_archive_member_and_cross_target_substitution() {
     }
 }
 
+#[cfg_attr(
+    not(any(
+        all(
+            target_os = "linux",
+            any(target_arch = "x86_64", target_arch = "aarch64")
+        ),
+        all(target_os = "macos", target_arch = "aarch64")
+    )),
+    ignore = "native SBOM identity is unsupported on this host"
+)]
 #[test]
 /// Approved synthetic headers are retained read-only; loader performs no executable invocation.
 fn native_runtime_snapshots_only_approved_members_and_never_runs_them() {
     use armorer::verification::runtime::ApprovedRuntimeFiles;
-    if !supported() {
-        return;
-    }
+    qualified_native_validator().expect("required native identity on a supported host");
     let (directory, outer, _) = native_fixture();
     let context = open_native(directory.path(), &outer).unwrap();
     let before = fs::read(directory.path().join("runtime.tar")).unwrap();
@@ -775,13 +823,21 @@ fn native_runtime_snapshots_only_approved_members_and_never_runs_them() {
     );
 }
 
+#[cfg_attr(
+    not(any(
+        all(
+            target_os = "linux",
+            any(target_arch = "x86_64", target_arch = "aarch64")
+        ),
+        all(target_os = "macos", target_arch = "aarch64")
+    )),
+    ignore = "native SBOM identity is unsupported on this host"
+)]
 #[test]
 /// Even separately approved malformed archives cannot introduce paths, links, extensions or foreign native headers.
 fn native_runtime_rejects_unsafe_containers_and_retained_executable_mutation() {
     use armorer::verification::runtime::ApprovedRuntimeFiles;
-    if !supported() {
-        return;
-    }
+    qualified_native_validator().expect("required native identity on a supported host");
     for case in 0..12 {
         let (directory, mut outer, mut catalog) = native_fixture();
         let mut archive = fs::read(directory.path().join("runtime.tar")).unwrap();
@@ -1074,12 +1130,20 @@ fn cli_requires_context_kind_and_rejects_claim_overrides() {
 }
 
 /// Native-v3 authenticates an exact complete feature map and never retries the older context file.
+#[cfg_attr(
+    not(any(
+        all(
+            target_os = "linux",
+            any(target_arch = "x86_64", target_arch = "aarch64")
+        ),
+        all(target_os = "macos", target_arch = "aarch64")
+    )),
+    ignore = "native SBOM identity is unsupported on this host"
+)]
 #[test]
 fn native_v3_requires_complete_independently_approved_root_features() {
     use armorer::verification::context::FEATURE_CONTEXT_NAME;
-    if !supported() {
-        return;
-    }
+    qualified_native_validator().expect("required native identity on a supported host");
     let (directory, mut outer, _) = native_fixture();
     outer["schema_version"] = 3.into();
     let keys = outer["release"]["selections"]

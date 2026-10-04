@@ -33,19 +33,28 @@ pub use github::{CapabilityReport, GateState, NativeGithub};
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PublicationPolicy {
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub schema_version: u32,
     pub context: ByteIdentity,
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub repository_id: u64,
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub owner_id: u64,
     pub release_attestation_root: ByteIdentity,
     pub default_branch: String,
     pub controller_workflow: WorkflowIdentity,
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub allowed_actor_ids: BTreeSet<u64>,
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub allowed_publisher_ids: BTreeSet<u64>,
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub allowed_approver_ids: BTreeSet<u64>,
     pub publish_environment: String,
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub publish_environment_id: u64,
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub max_observation_age: u64,
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub expires_at: u64,
 }
 
@@ -117,6 +126,7 @@ impl TrustedPublicationPolicy {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PublicationPlan {
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub schema_version: u32,
     pub context: ByteIdentity,
     pub policy: ByteIdentity,
@@ -231,12 +241,17 @@ pub enum ApprovalKind {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PublicationApproval {
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub schema_version: u32,
     pub kind: ApprovalKind,
     pub plan: ByteIdentity,
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub approver_id: u64,
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub approved_at: u64,
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub expires_at: u64,
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub release_id: Option<u64>,
     pub served_bytes: Option<ByteIdentity>,
 }
@@ -801,17 +816,7 @@ fn now() -> Result<u64> {
         .map_err(|_| Error::Invalid("publication-clock-unavailable".into()))
 }
 
-/// Tighten an empty fresh directory before writing snapshots or opening any credential-bearing child.
+/// Create a private directory before writing snapshots or opening any credential-bearing child.
 fn private_workspace(prefix: &str) -> Result<tempfile::TempDir> {
-    let workspace = tempfile::Builder::new().prefix(prefix).tempdir()?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(workspace.path(), fs::Permissions::from_mode(0o700))?;
-    }
-    #[cfg(not(unix))]
-    return Err(Error::Invalid(
-        "publication-private-directory-platform-unsupported".into(),
-    ));
-    Ok(workspace)
+    Ok(crate::filesystem::private_tempdir(prefix, None)?)
 }

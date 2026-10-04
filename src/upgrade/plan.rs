@@ -49,12 +49,16 @@ pub struct Change {
     pub path: String,
     pub decision: Decision,
     pub imported: bool,
+    #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub base_sha256: Option<String>,
     pub base_content: Option<String>,
+    #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub before_sha256: Option<String>,
     pub before_content: Option<String>,
+    #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub candidate_sha256: String,
     pub candidate_content: String,
+    #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub after_sha256: Option<String>,
     pub proposed_content: Option<String>,
     pub candidate_diff: String,
@@ -63,9 +67,12 @@ pub struct Change {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Plan {
+    #[schemars(transform = crate::schema_bounds::unsigned)]
+    #[schemars(range(min = 1, max = 1))]
     pub schema_version: u32,
     pub contract: String,
     pub runtime_version: String,
+    #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub plan_sha256: String,
     pub source_format: SourceFormat,
     pub source_catalog: Option<Authority>,
@@ -75,11 +82,13 @@ pub struct Plan {
     pub import_files: Vec<String>,
     pub state_preimages: BTreeMap<String, Option<String>>,
     pub input_preimages: BTreeMap<String, Option<String>>,
+    #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub config_sha256: String,
     pub intent: Config,
     pub workspace: Workspace,
     pub policy_content: String,
     /// UTC epoch day used for the reviewed policy/compatibility snapshot, not a live trust root.
+    #[schemars(transform = crate::schema_bounds::unsigned)]
     pub policy_review_day: u64,
     pub recovery_required: bool,
     pub compatibility: Vec<Compatibility>,

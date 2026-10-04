@@ -1,30 +1,21 @@
-"""Independently check context JSON structure; never approve policy or execute consuming code."""
-import copy
-import json
-from pathlib import Path
-from jsonschema import Draft202012Validator, ValidationError
+"""Check context structure; never approve policy or execute consuming code."""
+from schema_checks import ROOT, coverage, document, positive, rejection, validator
 
-root = Path(__file__).resolve().parent.parent
-schema = json.loads((root / 'schemas/verification-context-v1.json').read_text())
-Draft202012Validator.check_schema(schema)
-validator = Draft202012Validator(schema)
-context = json.loads((root / 'examples/verification-context-v1/synthetic-linux.json').read_text())
-validator.validate(context)
+check = validator("verification-context-v1.json")
+context = document(ROOT / "examples/verification-context-v1/synthetic-linux.json")
+positive(check, context, "synthetic-linux context")
 negative = 0
-for mutate in [
-    lambda value: value.update(schema_version=2),
-    lambda value: value.update(trigger='pull_request'),
-    lambda value: value.update(command='caller shell input'),
-    lambda value: value['inputs']['run'].update(attempt=0),
-    lambda value: value['native_sbom_validator'].update(sha256='moving-ref'),
-    lambda value: value['selections'][0].update(download_url='https://attacker.invalid/context'),
+for label, mutate, keyword, path in [
+    ("unsupported version", lambda v: v.update(schema_version=2), "maximum", ["schema_version"]),
+    ("PR trigger", lambda v: v.update(trigger="pull_request"), "enum", ["trigger"]),
+    ("caller shell", lambda v: v.update(command="caller shell input"), "additionalProperties", []),
+    ("zero attempt", lambda v: v["inputs"]["run"].update(attempt=0), "minimum", ["inputs", "run", "attempt"]),
+    ("moving verifier", lambda v: v["native_sbom_validator"].update(sha256="moving-ref"), "pattern", ["native_sbom_validator", "sha256"]),
+    ("caller URL", lambda v: v["selections"][0].update(download_url="https://attacker.invalid/context"), "additionalProperties", ["selections", 0]),
+    ("empty signers", lambda v: v.update(signers={}), "minProperties", ["signers"]),
+    ("zero freshness", lambda v: v["selections"][0]["evidence_requirements"].update(max_age_seconds=0), "minimum", ["selections", 0, "evidence_requirements", "max_age_seconds"]),
 ]:
-    value = copy.deepcopy(context)
-    mutate(value)
-    try:
-        validator.validate(value)
-    except ValidationError:
-        negative += 1
-    else:
-        raise AssertionError('invalid context structure accepted')
-print(f'1 synthetic context schema example; {negative} structural rejections; no trust or signature claims')
+    rejection(check, context, label, mutate, keyword, path)
+    negative += 1
+coverage("verification context", 1, negative, 1, 8)
+print(f"1 synthetic context schema example; {negative} structural rejections; no trust or signature claims")

@@ -10,7 +10,6 @@ use crate::{
 };
 use sha2::{Digest, Sha256};
 use std::{
-    fs::OpenOptions,
     io::{Read, Write},
     path::{Path, PathBuf},
     time::{Duration, Instant},
@@ -44,9 +43,9 @@ impl<'context> ApprovedRuntimeFiles<'context> {
             "runtime-distribution-size-limit",
         )?;
         let started = Instant::now();
-        let directory = tempfile::tempdir()?;
+        let directory = crate::filesystem::private_tempdir("armorer-runtime-", None)?;
         let snapshot = directory.path().join("runtime.tar");
-        let distribution_identity = io::snapshot(archive, &snapshot, MAX_DISTRIBUTION)?;
+        let distribution_identity = io::snapshot(archive, &snapshot, spec.distribution.size)?;
         require(
             distribution_identity == spec.distribution,
             "runtime-distribution-byte-mismatch",
@@ -170,12 +169,7 @@ fn decode(
         )?;
         written += BLOCK;
         let mut destination = if target == native {
-            Some(
-                OpenOptions::new()
-                    .write(true)
-                    .create_new(true)
-                    .open(output)?,
-            )
+            Some(crate::filesystem::private_file(output)?)
         } else {
             None
         };

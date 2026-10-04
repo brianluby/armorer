@@ -91,14 +91,14 @@ impl HistoricalByteMatch {
         require(total <= MAX_TOTAL, "historical-total-byte-limit")?;
         let names = historical.assets.keys().cloned().collect();
         compare_directory(directory, &names)?;
-        let workspace = tempfile::Builder::new()
-            .prefix("armorer-historical-bytes-")
-            .tempdir()?;
+        let workspace = crate::filesystem::private_tempdir("armorer-historical-bytes-", None)?;
         let mut identities = BTreeMap::new();
         for (name, expected) in &historical.assets {
             deadline(started)?;
             let path = workspace.path().join(name);
-            let identity = io::snapshot(&directory.join(name), &path, MAX_ASSET)?;
+            // The independently approved size also bounds the opened source
+            // before streaming; larger inputs cannot cause an unnecessary copy.
+            let identity = io::snapshot(&directory.join(name), &path, expected.size)?;
             require(identity == *expected, "historical-asset-byte-mismatch")?;
             io::readonly(&path, false)?;
             identities.insert(name.clone(), identity);

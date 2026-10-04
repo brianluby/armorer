@@ -13,7 +13,6 @@ use flate2::bufread::GzDecoder;
 use serde::Serialize;
 use std::{
     collections::BTreeMap,
-    fs,
     io::Read,
     path::Path,
     time::{Duration, Instant},
@@ -124,14 +123,7 @@ impl VerifiedAppleRelease {
                     && package.output == archive_identity,
                 "apple-native-byte-chain-mismatch",
             )?;
-            let workspace = tempfile::Builder::new()
-                .prefix("armorer-apple-native-")
-                .tempdir()?;
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::PermissionsExt;
-                fs::set_permissions(workspace.path(), fs::Permissions::from_mode(0o700))?;
-            }
+            let workspace = crate::filesystem::private_tempdir("armorer-apple-native-", None)?;
             let path = workspace.path().join("payload.macho");
             io::write_readonly(&path, &binary)?;
             let timestamp = native(&path, &binary, team, &assertions.certificate_sha256)?;
@@ -570,6 +562,8 @@ fn native(path: &Path, binary: &[u8], team: &str, certificate: &str) -> Result<u
 mod tests {
     use super::*;
     use flate2::{Compression, write::GzEncoder};
+    #[cfg(target_os = "macos")]
+    use std::fs;
     use std::io::Write;
 
     /// Construct a synthetic canonical archive; its successful parse is never a native proof.

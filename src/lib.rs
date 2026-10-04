@@ -15,8 +15,10 @@ pub mod catalog;
 pub mod ci_policy;
 pub mod config;
 pub mod discovery;
+mod filesystem;
 pub mod plan;
 pub mod preview;
+mod schema_bounds;
 pub mod trust;
 pub mod upgrade;
 pub mod verification;
@@ -42,6 +44,21 @@ pub enum Error {
     Json,
     #[error("transaction blocked: {0}")]
     Transaction(&'static str),
+    #[error("transaction blocked: {message}; original failure: {cause}")]
+    TransactionCause {
+        message: &'static str,
+        #[source]
+        cause: Box<Error>,
+    },
+    #[error(
+        "transaction blocked: {message}; original failure: {cause}; rollback failure: {rollback}"
+    )]
+    TransactionRollback {
+        message: &'static str,
+        #[source]
+        cause: Box<Error>,
+        rollback: Box<Error>,
+    },
 }
 
 impl Error {
@@ -55,7 +72,9 @@ impl Error {
             Self::Cargo(_) => "cargo-discovery",
             Self::Metadata => "cargo-metadata",
             Self::Json => "json",
-            Self::Transaction(_) => "transaction",
+            Self::Transaction(_)
+            | Self::TransactionCause { .. }
+            | Self::TransactionRollback { .. } => "transaction",
         }
     }
 }

@@ -30,8 +30,9 @@ jobs:
           persist-credentials: false
       - name: Install exact toolchain
         run: |
-          rustup toolchain install 1.95.0 --profile minimal --component clippy --component rustfmt
-          toolchain_bin="$(dirname "$(rustup which --toolchain 1.95.0 cargo)")"
+          toolchain="$(python3 -I -c 'import pathlib, tomllib; print(tomllib.loads(pathlib.Path("rust-toolchain.toml").read_text(encoding="utf-8"))["toolchain"]["channel"])')"
+          rustup toolchain install "$toolchain" --profile minimal --component clippy --component rustfmt
+          toolchain_bin="$(dirname "$(rustup which --toolchain "$toolchain" cargo)")"
           echo "$toolchain_bin" >> "$GITHUB_PATH"
       - name: Check formatting
         run: cargo fmt --check
@@ -59,7 +60,7 @@ jobs:
       - name: Qualify native publication GETs and closed write boundaries
         env:
           GH_TOKEN: ${{ github.token }}
-        run: cargo test --locked --lib real_native_publication_observations_never_grant_write_authority -- --ignored --nocapture --test-threads=1
+        run: cargo test --locked --lib real_native_publication_observations_never_grant_write_authority -- --ignored --test-threads=1
       - name: Qualify pinned native complete SBOM validator
         run: python3 -I scripts/qualify-test-sbom-validator.py --output-directory "$RUNNER_TEMP/armorer-fixture-cyclonedx" --github-env
       - name: Validate complete CycloneDX documents and adversarial fixtures
@@ -71,37 +72,38 @@ jobs:
       - name: Verify committed schemas
         run: |
           for kind in config lock plan release-inventory verification-policy artifact-evidence evidence-requirements capability-config catalog capability-observation lifecycle-record github-receipt publish-set registry-receipt ci-policy; do
-            target/debug/armorer schema "$kind" > "/tmp/armorer-$kind.json"
-            diff -u "schemas/$kind-v1.json" "/tmp/armorer-$kind.json"
+            target/debug/armorer schema "$kind" > "$RUNNER_TEMP/armorer-$kind.json"
+            diff -u "schemas/$kind-v1.json" "$RUNNER_TEMP/armorer-$kind.json"
           done
-          target/debug/armorer schema bootstrap-plan > /tmp/armorer-bootstrap-plan.json
-          diff -u schemas/bootstrap-plan-v2.json /tmp/armorer-bootstrap-plan.json
+          target/debug/armorer schema bootstrap-plan > "$RUNNER_TEMP/armorer-bootstrap-plan.json"
+          diff -u schemas/bootstrap-plan-v2.json "$RUNNER_TEMP/armorer-bootstrap-plan.json"
           for kind in upgrade-plan upgrade-rollback; do
-            target/debug/armorer schema "$kind" > "/tmp/armorer-$kind.json"
-            diff -u "schemas/$kind-v1.json" "/tmp/armorer-$kind.json"
+            target/debug/armorer schema "$kind" > "$RUNNER_TEMP/armorer-$kind.json"
+            diff -u "schemas/$kind-v1.json" "$RUNNER_TEMP/armorer-$kind.json"
           done
-          target/debug/armorer schema cargo-graph-v2 > /tmp/armorer-cargo-graph-v2.json
-          diff -u schemas/cargo-graph-v2.json /tmp/armorer-cargo-graph-v2.json
-          target/debug/armorer schema verification-context > /tmp/armorer-verification-context-v1.json
-          diff -u schemas/verification-context-v1.json /tmp/armorer-verification-context-v1.json
+          target/debug/armorer schema cargo-graph-v2 > "$RUNNER_TEMP/armorer-cargo-graph-v2.json"
+          diff -u schemas/cargo-graph-v2.json "$RUNNER_TEMP/armorer-cargo-graph-v2.json"
+          target/debug/armorer schema verification-context > "$RUNNER_TEMP/armorer-verification-context-v1.json"
+          diff -u schemas/verification-context-v1.json "$RUNNER_TEMP/armorer-verification-context-v1.json"
           for kind in native-catalog-v2 runtime-distribution-v1 verification-context-v2 verification-context-v3; do
-            target/debug/armorer schema "$kind" > "/tmp/armorer-$kind.json"
-            diff -u "schemas/$kind.json" "/tmp/armorer-$kind.json"
+            target/debug/armorer schema "$kind" > "$RUNNER_TEMP/armorer-$kind.json"
+            diff -u "schemas/$kind.json" "$RUNNER_TEMP/armorer-$kind.json"
           done
           for kind in publication-policy publication-plan publication-approval; do
-            target/debug/armorer schema "$kind" > "/tmp/armorer-$kind.json"
-            diff -u "schemas/$kind-v1.json" "/tmp/armorer-$kind.json"
+            target/debug/armorer schema "$kind" > "$RUNNER_TEMP/armorer-$kind.json"
+            diff -u "schemas/$kind-v1.json" "$RUNNER_TEMP/armorer-$kind.json"
           done
       - name: Independently validate example schemas
         run: |
-          python3 -m venv /tmp/armorer-schema-venv
-          /tmp/armorer-schema-venv/bin/python -m pip install --require-hashes --only-binary=:all: -r requirements-schema.txt
-          /tmp/armorer-schema-venv/bin/python scripts/validate-contract-examples.py
-          /tmp/armorer-schema-venv/bin/python scripts/validate-graph-v2.py
-          /tmp/armorer-schema-venv/bin/python scripts/validate-verification-context.py
-          /tmp/armorer-schema-venv/bin/python scripts/validate-runtime-native.py
-          /tmp/armorer-schema-venv/bin/python scripts/validate-bootstrap-examples.py
-          /tmp/armorer-schema-venv/bin/python scripts/validate-upgrade-examples.py
+          python3 -m venv "$RUNNER_TEMP/armorer-schema-venv"
+          "$RUNNER_TEMP/armorer-schema-venv/bin/python" -m pip install --require-hashes --only-binary=:all: -r requirements-schema.txt
+          "$RUNNER_TEMP/armorer-schema-venv/bin/python" scripts/validate-contract-examples.py
+          "$RUNNER_TEMP/armorer-schema-venv/bin/python" scripts/validate-graph-v2.py
+          "$RUNNER_TEMP/armorer-schema-venv/bin/python" scripts/validate-verification-context.py
+          "$RUNNER_TEMP/armorer-schema-venv/bin/python" scripts/validate-runtime-native.py
+          "$RUNNER_TEMP/armorer-schema-venv/bin/python" scripts/validate-bootstrap-examples.py
+          "$RUNNER_TEMP/armorer-schema-venv/bin/python" scripts/validate-upgrade-examples.py
+          "$RUNNER_TEMP/armorer-schema-venv/bin/python" scripts/test-review-gates.py
       - name: Checkout reviewed workflow lint runtime
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
