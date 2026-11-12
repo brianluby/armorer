@@ -1,5 +1,7 @@
 use serde_json::Value;
 use std::{collections::BTreeMap, fs, path::Path, process::Command};
+#[cfg(unix)]
+use std::{os::unix::fs::PermissionsExt, path::PathBuf};
 
 /// Copy an inert profile example into isolated storage, without invoking its package.
 fn copy(from: &Path, to: &Path) {
@@ -52,6 +54,19 @@ fn cli(root: &Path, arguments: &[&str], status: i32) -> Value {
         String::from_utf8_lossy(&output.stderr)
     );
     serde_json::from_slice(&output.stdout).unwrap()
+}
+
+#[cfg(unix)]
+/// Restore a deliberately blocked fixture directory even if its assertion panics.
+struct RestorePermissions {
+    path: PathBuf,
+    permissions: fs::Permissions,
+}
+#[cfg(unix)]
+impl Drop for RestorePermissions {
+    fn drop(&mut self) {
+        let _ = fs::set_permissions(&self.path, self.permissions.clone());
+    }
 }
 
 /// Exercise preview, bootstrap, upgrade and reversal through one binary while build traps remain inert.
@@ -204,6 +219,107 @@ fn all_profiles_share_the_integrated_cli_without_building_or_losing_customizatio
             before.get("Cargo.lock").cloned()
         );
     }
+}
+
+/// Exercise an actual CLI replacement failure after the first managed write and verify rollback permits retry.
+#[cfg(unix)]
+#[test]
+fn bootstrap_cli_write_failure_rolls_back_and_retry_succeeds_without_building() {
+    let root = tempfile::tempdir().unwrap();
+    copy(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/bootstrap-v2/library"),
+        root.path(),
+    );
+    fs::write(root.path().join("build.rs"), "fn main(){std::fs::write(\"BUILD_EXECUTED\",\"bad\").unwrap();panic!(\"must not build\");}").unwrap();
+    let workflows = root.path().join(".github/workflows");
+    fs::create_dir_all(&workflows).unwrap();
+    fs::write(workflows.join("bespoke.yml"), b"bespoke bytes\r\n").unwrap();
+    let sentinel = root.path().join("unrelated-sentinel");
+    fs::write(&sentinel, b"unrelated bytes\r\n").unwrap();
+    let before = snapshot(root.path());
+    let policy = root.path().join("ci-policy.reviewed.toml");
+    let plan = cli(
+        root.path(),
+        &["bootstrap", "plan", "--policy", policy.to_str().unwrap()],
+        0,
+    );
+    assert_eq!(snapshot(root.path()), before);
+    assert_eq!(plan["changes"][0]["path"], ".armorer/ci-policy.toml");
+    assert_eq!(
+        plan["changes"][1]["path"],
+        ".github/workflows/armorer-build.yml"
+    );
+    let saved = tempfile::NamedTempFile::new().unwrap();
+    fs::write(saved.path(), serde_json::to_vec(&plan).unwrap()).unwrap();
+    let digest = plan["plan_sha256"].as_str().unwrap();
+    let original_permissions = fs::metadata(&workflows).unwrap().permissions();
+    let restore = RestorePermissions {
+        path: workflows.clone(),
+        permissions: original_permissions,
+    };
+    fs::set_permissions(&workflows, fs::Permissions::from_mode(0o500)).unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_armorer"))
+        .arg("--repository")
+        .arg(root.path())
+        .args(["bootstrap", "apply", "--plan"])
+        .arg(saved.path())
+        .args(["--expect-plan-sha256", digest])
+        .output()
+        .unwrap();
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "workflow directory permissions did not reject the later CLI write; the account bypasses permission checks: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let failure: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(failure["error"]["code"], "io");
+    assert!(
+        failure["error"]["message"].as_str().is_some_and(|message| {
+            message.contains("Permission denied") || message.contains("Operation not permitted")
+        }),
+        "{failure}"
+    );
+    drop(restore);
+    for path in [
+        ".armorer/ci-policy.toml",
+        ".armorer/bootstrap-state-v2.json",
+        ".armorer/bootstrap-journal-v2.json",
+        ".github/workflows/armorer-build.yml",
+        ".github/workflows/armorer-ci.yml",
+        "armorer.lock",
+        "rust-toolchain.toml",
+    ] {
+        assert!(!root.path().join(path).exists(), "{path}");
+    }
+    assert_eq!(
+        fs::read(workflows.join("bespoke.yml")).unwrap(),
+        b"bespoke bytes\r\n"
+    );
+    assert_eq!(fs::read(&sentinel).unwrap(), b"unrelated bytes\r\n");
+    assert!(!root.path().join("BUILD_EXECUTED").exists());
+    assert!(!root.path().join("target").exists());
+    let receipt = cli(
+        root.path(),
+        &[
+            "bootstrap",
+            "apply",
+            "--plan",
+            saved.path().to_str().unwrap(),
+            "--expect-plan-sha256",
+            digest,
+        ],
+        0,
+    );
+    assert_eq!(receipt["outcome"], "applied");
+    assert_eq!(receipt["configured"], true);
+    assert_eq!(
+        fs::read(workflows.join("bespoke.yml")).unwrap(),
+        b"bespoke bytes\r\n"
+    );
+    assert_eq!(fs::read(&sentinel).unwrap(), b"unrelated bytes\r\n");
+    assert!(!root.path().join("BUILD_EXECUTED").exists());
+    assert!(!root.path().join("target").exists());
 }
 
 /// Reject unapproved release and historical contexts through the same binary before inspecting offered assets.
