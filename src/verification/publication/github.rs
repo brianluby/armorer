@@ -501,10 +501,139 @@ impl NativeGithub {
         ] {
             report.gates.insert(name.into(), GateState::Enforced);
         }
+        self.observe_deployment_gates(release, policy, report)?;
         report.evidence.insert(
             "current-run".into(),
             ByteIdentity::from_bytes(&serde_json::to_vec(&value).map_err(|_| Error::Json)?),
         );
+        Ok(())
+    }
+    /// Observe the pinned controller's attempt-bound deployment and its run-scoped approval.
+    /// Fixed GET routes only: `deployments?environment=…`, `deployments/{id}/statuses`,
+    /// `actions/runs/{id}/approvals`. The settings-only snapshot keeps both gates Unsupported;
+    /// genuine enforcement is observable here because the frozen release carries run/attempt identity.
+    fn observe_deployment_gates(
+        &self,
+        release: &FrozenRelease,
+        policy: &TrustedPublicationPolicy,
+        report: &mut CapabilityReport,
+    ) -> Result<()> {
+        let env = &policy.policy.publish_environment;
+        let run = &release.plan.inputs.run;
+        let expected = DeploymentExpectation {
+            run_id: run.id,
+            run_attempt: run.attempt,
+            source_commit: &release.plan.inputs.source.commit,
+            environment: env,
+            environment_id: policy.policy.publish_environment_id,
+            approvers: &policy.policy.allowed_approver_ids,
+            actor: report.actor_id,
+            triggering_actor: report.triggering_actor_id,
+        };
+        let listing = self.response(&format!(
+            "deployments?environment={env}&per_page=100&page=1"
+        ))?;
+        report.evidence.insert(
+            "deployment-listing".into(),
+            ByteIdentity::from_bytes(&listing.bytes),
+        );
+        let deployments: Vec<Value> = if listing.status == 200 {
+            let page: Vec<Value> = io::parse(&listing.bytes)?;
+            require(page.len() <= 100, "publication-page-size")?;
+            // Fail closed on truncation: a second page may hide a competing active deployment.
+            if page.len() == 100 {
+                let next = self.response(&format!(
+                    "deployments?environment={env}&per_page=100&page=2"
+                ))?;
+                report.evidence.insert(
+                    "deployment-listing-page-2".into(),
+                    ByteIdentity::from_bytes(&next.bytes),
+                );
+                let more: Vec<Value> = if next.status == 200 {
+                    io::parse(&next.bytes)?
+                } else {
+                    Vec::new()
+                };
+                if !more.is_empty() || next.status != 200 {
+                    report.gates.insert(
+                        "current-attempt-environment-enforcement".into(),
+                        GateState::Unknown,
+                    );
+                    report
+                        .gates
+                        .insert("runner-wide-serialization".into(), GateState::Unknown);
+                    return Ok(());
+                }
+            }
+            page
+        } else {
+            let state = unavailable(listing.status);
+            report
+                .gates
+                .insert("current-attempt-environment-enforcement".into(), state);
+            report
+                .gates
+                .insert("runner-wide-serialization".into(), state);
+            return Ok(());
+        };
+        // Fetch every candidate's latest status for both gates' active checks. Status IDs are
+        // monotonic, so select the newest by ID rather than relying on provider list ordering.
+        let mut latest_status_map: BTreeMap<u64, Value> = BTreeMap::new();
+        let mut status_unavailable: Option<u16> = None;
+        let mut status_truncated = false;
+        for deployment in &deployments {
+            if deployment["environment"].as_str() != Some(env.as_str()) {
+                continue;
+            }
+            let Some(id) = deployment["id"].as_u64().filter(|id| *id > 0) else {
+                continue;
+            };
+            let response =
+                self.response(&format!("deployments/{id}/statuses?per_page=100&page=1"))?;
+            report.evidence.insert(
+                format!("deployment-status-{id}"),
+                ByteIdentity::from_bytes(&response.bytes),
+            );
+            if response.status == 200 {
+                let statuses: Vec<Value> = io::parse(&response.bytes)?;
+                require(statuses.len() <= 100, "publication-page-size")?;
+                // A full page may hide a newer status; fail closed rather than guess the latest.
+                status_truncated |= statuses.len() == 100;
+                let latest = statuses
+                    .iter()
+                    .max_by_key(|status| status["id"].as_u64().unwrap_or(0))
+                    .cloned()
+                    .unwrap_or(Value::Null);
+                latest_status_map.insert(id, latest);
+            } else {
+                // Min keeps the aggregate independent of provider iteration order across the two checks.
+                status_unavailable =
+                    Some(status_unavailable.map_or(response.status, |s| s.min(response.status)));
+            }
+        }
+        let approvals_response = self.response(&format!("actions/runs/{}/approvals", run.id))?;
+        report.evidence.insert(
+            "run-approvals".into(),
+            ByteIdentity::from_bytes(&approvals_response.bytes),
+        );
+        let approvals: Vec<Value> = if approvals_response.status == 200 {
+            io::parse(&approvals_response.bytes)?
+        } else {
+            Vec::new()
+        };
+        let (enforcement, serialization) = finalize_deployment_gates(
+            deployment_gate_states(&deployments, &latest_status_map, &approvals, &expected),
+            status_unavailable,
+            status_truncated,
+            approvals_response.status,
+        );
+        report.gates.insert(
+            "current-attempt-environment-enforcement".into(),
+            enforcement,
+        );
+        report
+            .gates
+            .insert("runner-wide-serialization".into(), serialization);
         Ok(())
     }
     /// Issue only compiled create/upload/publish operations, after the controller's private approval/gate boundary.
@@ -750,6 +879,140 @@ fn unavailable(status: u16) -> GateState {
         410 => GateState::Unsupported,
         _ => GateState::Error,
     }
+}
+
+/// Deployment status states that no longer hold the environment; anything else is still active.
+fn terminal_deployment_status(state: &str) -> bool {
+    matches!(state, "error" | "failure" | "inactive" | "success")
+}
+
+/// Independent frozen-release and policy expectations; provider records never supply these.
+pub(super) struct DeploymentExpectation<'a> {
+    pub(super) run_id: u64,
+    pub(super) run_attempt: u64,
+    pub(super) source_commit: &'a str,
+    pub(super) environment: &'a str,
+    pub(super) environment_id: u64,
+    pub(super) approvers: &'a BTreeSet<u64>,
+    pub(super) actor: Option<u64>,
+    pub(super) triggering_actor: Option<u64>,
+}
+
+/// Never upgrade an unavailable observation into a positive gate state.
+fn worse_state(current: GateState, observed: GateState) -> GateState {
+    if current == GateState::Enforced {
+        observed
+    } else {
+        current
+    }
+}
+
+/// Compose the pure gate decision with observation availability. A failed or truncated status read
+/// can never upgrade a gate; the run-scoped approvals read is the enforcement evidence and its HTTP
+/// availability maps directly (401 denied, ambiguous 403/404 unknown, 410 unsupported, other explicit).
+/// Deterministic so the controller's two observations compare equal.
+pub(super) fn finalize_deployment_gates(
+    base: (GateState, GateState),
+    status_unavailable: Option<u16>,
+    status_truncated: bool,
+    approvals_status: u16,
+) -> (GateState, GateState) {
+    let (mut enforcement, mut serialization) = base;
+    if let Some(status) = status_unavailable {
+        let state = unavailable(status);
+        enforcement = worse_state(enforcement, state);
+        serialization = worse_state(serialization, state);
+    }
+    if status_truncated {
+        enforcement = worse_state(enforcement, GateState::Unknown);
+        serialization = worse_state(serialization, GateState::Unknown);
+    }
+    if approvals_status != 200 {
+        enforcement = unavailable(approvals_status);
+    }
+    (enforcement, serialization)
+}
+
+/// Pure deployment gate decision over already-fetched observations; no I/O. The trusted pinned
+/// controller writes one attempt-bound deployment before any publication write; the adapter only
+/// confirms it is the sole active deployment for the environment and independently approved by a
+/// non-triggering reviewer. Residual trust: a write-access actor inside the protected-workflow
+/// boundary could forge a deployment, and the run-scoped approvals API binds the attempt only
+/// through the workflow-written payload, not an atomic compare-and-swap.
+pub(super) fn deployment_gate_states(
+    deployments: &[Value],
+    latest_status_map: &BTreeMap<u64, Value>,
+    approvals: &[Value],
+    expected: &DeploymentExpectation<'_>,
+) -> (GateState, GateState) {
+    // Fail closed beyond the bounded listing window; pagination is also capped at the I/O layer.
+    if deployments.len() > 100 {
+        return (GateState::Unknown, GateState::Unknown);
+    }
+    let mut bound: Option<u64> = None;
+    let mut bound_count = 0usize;
+    let mut active_count = 0usize;
+    for deployment in deployments {
+        if deployment["environment"].as_str() != Some(expected.environment) {
+            continue;
+        }
+        let Some(id) = deployment["id"].as_u64().filter(|id| *id > 0) else {
+            continue;
+        };
+        let latest = latest_status_map.get(&id).cloned().unwrap_or(Value::Null);
+        let active = latest["state"]
+            .as_str()
+            .is_some_and(|state| !terminal_deployment_status(state));
+        if active {
+            active_count += 1;
+        }
+        let payload = &deployment["payload"];
+        let binds = deployment["sha"].as_str() == Some(expected.source_commit)
+            && deployment["creator"]["login"].as_str() == Some("github-actions[bot]")
+            && payload["armorer_run_id"].as_u64() == Some(expected.run_id)
+            && payload["armorer_run_attempt"].as_u64() == Some(expected.run_attempt)
+            && payload["armorer_source_commit"].as_str() == Some(expected.source_commit);
+        if binds {
+            bound_count += 1;
+            bound = Some(id);
+        }
+    }
+    let Some(bound_id) = bound else {
+        return (GateState::Unknown, GateState::Unknown);
+    };
+    if bound_count != 1 {
+        return (GateState::Unknown, GateState::Unknown);
+    }
+    let bound_active = latest_status_map
+        .get(&bound_id)
+        .and_then(|latest| latest["state"].as_str())
+        .is_some_and(|state| !terminal_deployment_status(state));
+    let serialization = if active_count == 1 && bound_active {
+        GateState::Enforced
+    } else {
+        GateState::Unknown
+    };
+    let approved = approvals.iter().any(|entry| {
+        entry["state"].as_str() == Some("approved")
+            && entry["environments"]
+                .as_array()
+                .is_some_and(|environments| {
+                    environments.iter().any(|environment| {
+                        environment["id"].as_u64() == Some(expected.environment_id)
+                    })
+                })
+            && entry["user"]["id"].as_u64().is_some_and(|id| {
+                expected.approvers.contains(&id)
+                    && Some(id) != expected.actor
+                    && Some(id) != expected.triggering_actor
+            })
+    });
+    let enforcement = if bound_active && approved {
+        GateState::Enforced
+    } else {
+        GateState::Unknown
+    };
+    (enforcement, serialization)
 }
 /// Require a bounded string from an authenticated native response without returning untrusted diagnostics.
 fn text<'a>(value: &'a Value, key: &str) -> Result<&'a str> {
