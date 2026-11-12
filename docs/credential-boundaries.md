@@ -13,10 +13,11 @@ for the proposed complete consumer.
 
 ## Current CI and unsigned build need no provisioned secrets
 
-The embedded catalog pins `brianluby/armorer-workflows` commit
-`772ca83e386c883c88cc3b936d69f8cb3216c91e`. Its
-[Rust CI](https://github.com/brianluby/armorer-workflows/blob/772ca83e386c883c88cc3b936d69f8cb3216c91e/.github/workflows/rust-ci.yml)
-and [unsigned builder](https://github.com/brianluby/armorer-workflows/blob/772ca83e386c883c88cc3b936d69f8cb3216c91e/.github/workflows/rust-build.yml)
+The current `bootstrap-v2` catalog pins `brianluby/armorer-workflows` commit
+`e5e9c0d31baff87e357046d81068b646a39a9f23` (the frozen `bootstrap-v1` entry remains
+at `772ca83e386c883c88cc3b936d69f8cb3216c91e`). Its
+[Rust CI](https://github.com/brianluby/armorer-workflows/blob/e5e9c0d31baff87e357046d81068b646a39a9f23/.github/workflows/rust-ci.yml)
+and [unsigned builder](https://github.com/brianluby/armorer-workflows/blob/e5e9c0d31baff87e357046d81068b646a39a9f23/.github/workflows/rust-build.yml)
 declare `contents: read`, no caller inputs/secrets, no signing environment and no
 OIDC/publication grant. Checkout uses `persist-credentials: false`. Generated
 callers also grant only contents read and pass no secrets.
@@ -37,7 +38,7 @@ Both workflows build the trusted intent validator from Armorer commit
 
 Do not add `secrets: inherit`, Apple credentials, OIDC or write permissions to
 these build calls. Caller Cargo/tests/build scripts execute in their unprivileged
-jobs. The [workflow source guide](https://github.com/brianluby/armorer-workflows/blob/772ca83e386c883c88cc3b936d69f8cb3216c91e/docs/ci.md)
+jobs. The [workflow source guide](https://github.com/brianluby/armorer-workflows/blob/e5e9c0d31baff87e357046d81068b646a39a9f23/docs/ci.md)
 describes fixed commands, credential-cleared child environments and scanner
 limits. Passing CI does not establish signing or publication readiness.
 

@@ -29,6 +29,7 @@ pub struct Plan {
     pub config_sha256: String,
     #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub catalog_sha256: String,
+    pub catalog_id: String,
     #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub state_sha256: Option<String>,
     pub intent: Config,
@@ -90,7 +91,7 @@ pub(crate) fn diff(path: &str, before: Option<&str>, after: &str) -> String {
 
 /// Exact compiled template set. Consuming input selects neither paths nor templates.
 pub(super) fn generated(plan: &Plan) -> Result<BTreeMap<String, String>> {
-    catalog::reviewed()?.bootstrap_files(
+    catalog::reviewed_for(&plan.catalog_id)?.bootstrap_files(
         &plan.config_sha256,
         &plan.intent.toolchain,
         &plan.policy_content,
@@ -161,6 +162,10 @@ pub(super) fn inspect_bytes(root: &Path, policy: &[u8]) -> Result<Plan> {
     }
     let workspace = discover(root, &intent)?;
     let state = load_state(root)?;
+    let catalog_id = state
+        .as_ref()
+        .and_then(|(state, _)| state.catalog_id())
+        .unwrap_or("bootstrap-v2");
     let mut input_preimages = BTreeMap::new();
     input_preimages.insert(
         intent.policy.license_file.clone(),
@@ -182,6 +187,7 @@ pub(super) fn inspect_bytes(root: &Path, policy: &[u8]) -> Result<Plan> {
         plan_sha256: String::new(),
         config_sha256: digest(&config),
         catalog_sha256: catalog::TOOLS_SHA256.into(),
+        catalog_id: catalog_id.into(),
         state_sha256: state.as_ref().map(|(_, bytes)| digest(bytes)),
         intent,
         workspace,
@@ -269,6 +275,7 @@ pub(super) fn validate(plan: &Plan, expected: &str) -> Result<()> {
         || plan.runtime_version != env!("CARGO_PKG_VERSION")
         || plan.mode != "bootstrap-plan"
         || plan.catalog_sha256 != catalog::TOOLS_SHA256
+        || catalog::reviewed_for(&plan.catalog_id).is_err()
         || !hex_digest(&plan.config_sha256, 64)
         || plan.capability_state != "unknown"
         || plan.changes.len() != TARGETS.len()

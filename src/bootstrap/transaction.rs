@@ -31,6 +31,13 @@ pub(crate) struct State {
     pub managed: BTreeMap<String, Base>,
 }
 
+impl State {
+    /// Registry id of the compiled authority that produced this state, if its pin is still reviewed.
+    pub(crate) fn catalog_id(&self) -> Option<&'static str> {
+        catalog::id_for_commit(&self.workflow.commit)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 struct Write {
@@ -81,7 +88,7 @@ fn validate_state(state: &State) -> Result<()> {
         || state.runtime_version != env!("CARGO_PKG_VERSION")
         || state.catalog_sha256 != catalog::TOOLS_SHA256
         || state.workflow.repository != catalog::WORKFLOW_REPOSITORY
-        || state.workflow.commit != catalog::WORKFLOW_COMMIT
+        || catalog::id_for_commit(&state.workflow.commit).is_none()
         || !hex_digest(&state.last_plan_sha256, 64)
         || state.managed.len() > TARGETS.len()
         || state.managed.iter().any(|(path, base)| {
@@ -168,10 +175,7 @@ fn operations(plan: &Plan, state_bytes: Option<&str>) -> Result<Vec<Write>> {
         schema_version: VERSION,
         runtime_version: env!("CARGO_PKG_VERSION").into(),
         catalog_sha256: catalog::TOOLS_SHA256.into(),
-        workflow: WorkflowPin {
-            repository: catalog::WORKFLOW_REPOSITORY.into(),
-            commit: catalog::WORKFLOW_COMMIT.into(),
-        },
+        workflow: catalog::reviewed_for(&plan.catalog_id)?.workflow().clone(),
         last_plan_sha256: plan.plan_sha256.clone(),
         managed,
     };

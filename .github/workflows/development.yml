@@ -112,7 +112,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: brianluby/armorer-workflows
-          ref: 772ca83e386c883c88cc3b936d69f8cb3216c91e
+          ref: e5e9c0d31baff87e357046d81068b646a39a9f23
           path: workflow-tools-source
           persist-credentials: false
       - name: Authenticate native tools and audit development and caller workflows

@@ -332,6 +332,9 @@
     "capability_state": {
       "type": "string"
     },
+    "catalog_id": {
+      "type": "string"
+    },
     "catalog_sha256": {
       "pattern": "^[0-9a-f]{64}$(?![\\s\\S])",
       "type": "string"
@@ -413,6 +416,7 @@
     "plan_sha256",
     "config_sha256",
     "catalog_sha256",
+    "catalog_id",
     "intent",
     "workspace",
     "policy_content",

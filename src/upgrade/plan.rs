@@ -132,7 +132,7 @@ fn declared_lock(content: &str) -> Option<Lock> {
     let version =
         |s: &str| semver::Version::parse(s).is_ok_and(|v| v.pre.is_empty() && v.build.is_empty());
     (lock.schema_version == 1
-        && lock.runtime_version == authority::BOOTSTRAP_V1_RUNTIME_VERSION
+        && lock.runtime_version == authority::BOOTSTRAP_RUNTIME_VERSION
         && hex_digest(&lock.config_sha256, 64)
         && repository_name(&lock.workflows.repository)
         && hex_digest(&lock.workflows.commit, 40)
@@ -153,8 +153,10 @@ pub(super) struct Ownership {
 
 /// Qualify generated v2 lock/workflow bases against the independent source,
 /// rather than trusting only a state's self-declared catalog hash and base hash.
-fn known_bases(bases: &BTreeMap<String, String>) -> Result<()> {
-    let catalog = catalog::reviewed()?;
+fn known_bases(
+    bases: &BTreeMap<String, String>,
+    catalog: &crate::catalog::AuthenticatedCatalog,
+) -> Result<()> {
     let callers = catalog.caller_workflows();
     for (path, base) in bases {
         let matches = match path.as_str() {
@@ -238,15 +240,19 @@ pub(super) fn source_bytes(preimages: BTreeMap<String, Option<String>>) -> Resul
                 .collect(),
         )
     } else if let Some(state) = modern {
+        let id = state.catalog_id().ok_or(Error::Transaction(
+            "bootstrap state workflow pin is not a compiled catalog authority",
+        ))?;
         let bases = state
             .managed
             .into_iter()
             .map(|(p, b)| (p, b.content))
             .collect();
-        known_bases(&bases)?;
+        let reviewed = catalog::reviewed_for(id)?;
+        known_bases(&bases, &reviewed)?;
         (
             SourceFormat::BootstrapV2,
-            Some(authority::select("bootstrap-v1")?),
+            Some(authority::select(id)?),
             bases,
         )
     } else if let Some(state) = legacy {
@@ -255,7 +261,7 @@ pub(super) fn source_bytes(preimages: BTreeMap<String, Option<String>>) -> Resul
             .into_iter()
             .map(|(p, b)| (p, b.content))
             .collect();
-        known_bases(&bases)?;
+        known_bases(&bases, &catalog::reviewed()?)?;
         (SourceFormat::LegacyV1, None, bases)
     } else {
         (SourceFormat::Unmanaged, None, BTreeMap::new())
@@ -433,7 +439,7 @@ pub(super) fn inspect_bytes(
     let direction =
         authority::direction(current_revision, target.revision, allow_downgrade)?.into();
     let config_sha256 = digest(&config);
-    let generated = catalog::reviewed()?.bootstrap_files(
+    let generated = catalog::reviewed_for(&target.id)?.bootstrap_files(
         &config_sha256,
         &intent.toolchain,
         std::str::from_utf8(policy).map_err(|_| Error::Toml)?,
@@ -698,7 +704,7 @@ pub(super) fn validate(plan: &Plan, expected: &str) -> Result<()> {
             "upgrade ownership, direction or input inventory differs from contract",
         ));
     }
-    let generated = catalog::reviewed()?.bootstrap_files(
+    let generated = catalog::reviewed_for(&plan.target_catalog.id)?.bootstrap_files(
         &plan.config_sha256,
         &plan.intent.toolchain,
         &plan.policy_content,

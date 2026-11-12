@@ -625,7 +625,7 @@ mod tests {
         plan::inspect_bytes(
             root,
             POLICY.as_bytes(),
-            super::super::authority::select("bootstrap-v1").unwrap(),
+            super::super::authority::select("bootstrap-v2").unwrap(),
             &[],
             false,
         )

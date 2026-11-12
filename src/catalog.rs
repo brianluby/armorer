@@ -12,6 +12,12 @@ use std::{collections::BTreeMap, path::Path};
 
 pub const WORKFLOW_REPOSITORY: &str = "brianluby/armorer-workflows";
 pub const WORKFLOW_COMMIT: &str = "772ca83e386c883c88cc3b936d69f8cb3216c91e";
+/// Accepted workflows head pinned by the separately reviewed bootstrap-v2 successor.
+/// Settled at workflows main `e5e9c0d31baff87e357046d81068b646a39a9f23`: `pins/tools.json`
+/// is byte-identical to bootstrap-v1 there (and at `b94969c`), and the bootstrap callers
+/// rust-ci.yml/rust-build.yml are unchanged between them, so v2 inherits the PR #23
+/// hardening. Both entries authenticate the same embedded digest; only the workflow pin moves.
+pub const WORKFLOW_COMMIT_V2: &str = "e5e9c0d31baff87e357046d81068b646a39a9f23";
 pub const TOOLS_SHA256: &str = "e21e6cbd2cdd1125dbb9817116b1f46d043807b4d92128abc9dc07256dbb4b13";
 const TOOLS: &[u8] = include_bytes!("../catalogs/bootstrap-tools-v1.json");
 
@@ -55,6 +61,11 @@ pub struct AuthenticatedCatalog {
 /// Rejects oversized, substituted or malformed catalog bytes. No network or
 /// consuming-repository operation occurs; upgrades require a reviewed CLI source change.
 pub fn authenticate(bytes: &[u8]) -> Result<AuthenticatedCatalog> {
+    authenticate_with(bytes, WORKFLOW_COMMIT)
+}
+
+/// Hash-before-parse against the compiled digest, binding the given compiled workflow pin.
+fn authenticate_with(bytes: &[u8], workflow_commit: &str) -> Result<AuthenticatedCatalog> {
     if bytes.len() > 1_048_576 || digest(bytes) != TOOLS_SHA256 {
         return Err(Error::Invalid(
             "bootstrap catalog authentication failed".into(),
@@ -68,16 +79,39 @@ pub fn authenticate(bytes: &[u8]) -> Result<AuthenticatedCatalog> {
         schema_version: 1,
         workflow: WorkflowPin {
             repository: WORKFLOW_REPOSITORY.into(),
-            commit: WORKFLOW_COMMIT.into(),
+            commit: workflow_commit.into(),
         },
         tools_sha256: TOOLS_SHA256,
         tools: catalog.tools,
     })
 }
 
-/// Load the reviewed catalog shipped with this CLI, without downloads or execution.
+/// Load the reviewed bootstrap-v1 catalog shipped with this CLI, without downloads or execution.
 pub fn reviewed() -> Result<AuthenticatedCatalog> {
     authenticate(TOOLS)
+}
+
+/// Load the reviewed bootstrap-v2 successor: same authenticated tool bytes, accepted workflows head.
+pub fn reviewed_v2() -> Result<AuthenticatedCatalog> {
+    authenticate_with(TOOLS, WORKFLOW_COMMIT_V2)
+}
+
+/// Select the compiled catalog for a registry id. Unknown ids never fall back.
+pub fn reviewed_for(id: &str) -> Result<AuthenticatedCatalog> {
+    match id {
+        "bootstrap-v1" => reviewed(),
+        "bootstrap-v2" => reviewed_v2(),
+        _ => Err(Error::Invalid("unknown bootstrap catalog authority".into())),
+    }
+}
+
+/// Map a compiled workflow pin back to its registry id. Unknown commits have no authority.
+pub(crate) fn id_for_commit(commit: &str) -> Option<&'static str> {
+    match commit {
+        WORKFLOW_COMMIT => Some("bootstrap-v1"),
+        WORKFLOW_COMMIT_V2 => Some("bootstrap-v2"),
+        _ => None,
+    }
 }
 
 impl AuthenticatedCatalog {
@@ -119,10 +153,7 @@ impl AuthenticatedCatalog {
             schema_version: 1,
             config_sha256: config_sha256.into(),
             runtime_version: env!("CARGO_PKG_VERSION").into(),
-            workflows: WorkflowPin {
-                repository: WORKFLOW_REPOSITORY.into(),
-                commit: WORKFLOW_COMMIT.into(),
-            },
+            workflows: self.workflow.clone(),
             tools,
         };
         toml::to_string_pretty(&lock).map_err(|_| Error::Toml)
@@ -148,13 +179,52 @@ impl AuthenticatedCatalog {
     /// Fixed unprivileged callers. Existing custom workflows remain separate.
     /// The build caller is manual and unsigned; it has no publication capability.
     pub fn caller_workflows(&self) -> BTreeMap<String, String> {
+        let repository = &self.workflow.repository;
+        let commit = &self.workflow.commit;
         let mut callers = BTreeMap::new();
         callers.insert(".github/workflows/armorer-ci.yml".into(), format!(
-            "name: Armorer CI\n\non:\n  pull_request:\n  push:\n  workflow_dispatch:\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: armorer-ci-${{{{ github.workflow }}}}-${{{{ github.ref }}}}\n  cancel-in-progress: true\n\njobs:\n  verify:\n    uses: {WORKFLOW_REPOSITORY}/.github/workflows/rust-ci.yml@{WORKFLOW_COMMIT}\n"
+            "name: Armorer CI\n\non:\n  pull_request:\n  push:\n  workflow_dispatch:\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: armorer-ci-${{{{ github.workflow }}}}-${{{{ github.ref }}}}\n  cancel-in-progress: true\n\njobs:\n  verify:\n    uses: {repository}/.github/workflows/rust-ci.yml@{commit}\n"
         ));
         callers.insert(".github/workflows/armorer-build.yml".into(), format!(
-            "name: Armorer unsigned build\n\non:\n  workflow_dispatch:\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: armorer-build-${{{{ github.workflow }}}}-${{{{ github.ref }}}}\n  cancel-in-progress: false\n\njobs:\n  build:\n    uses: {WORKFLOW_REPOSITORY}/.github/workflows/rust-build.yml@{WORKFLOW_COMMIT}\n"
+            "name: Armorer unsigned build\n\non:\n  workflow_dispatch:\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: armorer-build-${{{{ github.workflow }}}}-${{{{ github.ref }}}}\n  cancel-in-progress: false\n\njobs:\n  build:\n    uses: {repository}/.github/workflows/rust-build.yml@{commit}\n"
         ));
         callers
+    }
+
+    /// The compiled workflow identity bound to this authenticated catalog.
+    pub(crate) fn workflow(&self) -> &WorkflowPin {
+        &self.workflow
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The settled v2 successor pins workflows main e5e9c0d and authenticates the same
+    /// embedded tool bytes as frozen v1; only the workflow pin moves, never the digest.
+    #[test]
+    fn v2_successor_pins_the_settled_commit_and_authenticates_the_embedded_bytes() {
+        assert_eq!(WORKFLOW_COMMIT, "772ca83e386c883c88cc3b936d69f8cb3216c91e");
+        assert_eq!(
+            WORKFLOW_COMMIT_V2,
+            "e5e9c0d31baff87e357046d81068b646a39a9f23"
+        );
+        assert_eq!(digest(TOOLS), TOOLS_SHA256);
+        let v1 = reviewed().unwrap();
+        let v2 = reviewed_v2().unwrap();
+        assert_eq!(v1.workflow().commit, WORKFLOW_COMMIT);
+        assert_eq!(v2.workflow().commit, WORKFLOW_COMMIT_V2);
+        assert_eq!(v1.tools_sha256, TOOLS_SHA256);
+        assert_eq!(v2.tools_sha256, TOOLS_SHA256);
+        assert_eq!(v2.workflow().repository, WORKFLOW_REPOSITORY);
+        // Registry ids map back to their compiled pins; unknown commits have no authority.
+        assert_eq!(id_for_commit(WORKFLOW_COMMIT), Some("bootstrap-v1"));
+        assert_eq!(id_for_commit(WORKFLOW_COMMIT_V2), Some("bootstrap-v2"));
+        assert_eq!(id_for_commit(&"a".repeat(40)), None);
+        // Substituted or reformatted bytes fail successor authentication too.
+        let mut bad = TOOLS.to_vec();
+        bad.push(b'\n');
+        assert!(authenticate_with(&bad, WORKFLOW_COMMIT_V2).is_err());
     }
 }

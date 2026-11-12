@@ -92,8 +92,8 @@ into an available observation to make a check pass.
 The pinned reusable CI already freshly fetches advisory/registry/replacement
 feeds, stops on fetch failure and runs offline cargo-deny with a fixed one-day
 RustSec fetch-age ceiling. Its
-[exact CI guide](https://github.com/brianluby/armorer-workflows/blob/772ca83e386c883c88cc3b936d69f8cb3216c91e/docs/ci.md)
-and [runtime](https://github.com/brianluby/armorer-workflows/blob/772ca83e386c883c88cc3b936d69f8cb3216c91e/armorer_runtime/ci.py#L161)
+[exact CI guide](https://github.com/brianluby/armorer-workflows/blob/e5e9c0d31baff87e357046d81068b646a39a9f23/docs/ci.md)
+and [runtime](https://github.com/brianluby/armorer-workflows/blob/e5e9c0d31baff87e357046d81068b646a39a9f23/armorer_runtime/ci.py#L167)
 describe that implemented gate. An outage there is a failed CI attempt; fix the
 feed/prerequisite and rerun in a fresh attempt. A policy exception cannot turn
 unavailable data into a successful fresh observation.

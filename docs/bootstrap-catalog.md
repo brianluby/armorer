@@ -13,28 +13,39 @@ attestations, Apple signing, release publication or SLSA Build L2.
 ## Authority and source evidence
 
 `armorer catalog` authenticates the embedded exact tool-catalog bytes before
-parsing them. The expected SHA-256 and workflow repository/full commit live in
+parsing them and reports the current `bootstrap-v2` authority. The expected SHA-256 and workflow repository/full commit live in
 reviewed CLI source; they are never accepted from a consuming lock, downloaded
 inventory, schema, API response or caller-supplied expected hash. A modified or
 reformatted catalog fails authentication even if its JSON schema is valid.
 The operator must already trust the CLI source/distribution. This is trust in
 membership in that reviewed source, not Sigstore verification of the CLI or tools.
 
-The catalog was read from the authenticated GitHub HTTPS API at workflow commit
-`772ca83e386c883c88cc3b936d69f8cb3216c91e`, compared byte-for-byte with its clean
-checkout and checked against Git blob `6f001a407768dcd716324624faff60a1633362f6`.
-Its SHA-256 is `e21e6cbd2cdd1125dbb9817116b1f46d043807b4d92128abc9dc07256dbb4b13`;
-size is 5,970 bytes. The [source/asset receipt](../catalogs/bootstrap-tools-v1-source.json)
-retains all 18 native distribution identities from six publishers' exact release
-assets, rechecked against publisher GitHub asset digests on 2026-10-02. These
-HTTPS metadata observations are review evidence, never a replacement root at
-runtime. The accepted workflow installer rehashes actual downloaded bytes before
+The compiled registry has two immutable entries. `bootstrap-v1` is frozen at
+workflow commit `772ca83e386c883c88cc3b936d69f8cb3216c91e`; its catalog was read
+from the authenticated GitHub HTTPS API at that commit, compared byte-for-byte
+with its clean checkout and checked against Git blob
+`6f001a407768dcd716324624faff60a1633362f6`. `bootstrap-v2` is the separately
+reviewed successor and the current default for new bootstrap; it pins workflows
+main `e5e9c0d31baff87e357046d81068b646a39a9f23`. `pins/tools.json` is byte-identical
+at both commits (and at `b94969c`), and the bootstrap callers rust-ci.yml /
+rust-build.yml are unchanged between them, so v2 inherits the PR #23 download
+hardening. Both entries therefore authenticate the same embedded tool-catalog
+SHA-256 `e21e6cbd2cdd1125dbb9817116b1f46d043807b4d92128abc9dc07256dbb4b13`
+(5,970 bytes); only the workflow pin moves. The
+[source/asset receipt](../catalogs/bootstrap-tools-v1-source.json) retains all 18
+native distribution identities from six publishers' exact release assets,
+rechecked against publisher GitHub asset digests on 2026-10-02. These HTTPS
+metadata observations are review evidence, never a replacement root at runtime.
+The accepted workflow installer rehashes actual downloaded bytes before
 extraction/execution. No upstream download is initiated by `catalog` or rendering.
 
-The tool versions remain cargo-deny 0.20.2, actionlint 1.7.12, Zizmor 1.30.1,
-Gitleaks 8.30.1, cargo-cyclonedx 0.5.9 and CycloneDX CLI 0.33.1. This deliberately
-uses the accepted workflow baseline rather than selecting new moving versions.
-Upgrades require reviewed source changes and #5 compatibility/migration previews.
+Stable IDs have immutable meanings: a future source update retains these entries
+and adds a separately reviewed successor rather than moving an ID. Unknown IDs
+never fall back. The tool versions remain cargo-deny 0.20.2, actionlint 1.7.12,
+Zizmor 1.30.1, Gitleaks 8.30.1, cargo-cyclonedx 0.5.9 and CycloneDX CLI 0.33.1.
+This deliberately uses the accepted workflow baseline rather than selecting new
+moving versions. Upgrades require reviewed source changes and #5
+compatibility/migration previews.
 
 ## Compatible lock and caller rendering
 

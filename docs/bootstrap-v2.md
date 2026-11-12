@@ -7,6 +7,11 @@ version-one schemas retain their exact bytes. New schemas are
 `bootstrap-plan-v2.json` and `ci-policy-v1.json`; structural validation does not
 establish catalog trust or hosted/release readiness.
 
+New bootstrap defaults to the reviewed `bootstrap-v2` successor authority
+(workflows main `e5e9c0d31baff87e357046d81068b646a39a9f23`); an existing ownership
+state is honored at its own frozen catalog ID. The plan records that `catalog_id`,
+and unknown IDs never fall back. See [catalog source and limits](bootstrap-catalog.md).
+
 ## Review and apply
 
 Build this CLI with the exact installed Rust 1.95.0 toolchain and `cargo build --locked`.
