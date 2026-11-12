@@ -83,7 +83,8 @@
         }
       },
       "required": [
-        "kind"
+        "kind",
+        "target"
       ],
       "type": "object"
     },
@@ -219,6 +220,7 @@
         "profile",
         "package",
         "package_version",
+        "binary",
         "target",
         "feature_set",
         "default_features",
@@ -270,7 +272,7 @@
     "run_attempt": {
       "format": "uint64",
       "maximum": 18446744073709551615,
-      "minimum": 0,
+      "minimum": 1,
       "type": [
         "integer",
         "null"
@@ -280,7 +282,7 @@
       "description": "Null identifies an unhosted development fixture and cannot satisfy release verification.",
       "format": "uint64",
       "maximum": 18446744073709551615,
-      "minimum": 0,
+      "minimum": 1,
       "type": [
         "integer",
         "null"
@@ -306,6 +308,8 @@
     "schema_version",
     "source",
     "runtime_commit",
+    "run_id",
+    "run_attempt",
     "input_sha256",
     "selection",
     "root_component_name",

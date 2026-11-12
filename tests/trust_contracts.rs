@@ -404,33 +404,14 @@ fn tool_policy_scope_freshness_and_outcomes_cannot_be_weakened_by_producer() {
 }
 
 #[test]
-/// Require an explicit historical source and exact approved asset bytes.
-fn historical_policy_requires_explicit_exact_source_and_byte_allowlist() {
+/// Historical sources stay outside the modern source allowlist and cannot collide with it.
+fn historical_policy_keeps_sources_separate_from_the_modern_allowlist() {
     let p: VerificationPolicy = serde_json::from_slice(
         &std::fs::read(root("").join("historical-verification-policy.json")).unwrap(),
     )
     .unwrap();
-    let source = p.historical[0].source.clone();
-    let mut assets = BTreeMap::from([(
-        "legacy.tar.gz".into(),
-        b"synthetic historical artifact".to_vec(),
-    )]);
-    p.compare_historical_bytes("v0.1.0", &source, &assets, NOW)
-        .unwrap();
-    assert!(p.accept_source(&source).is_err());
-    assert!(
-        p.compare_historical_bytes("v1.0.0", &inventory().inputs.source, &assets, NOW)
-            .is_err()
-    );
-    assets.get_mut("legacy.tar.gz").unwrap()[0] ^= 1;
-    assert!(
-        p.compare_historical_bytes("v0.1.0", &source, &assets, NOW)
-            .is_err()
-    );
-    assert!(
-        p.compare_historical_bytes("v0.1.0", &source, &assets, NOW + 86400)
-            .is_err()
-    );
+    p.validate(NOW).unwrap();
+    assert!(p.accept_source(&p.historical[0].source).is_err());
     let mut collision = p.clone();
     collision.historical[0].source = collision.sources[0].clone();
     assert!(collision.validate(NOW).is_err());

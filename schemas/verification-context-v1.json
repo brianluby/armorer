@@ -455,6 +455,7 @@
         "profile",
         "package",
         "package_version",
+        "binary",
         "target",
         "feature_set",
         "default_features",

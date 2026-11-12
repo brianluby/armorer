@@ -61,7 +61,7 @@ call the appropriate semantic validator separately. Errors omit supplied values.
 | Schema / kind | Main validator |
 | --- | --- |
 | release-inventory | `ReleaseInventory::validate_against`, `compare_asset_bytes`, `compare_published_bytes` |
-| verification-policy | `VerificationPolicy::validate`, `accept_source`, `accept_signer`, `compare_historical_bytes` |
+| verification-policy | `VerificationPolicy::validate`, `accept_source`, `accept_signer` |
 | artifact-evidence | `ArtifactEvidence::validate_against_requirements` |
 | evidence-requirements | Validated as independent input by the artifact-evidence validator |
 | capability-config | `CapabilityConfig::validate` |
