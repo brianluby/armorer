@@ -1,0 +1,5 @@
+MATCH .armorer/ci-policy.toml
+MATCH .github/workflows/armorer-build.yml
+MATCH .github/workflows/armorer-ci.yml
+MATCH armorer.lock
+MATCH rust-toolchain.toml

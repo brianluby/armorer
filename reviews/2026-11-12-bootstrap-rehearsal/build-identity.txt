@@ -1,0 +1,8 @@
+head: 57edd3271a20260b02b8f9c895f7cd0f4a6304af
+branch: main
+binary: /Users/bluby/repos/armorer/target/debug/armorer
+binary_sha256: 5d08a0be3073512385311ba5b2f9b390cf462d79273336e300b30222f5e138a0
+rustc: rustc 1.95.0 (59807616e 2026-04-14)
+cargo: cargo 1.95.0 (f2d3ce0bd 2026-03-21)
+build: cargo build --locked (Finished dev profile; freshness verified, no source newer than binary)
+date_utc: 2026-11-12T19:26:11Z
