@@ -574,3 +574,278 @@ fn unsafe_state_directory_and_symlink_lock_fail_closed() {
         b"preserve"
     );
 }
+
+// --- Deployment gate observations: pure synthetic doubles, no live provider reads or writes. ---
+
+/// One attempt-bound deployment exactly as the pinned controller writes it before any publication write.
+fn bound_deployment(id: u64) -> serde_json::Value {
+    json!({
+        "id": id,
+        "sha": "a".repeat(40),
+        "environment": "release-publish",
+        "creator": {"login": "github-actions[bot]"},
+        "payload": {
+            "armorer_run_id": 10,
+            "armorer_run_attempt": 1,
+            "armorer_source_commit": "a".repeat(40)
+        }
+    })
+}
+
+/// A non-terminal deployment status keeps the environment held.
+fn active_status(id: u64) -> serde_json::Value {
+    json!({"id": id, "state": "in_progress"})
+}
+
+/// An approved entry for the policy environment by allowed approver 3, independent of actor 1.
+fn independent_approval() -> serde_json::Value {
+    json!({"state": "approved", "environments": [{"id": 9}], "user": {"id": 3}})
+}
+
+/// Decide both gates against the frozen run/attempt identity; never supplies expectations from provider data.
+fn decide(
+    deployments: Vec<serde_json::Value>,
+    statuses: BTreeMap<u64, serde_json::Value>,
+    approvals: Vec<serde_json::Value>,
+) -> (GateState, GateState) {
+    let commit = "a".repeat(40);
+    let approvers: BTreeSet<u64> = [1, 3].into();
+    let expected = github::DeploymentExpectation {
+        run_id: 10,
+        run_attempt: 1,
+        source_commit: &commit,
+        environment: "release-publish",
+        environment_id: 9,
+        approvers: &approvers,
+        actor: Some(1),
+        triggering_actor: Some(1),
+    };
+    github::deployment_gate_states(&deployments, &statuses, &approvals, &expected)
+}
+
+#[test]
+/// A sole active attempt-bound deployment with an independent approval enforces both gates.
+fn observed_attempt_bound_deployment_and_independent_approval_enforce_both_gates() {
+    let mut statuses = BTreeMap::new();
+    statuses.insert(100, active_status(500));
+    assert_eq!(
+        decide(
+            vec![bound_deployment(100)],
+            statuses,
+            vec![independent_approval()]
+        ),
+        (GateState::Enforced, GateState::Enforced)
+    );
+}
+
+#[test]
+/// Missing, foreign-environment and stale (terminal-status) deployments never bind the attempt.
+fn missing_foreign_and_stale_deployments_are_unknown() {
+    assert_eq!(
+        decide(vec![], BTreeMap::new(), vec![independent_approval()]),
+        (GateState::Unknown, GateState::Unknown)
+    );
+    let mut foreign = bound_deployment(100);
+    foreign["environment"] = json!("release-signing");
+    let mut statuses = BTreeMap::new();
+    statuses.insert(100, active_status(500));
+    assert_eq!(
+        decide(
+            vec![foreign],
+            statuses.clone(),
+            vec![independent_approval()]
+        ),
+        (GateState::Unknown, GateState::Unknown)
+    );
+    let mut stale = BTreeMap::new();
+    stale.insert(100, json!({"id": 500, "state": "success"}));
+    assert_eq!(
+        decide(
+            vec![bound_deployment(100)],
+            stale,
+            vec![independent_approval()]
+        ),
+        (GateState::Unknown, GateState::Unknown)
+    );
+}
+
+#[test]
+/// A bound deployment without an observable latest status cannot be confirmed active.
+fn bound_deployment_without_status_is_not_active() {
+    assert_eq!(
+        decide(
+            vec![bound_deployment(100)],
+            BTreeMap::new(),
+            vec![independent_approval()]
+        ),
+        (GateState::Unknown, GateState::Unknown)
+    );
+}
+
+#[test]
+/// Run, attempt, source-commit or creator substitution is rejected with no partial credit.
+fn run_attempt_commit_and_creator_mismatches_are_rejected() {
+    let mut statuses = BTreeMap::new();
+    statuses.insert(100, active_status(500));
+    let mutations: [fn(&mut serde_json::Value); 5] = [
+        |d| d["payload"]["armorer_run_id"] = json!(11),
+        |d| d["payload"]["armorer_run_attempt"] = json!(2),
+        |d| d["payload"]["armorer_source_commit"] = json!("b".repeat(40)),
+        |d| d["sha"] = json!("b".repeat(40)),
+        |d| d["creator"]["login"] = json!("some-user"),
+    ];
+    for mutate in mutations {
+        let mut deployment = bound_deployment(100);
+        mutate(&mut deployment);
+        assert_eq!(
+            decide(
+                vec![deployment],
+                statuses.clone(),
+                vec![independent_approval()]
+            ),
+            (GateState::Unknown, GateState::Unknown)
+        );
+    }
+}
+
+#[test]
+/// A second active deployment blocks runner-wide serialization even when this attempt is approved.
+fn second_active_deployment_blocks_serialization_only() {
+    let mut statuses = BTreeMap::new();
+    statuses.insert(100, active_status(500));
+    statuses.insert(200, active_status(600));
+    let mut other = bound_deployment(200);
+    other["payload"]["armorer_run_id"] = json!(99);
+    assert_eq!(
+        decide(
+            vec![bound_deployment(100), other],
+            statuses,
+            vec![independent_approval()]
+        ),
+        (GateState::Enforced, GateState::Unknown)
+    );
+}
+
+#[test]
+/// Two deployments binding the same attempt are ambiguous; neither gate is credited.
+fn duplicate_attempt_bindings_are_ambiguous() {
+    let mut statuses = BTreeMap::new();
+    statuses.insert(100, active_status(500));
+    statuses.insert(200, active_status(600));
+    assert_eq!(
+        decide(
+            vec![bound_deployment(100), bound_deployment(200)],
+            statuses,
+            vec![independent_approval()]
+        ),
+        (GateState::Unknown, GateState::Unknown)
+    );
+}
+
+#[test]
+/// Self-approval (approver is the actor/triggering actor) blocks enforcement, not serialization.
+fn self_approval_blocks_enforcement_only() {
+    let mut statuses = BTreeMap::new();
+    statuses.insert(100, active_status(500));
+    let self_approval =
+        json!({"state": "approved", "environments": [{"id": 9}], "user": {"id": 1}});
+    assert_eq!(
+        decide(vec![bound_deployment(100)], statuses, vec![self_approval]),
+        (GateState::Unknown, GateState::Enforced)
+    );
+}
+
+#[test]
+/// Only an approved entry for the exact policy environment by an allowed independent approver counts.
+fn approval_environment_state_and_reviewer_are_exact() {
+    let mut statuses = BTreeMap::new();
+    statuses.insert(100, active_status(500));
+    for approval in [
+        json!({"state": "approved", "environments": [{"id": 8}], "user": {"id": 3}}),
+        json!({"state": "approved", "environments": [{"id": 9}], "user": {"id": 7}}),
+        json!({"state": "rejected", "environments": [{"id": 9}], "user": {"id": 3}}),
+        json!({"state": "pending", "environments": [{"id": 9}], "user": {"id": 3}}),
+    ] {
+        assert_eq!(
+            decide(
+                vec![bound_deployment(100)],
+                statuses.clone(),
+                vec![approval]
+            ),
+            (GateState::Unknown, GateState::Enforced)
+        );
+    }
+}
+
+#[test]
+/// More than one hundred deployments fails closed without scanning an unbounded listing.
+fn over_one_hundred_deployments_fail_closed() {
+    let deployments: Vec<_> = (1..=101).map(bound_deployment).collect();
+    let mut statuses = BTreeMap::new();
+    statuses.insert(1, active_status(500));
+    assert_eq!(
+        decide(deployments, statuses, vec![independent_approval()]),
+        (GateState::Unknown, GateState::Unknown)
+    );
+}
+
+#[test]
+/// Unavailable status/approval reads map to denied/unknown/unsupported/error and never upgrade a gate.
+fn unavailable_observations_map_without_upgrading() {
+    let enforced = (GateState::Enforced, GateState::Enforced);
+    for (status, state) in [
+        (401u16, GateState::Denied),
+        (403, GateState::Unknown),
+        (404, GateState::Unknown),
+        (410, GateState::Unsupported),
+        (500, GateState::Error),
+    ] {
+        // The run-scoped approvals read is the enforcement evidence; its availability maps directly.
+        assert_eq!(
+            github::finalize_deployment_gates(enforced, None, false, status),
+            (state, GateState::Enforced)
+        );
+        // A failed deployment-status read downgrades both gates from Enforced.
+        assert_eq!(
+            github::finalize_deployment_gates(enforced, Some(status), false, 200),
+            (state, state)
+        );
+    }
+    // An already-unknown gate is never upgraded by a later unavailable read.
+    assert_eq!(
+        github::finalize_deployment_gates(
+            (GateState::Unknown, GateState::Unknown),
+            Some(401),
+            false,
+            200
+        ),
+        (GateState::Unknown, GateState::Unknown)
+    );
+    // A truncated status page fails closed for both gates.
+    assert_eq!(
+        github::finalize_deployment_gates(enforced, None, true, 200),
+        (GateState::Unknown, GateState::Unknown)
+    );
+}
+
+#[test]
+/// The decision is deterministic and order-independent so the controller's two observations compare equal.
+fn double_observation_is_deterministic_and_order_independent() {
+    let mut statuses = BTreeMap::new();
+    statuses.insert(100, active_status(500));
+    statuses.insert(200, active_status(600));
+    let mut other = bound_deployment(200);
+    other["payload"]["armorer_run_id"] = json!(99);
+    let deployments = vec![bound_deployment(100), other];
+    let approvals = vec![independent_approval()];
+    let first = decide(deployments.clone(), statuses.clone(), approvals.clone());
+    let second = decide(deployments.clone(), statuses.clone(), approvals.clone());
+    assert_eq!(first, second);
+    let mut reversed = deployments.clone();
+    reversed.reverse();
+    assert_eq!(decide(reversed, statuses, approvals), first);
+    assert_eq!(
+        github::finalize_deployment_gates(first, None, false, 200),
+        github::finalize_deployment_gates(second, None, false, 200)
+    );
+}
