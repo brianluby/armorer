@@ -66,9 +66,12 @@ verifier behavior; a complete signed rehearsal of Armorer's own producer/consume
 The [owned-draft controller](owned-draft-controller-v1.md) provides reviewable intent,
 separate staging/publication approvals, exact owned release/asset identities,
 served-byte re-download, durable recovery and signed postpublication checks.
-Its native writes remain blocked by unsupported current-attempt environment
-enforcement and serialization across runners. A capability setting, local lock or
-syntactically valid approval cannot establish those missing guarantees.
+Its native writes remain blocked until every required gate is Enforced and a
+separate publication approval is supplied. The current-attempt environment
+enforcement and runner-wide serialization gates are now observable through the
+pinned controller's attempt-bound deployment (PR32); a settings-only inspect still
+reports them unsupported. A capability setting, local lock or syntactically valid
+approval cannot establish those guarantees.
 
 Prepare reviewed workflow pins, production tool/root/catalog digests, exact stable
 ref restrictions and approved reviewers distinct from the initiating actor before

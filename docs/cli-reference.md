@@ -152,7 +152,9 @@ Main also provides the following explicit interfaces:
 Run each command with `--help` for its exact input flags. Bootstrap and upgrade
 packets never authorize version-one apply. Verification failures do not select
 historical comparison or a weaker context. Native publication writes remain
-blocked by unsupported required approval and runner serialization gates.
+blocked until every required gate is Enforced and a separate publication approval
+is supplied; the current-attempt approval and runner serialization gates are now
+observable through the pinned controller's attempt-bound deployment (PR32).
 There is no `init` command. The original offline library API remains available.
 Use the reviewed checkout's `./target/debug/armorer`; building does not install
 the executable on PATH.

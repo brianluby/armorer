@@ -5,8 +5,10 @@ post-publication incidents. The current
 [publication contracts](trust-contracts-v1.md#github-and-future-registry-receipts)
 validate receipt consistency and retry identity. Main has an [owned-draft controller](owned-draft-controller-v1.md)
 with planning, inspection, staging, publication and ambiguous-publication recovery
-interfaces. Required native approval and runner serialization are unsupported and
-block writes. Actual provider race/fault qualification and Apple parity remain
+interfaces. Native writes require every gate Enforced and a separate publication
+approval; the current-attempt approval and runner serialization gates are now
+observable through the pinned controller's attempt-bound deployment (PR32), while a
+settings-only inspect still reports them unsupported. Actual provider race/fault qualification and Apple parity remain
 operational gates; no alias-update CLI is provided.
 
 Preserve the identity before deciding the next action.

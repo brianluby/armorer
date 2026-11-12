@@ -61,7 +61,10 @@ runtime/Node/root/catalog authority, second-catalog migration, protected whole-j
 startup and Apple finalization, current-attempt approval and serialization across
 runners, a complete signed rehearsal of Armorer's own producer/consumer flow,
 approved provider transition/race trials, Apple parity and both pilots remain
-required. The native controller still blocks writes on unsupported required gates.
+required. The native controller still blocks writes until every required gate is
+Enforced and a separate publication approval is supplied; the two current-attempt
+gates are now observable through the pinned controller's attempt-bound deployment
+(PR32), while a settings-only inspect still reports them unsupported.
 No SLSA level, publication or completed release rehearsal is inferred from CI.
 
 Use the [acceptance ledger](v01-acceptance.md) for each ticket's exact gate and

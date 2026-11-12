@@ -97,8 +97,10 @@ independent consumer results.
 
 Draft creation, exact upload, served-byte verification, approval, immutable
 publication and post-publication verification use the [owned-draft controller](owned-draft-controller-v1.md).
-Its native writes remain blocked by unsupported required approval and runner
-serialization gates; actual provider transition/race qualification remains open. Schemas, mocks and one successful target cannot establish those outcomes.
+Its native writes remain blocked until every required gate is Enforced and a
+separate publication approval is supplied; the current-attempt approval and runner
+serialization gates are now observable through the pinned controller's attempt-bound
+deployment (PR32), and actual provider transition/race qualification remains open. Schemas, mocks and one successful target cannot establish those outcomes.
 Merging and publication require explicit human authorization.
 The [dogfooding guide](dogfooding.md) supplies Armorer's own read-only inspection
 exercise and the complete hosted rehearsal evidence still required.
