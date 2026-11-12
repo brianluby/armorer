@@ -36,6 +36,15 @@ qualification gates are Veans #26 — three executed and passed 2026-11-12
 awaits fresh retained CI artifacts and an independently approved spec.
 The sequenced finish plan is `reviews/2026-11-12-completion-plan.md`.
 
+The `armorer-test` rehearsal vehicle's provider settings were completed
+2026-11-12 (immutable releases enabled; `release-publish` environment with
+required reviewer, no admin bypass and `prevent_self_review: true`; active
+default-branch and tag rulesets with no bypass actors). Receipt:
+`reviews/2026-11-12-rehearsal-vehicle-settings.md`. Publish approval requires
+a second independent reviewer; the single-owner exception covers signing
+only. Settings grant no authority while the current-attempt and
+serialization gates remain unsupported.
+
 ## Full criteria and remaining gates
 
 | Criterion | Requirement | Delivery / evidence | Acceptance / operational gate |
