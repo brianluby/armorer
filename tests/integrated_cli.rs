@@ -159,7 +159,7 @@ fn all_profiles_share_the_integrated_cli_without_building_or_losing_customizatio
                 "--policy",
                 policy,
                 "--catalog",
-                "bootstrap-v1",
+                "bootstrap-v2",
             ],
             0,
         );

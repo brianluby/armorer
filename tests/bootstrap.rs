@@ -109,7 +109,7 @@ fn bootstrap_all_profiles_is_read_only_then_provisions_all_five_files_with_no_bu
             .unwrap()
             .unwrap()
             .0;
-        assert_eq!(lock.workflows.commit, armorer::catalog::WORKFLOW_COMMIT);
+        assert_eq!(lock.workflows.commit, armorer::catalog::WORKFLOW_COMMIT_V2);
         assert_eq!(lock.tools.len(), 18);
         assert!(!root.path().join("BUILD_EXECUTED").exists());
         assert!(!root.path().join("target").exists());
@@ -589,5 +589,39 @@ fn committed_schemas_and_all_profile_previews_match_current_runtime() {
         let plan = inspect(&root, &root.join("ci-policy.reviewed.toml")).unwrap();
         assert_eq!(serde_json::to_value(plan).unwrap(), expected, "{profile}");
         assert_eq!(snapshot(&root), before);
+    }
+}
+
+/// Verify that a brand-new bootstrap defaults to the reviewed v2 successor authority.
+#[test]
+fn new_bootstrap_defaults_to_the_v2_successor_authority() {
+    let (root, policy) = fixture("library");
+    assert!(!root.path().join(STATE).exists());
+    let plan = inspect(root.path(), policy.path()).unwrap();
+    assert_eq!(plan.catalog_id, "bootstrap-v2");
+    let lock = plan
+        .changes
+        .iter()
+        .find(|c| c.path == "armorer.lock")
+        .unwrap();
+    assert!(
+        lock.proposed_content
+            .contains(armorer::catalog::WORKFLOW_COMMIT_V2)
+    );
+    assert!(
+        !lock
+            .proposed_content
+            .contains(armorer::catalog::WORKFLOW_COMMIT)
+    );
+    for path in [
+        ".github/workflows/armorer-ci.yml",
+        ".github/workflows/armorer-build.yml",
+    ] {
+        let change = plan.changes.iter().find(|c| c.path == path).unwrap();
+        assert!(
+            change
+                .proposed_content
+                .contains(&format!("@{}", armorer::catalog::WORKFLOW_COMMIT_V2))
+        );
     }
 }

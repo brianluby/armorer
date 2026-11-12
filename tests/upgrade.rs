@@ -64,7 +64,7 @@ fn preview(root: &Path, imports: &[&str]) -> upgrade::Plan {
     upgrade::inspect(
         root,
         &root.join(POLICY),
-        "bootstrap-v1",
+        "bootstrap-v2",
         &imports.iter().map(|s| (*s).into()).collect::<Vec<_>>(),
         false,
     )
@@ -93,7 +93,7 @@ fn every_profile_shows_full_three_images_with_no_builds_or_consuming_mutations()
             && c.before_content.is_none()));
         assert_eq!(
             p.target_catalog.workflow_commit,
-            armorer::catalog::WORKFLOW_COMMIT
+            armorer::catalog::WORKFLOW_COMMIT_V2
         );
         assert_eq!(p.pin_changes.len(), 18);
         assert_eq!(p.direction, "upgrade");
@@ -266,7 +266,7 @@ fn legacy_v1_and_declared_unqualified_lock_require_explicit_scoped_import() {
     assert_eq!(imported.workflow_before.unwrap().commit, "a".repeat(40));
     assert_eq!(
         imported.workflow_after.commit,
-        armorer::catalog::WORKFLOW_COMMIT
+        armorer::catalog::WORKFLOW_COMMIT_V2
     );
     assert_eq!(snapshot(root.path()), before);
 }
@@ -288,16 +288,16 @@ fn imports_never_erase_bespoke_jobs_or_policies_and_reject_moving_declarations()
     );
     fs::write(
         root.path().join(&c.path),
-        custom.replace(armorer::catalog::WORKFLOW_COMMIT, "main"),
+        custom.replace(armorer::catalog::WORKFLOW_COMMIT_V2, "main"),
     )
     .unwrap();
     let p = preview(root.path(), &[".github/workflows/armorer-ci.yml"]);
     assert_eq!(change(&p, &c.path).decision, Decision::Conflict);
-    let lock = armorer::catalog::reviewed()
+    let lock = armorer::catalog::reviewed_v2()
         .unwrap()
         .render_lock(root.path())
         .unwrap()
-        .replace(armorer::catalog::WORKFLOW_COMMIT, "main");
+        .replace(armorer::catalog::WORKFLOW_COMMIT_V2, "main");
     fs::write(root.path().join("armorer.lock"), lock).unwrap();
     let p = preview(root.path(), &["armorer.lock"]);
     assert_eq!(change(&p, "armorer.lock").decision, Decision::Conflict);
@@ -337,7 +337,7 @@ fn catalog_base_substitution_never_falls_back_to_import_even_with_matching_claim
                 let bad = value["managed"][path]["content"]
                     .as_str()
                     .unwrap()
-                    .replace(armorer::catalog::WORKFLOW_COMMIT, &"a".repeat(40));
+                    .replace(armorer::catalog::WORKFLOW_COMMIT_V2, &"a".repeat(40));
                 value["managed"][path]["sha256"] =
                     format!("{:x}", Sha256::digest(bad.as_bytes())).into();
                 value["managed"][path]["content"] = bad.into();
@@ -1002,4 +1002,116 @@ fn forged_legacy_generated_toolchain_base_with_matching_self_hash_never_becomes_
         .is_err()
     );
     assert_eq!(snapshot(root.path()), before);
+}
+
+/// Install a genuine frozen bootstrap-v1 ownership state plus its exact generated targets,
+/// so cross-revision tests start from a real existing v1 consumer rather than a fabricated pin.
+fn install_v1_bootstrap(root: &Path) {
+    use sha2::{Digest, Sha256};
+    let v1 = armorer::catalog::reviewed().unwrap();
+    let (intent, _) = config::load_config(root).unwrap();
+    let policy = fs::read_to_string(root.join(POLICY)).unwrap();
+    let toolchain = format!(
+        "[toolchain]\nchannel = \"{}\"\nprofile = \"minimal\"\ncomponents = [\"clippy\", \"rustfmt\"]\n",
+        intent.toolchain
+    );
+    let mut targets = v1.caller_workflows();
+    targets.insert("armorer.lock".into(), v1.render_lock(root).unwrap());
+    targets.insert("rust-toolchain.toml".into(), toolchain);
+    targets.insert(".armorer/ci-policy.toml".into(), policy);
+    let mut managed = BTreeMap::new();
+    for (path, content) in &targets {
+        let full = root.join(path);
+        fs::create_dir_all(full.parent().unwrap()).unwrap();
+        fs::write(&full, content).unwrap();
+        managed.insert(
+            path.clone(),
+            serde_json::json!({
+                "content": content,
+                "sha256": format!("{:x}", Sha256::digest(content.as_bytes())),
+            }),
+        );
+    }
+    let state = serde_json::json!({
+        "schema_version": 2,
+        "runtime_version": env!("CARGO_PKG_VERSION"),
+        "catalog_sha256": armorer::catalog::TOOLS_SHA256,
+        "workflow": {
+            "repository": armorer::catalog::WORKFLOW_REPOSITORY,
+            "commit": armorer::catalog::WORKFLOW_COMMIT,
+        },
+        "last_plan_sha256": "0".repeat(64),
+        "managed": managed,
+    });
+    let state_path = root.join(".armorer/bootstrap-state-v2.json");
+    fs::create_dir_all(state_path.parent().unwrap()).unwrap();
+    fs::write(state_path, serde_json::to_vec(&state).unwrap()).unwrap();
+}
+
+/// Verify that an existing frozen v1 bootstrap state still validates and is honored by both consumers.
+#[test]
+fn existing_v1_bootstrap_state_still_validates_and_is_honored_by_both_consumers() {
+    let root = fixture("library");
+    install_v1_bootstrap(root.path());
+    let policy = root.path().join(POLICY);
+    // Bootstrap re-inspection honors the stored v1 authority instead of defaulting to v2.
+    let plan = bootstrap::inspect(root.path(), &policy).unwrap();
+    assert_eq!(plan.catalog_id, "bootstrap-v1");
+    assert!(plan.changes.iter().all(|c| c.disposition == "unchanged"));
+    // Upgrade recognizes the same state as a bootstrap-v1 source and refreshes it.
+    let p = upgrade::inspect(root.path(), &policy, "bootstrap-v1", &[], false).unwrap();
+    assert_eq!(p.source_format, upgrade::SourceFormat::BootstrapV2);
+    assert_eq!(p.source_catalog.as_ref().unwrap().id, "bootstrap-v1");
+    assert_eq!(p.direction, "refresh");
+    assert!(p.changes.iter().all(|c| c.decision == Decision::Unchanged));
+}
+
+/// Verify that the v1->v2 cross-revision upgrade succeeds while unknown and unflagged downgrade ids fail.
+#[test]
+fn cross_revision_upgrade_v1_to_v2_succeeds_and_unknown_or_downgrade_ids_are_rejected() {
+    let root = fixture("library");
+    install_v1_bootstrap(root.path());
+    let policy = root.path().join(POLICY);
+    // Unknown ids never fall back, even with an explicit downgrade flag.
+    for id in ["bootstrap-v0", "bootstrap-v3", "main", ""] {
+        assert!(upgrade::inspect(root.path(), &policy, id, &[], false).is_err());
+        assert!(upgrade::inspect(root.path(), &policy, id, &[], true).is_err());
+    }
+    // v1 -> v2 is a reviewed upgrade that moves only the workflow pin.
+    let p = upgrade::inspect(root.path(), &policy, "bootstrap-v2", &[], false).unwrap();
+    assert_eq!(p.source_catalog.as_ref().unwrap().id, "bootstrap-v1");
+    assert_eq!(p.target_catalog.id, "bootstrap-v2");
+    assert_eq!(
+        p.target_catalog.workflow_commit,
+        armorer::catalog::WORKFLOW_COMMIT_V2
+    );
+    assert_eq!(p.direction, "upgrade");
+    assert_eq!(change(&p, "armorer.lock").decision, Decision::Update);
+    upgrade::apply(root.path(), &p, &p.plan_sha256).unwrap();
+    assert!(
+        !root
+            .path()
+            .join(".armorer/bootstrap-state-v2.json")
+            .exists()
+    );
+    let state: serde_json::Value = serde_json::from_slice(
+        &fs::read(root.path().join(".armorer/upgrade-state-v1.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(state["authority"]["id"], "bootstrap-v2");
+    assert_eq!(
+        state["authority"]["workflow_commit"],
+        armorer::catalog::WORKFLOW_COMMIT_V2
+    );
+    assert!(
+        fs::read_to_string(root.path().join("armorer.lock"))
+            .unwrap()
+            .contains(armorer::catalog::WORKFLOW_COMMIT_V2)
+    );
+    // The upgraded v2 state refreshes; an unflagged v2 -> v1 downgrade is rejected.
+    let refresh = upgrade::inspect(root.path(), &policy, "bootstrap-v2", &[], false).unwrap();
+    assert_eq!(refresh.direction, "refresh");
+    assert!(upgrade::inspect(root.path(), &policy, "bootstrap-v1", &[], false).is_err());
+    let down = upgrade::inspect(root.path(), &policy, "bootstrap-v1", &[], true).unwrap();
+    assert_eq!(down.direction, "downgrade");
 }

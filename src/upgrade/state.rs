@@ -52,7 +52,7 @@ pub(super) fn decode_state(bytes: &[u8]) -> Result<State> {
             "invalid upgrade ownership identity or version; no fallback",
         ));
     }
-    let generated = catalog::reviewed()?.bootstrap_files(
+    let generated = catalog::reviewed_for(&state.authority.id)?.bootstrap_files(
         &state.config_sha256,
         &state.toolchain,
         &state.generated_policy,

@@ -1,5 +1,8 @@
 use armorer::{
-    catalog::{WORKFLOW_COMMIT, WORKFLOW_REPOSITORY, authenticate, reviewed},
+    catalog::{
+        WORKFLOW_COMMIT, WORKFLOW_COMMIT_V2, WORKFLOW_REPOSITORY, authenticate, reviewed,
+        reviewed_v2,
+    },
     config::{TARGETS, load_config, load_lock},
 };
 use std::{fs, process::Command};
@@ -133,14 +136,14 @@ fn catalog_cli_needs_no_consumer_or_installed_build_tools() {
         .unwrap();
     assert!(result.status.success());
     let output: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
-    assert_eq!(output["workflow"]["commit"], WORKFLOW_COMMIT);
+    assert_eq!(output["workflow"]["commit"], WORKFLOW_COMMIT_V2);
     assert_eq!(output["tools"].as_object().unwrap().len(), 6);
     assert_eq!(fs::read_dir(root.path()).unwrap().count(), 0);
 }
 
 #[test]
 fn committed_caller_fixtures_match_the_reviewed_renderer() {
-    let catalog = reviewed().unwrap();
+    let catalog = reviewed_v2().unwrap();
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("examples/bootstrap-catalog");
     for (path, content) in catalog.caller_workflows() {
         assert_eq!(fs::read(root.join(path)).unwrap(), content.as_bytes());

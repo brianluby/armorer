@@ -509,7 +509,7 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
             Ok((value.map_err(|_| Error::Json)?, status))
         }
         Operation::Catalog => Ok((
-            serde_json::to_value(armorer::catalog::reviewed()?).map_err(|_| Error::Json)?,
+            serde_json::to_value(armorer::catalog::reviewed_v2()?).map_err(|_| Error::Json)?,
             0,
         )),
         Operation::VerifyRelease {

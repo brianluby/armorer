@@ -14,4 +14,4 @@ concurrency:
 
 jobs:
   verify:
-    uses: brianluby/armorer-workflows/.github/workflows/rust-ci.yml@772ca83e386c883c88cc3b936d69f8cb3216c91e
+    uses: brianluby/armorer-workflows/.github/workflows/rust-ci.yml@e5e9c0d31baff87e357046d81068b646a39a9f23

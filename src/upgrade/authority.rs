@@ -27,12 +27,12 @@ pub struct Authority {
     pub policy_schema_version: u32,
 }
 
-/// Runtime identity frozen by the reviewed bootstrap-v1 catalog.
-pub(super) const BOOTSTRAP_V1_RUNTIME_VERSION: &str = "0.1.0";
+/// Runtime identity frozen by the reviewed bootstrap catalogs.
+pub(super) const BOOTSTRAP_RUNTIME_VERSION: &str = "0.1.0";
 
 /// Reject a crate bump until a separate catalog successor has been reviewed.
 fn require_bootstrap_runtime(runtime_version: &str) -> Result<()> {
-    if runtime_version != BOOTSTRAP_V1_RUNTIME_VERSION {
+    if runtime_version != BOOTSTRAP_RUNTIME_VERSION {
         return Err(Error::Transaction(
             "compiled runtime requires a separately reviewed upgrade catalog successor",
         ));
@@ -40,23 +40,26 @@ fn require_bootstrap_runtime(runtime_version: &str) -> Result<()> {
     Ok(())
 }
 
-/// Stable IDs have immutable meanings. A future source update must retain this
-/// entry and add a separately reviewed successor, rather than moving this ID.
+/// Stable IDs have immutable meanings. A future source update must retain these
+/// entries and add a separately reviewed successor, rather than moving an ID.
 pub fn select(id: &str) -> Result<Authority> {
-    if id != "bootstrap-v1" {
-        return Err(Error::Transaction(
-            "unknown upgrade catalog; no moving pin or fallback is supported",
-        ));
-    }
+    let (revision, catalog) = match id {
+        "bootstrap-v1" => (1, catalog::reviewed()?),
+        "bootstrap-v2" => (2, catalog::reviewed_v2()?),
+        _ => {
+            return Err(Error::Transaction(
+                "unknown upgrade catalog; no moving pin or fallback is supported",
+            ));
+        }
+    };
     require_bootstrap_runtime(env!("CARGO_PKG_VERSION"))?;
-    catalog::reviewed()?;
     Ok(Authority {
         id: id.into(),
-        revision: 1,
-        workflow_repository: catalog::WORKFLOW_REPOSITORY.into(),
-        workflow_commit: catalog::WORKFLOW_COMMIT.into(),
+        revision,
+        workflow_repository: catalog.workflow().repository.clone(),
+        workflow_commit: catalog.workflow().commit.clone(),
         tools_sha256: catalog::TOOLS_SHA256.into(),
-        runtime_version: BOOTSTRAP_V1_RUNTIME_VERSION.into(),
+        runtime_version: BOOTSTRAP_RUNTIME_VERSION.into(),
         config_schema_version: 1,
         policy_schema_version: 1,
     })
@@ -97,25 +100,35 @@ mod tests {
     /// Verify that registry identity is independent of claims and unknown downgrades stay blocked.
     #[test]
     fn registry_identity_is_independent_of_claims_and_unknown_downgrades_stay_blocked() {
-        let entry = select("bootstrap-v1").unwrap();
-        assert_eq!(entry.workflow_commit, catalog::WORKFLOW_COMMIT);
-        assert_eq!(entry.tools_sha256, catalog::TOOLS_SHA256);
+        let v1 = select("bootstrap-v1").unwrap();
+        assert_eq!(v1.revision, 1);
+        assert_eq!(v1.workflow_commit, catalog::WORKFLOW_COMMIT);
+        assert_eq!(v1.tools_sha256, catalog::TOOLS_SHA256);
+        let v2 = select("bootstrap-v2").unwrap();
+        assert_eq!(v2.revision, 2);
+        assert_eq!(v2.workflow_commit, catalog::WORKFLOW_COMMIT_V2);
+        // The successor reuses the byte-identical tool catalog; only the workflow pin moves.
+        assert_eq!(v2.tools_sha256, catalog::TOOLS_SHA256);
+        assert_eq!(v2.workflow_repository, catalog::WORKFLOW_REPOSITORY);
+        assert_eq!(v2.runtime_version, v1.runtime_version);
         for id in [
             "main",
             "v1",
+            "v2",
             "bootstrap-v0",
-            "bootstrap-v2",
+            "bootstrap-v3",
             catalog::WORKFLOW_COMMIT,
+            catalog::WORKFLOW_COMMIT_V2,
             "caller-root",
         ] {
             assert!(select(id).is_err());
         }
         assert_eq!(direction(0, 1, false).unwrap(), "upgrade");
         assert_eq!(direction(1, 1, false).unwrap(), "refresh");
+        assert_eq!(direction(1, 2, false).unwrap(), "upgrade");
+        assert_eq!(direction(2, 2, false).unwrap(), "refresh");
         assert!(direction(2, 1, false).is_err());
         assert_eq!(direction(2, 1, true).unwrap(), "downgrade");
-        // Direction alone never qualifies a catalog: these ordinal cases are
-        // policy unit tests, not evidence of a second live accepted catalog.
         assert!(select("bootstrap-v0").is_err());
     }
 }

@@ -15,21 +15,24 @@ executes repository code, resolves dependencies, downloads catalogs, or writes
 consuming files. The examples use the installed Rust 1.95.0 toolchain.
 
 ```sh
-armorer --repository /path/to/project upgrade plan --policy /path/to/reviewed-policy.toml --catalog bootstrap-v1 > /path/outside-project/upgrade.json
+armorer --repository /path/to/project upgrade plan --policy /path/to/reviewed-policy.toml --catalog bootstrap-v2 > /path/outside-project/upgrade.json
 ```
 
-The catalog ID is mandatory. Currently only immutable `bootstrap-v1` is supported:
-workflow repository `brianluby/armorer-workflows`, commit
-`772ca83e386c883c88cc3b936d69f8cb3216c91e`, and independently compiled tool-catalog
-SHA-256 `e21e6cbd2cdd1125dbb9817116b1f46d043807b4d92128abc9dc07256dbb4b13`.
-Every embedded catalog is authenticated before parsing. A future reviewed source
-update must add a new stable catalog ID and preserve this entry's meaning. No
-accepted second catalog is invented from Git ancestry. Actual migration between
-two accepted workflow/catalog revisions remains an integration gate when the
-release runtime produces that successor. Ordinal downgrade unit tests do not
-establish such operational evidence. Unknown IDs, moving branches/tags, source
-substitution and failed catalog authentication never trigger import or downgrade
-fallback; `--allow-downgrade` cannot make an unknown authority trusted.
+The catalog ID is mandatory. Two immutable entries are compiled: `bootstrap-v1`
+(frozen) pins workflow commit `772ca83e386c883c88cc3b936d69f8cb3216c91e`, and
+`bootstrap-v2` (the current successor) pins workflows main
+`e5e9c0d31baff87e357046d81068b646a39a9f23`, both in repository
+`brianluby/armorer-workflows` with independently compiled tool-catalog SHA-256
+`e21e6cbd2cdd1125dbb9817116b1f46d043807b4d92128abc9dc07256dbb4b13`. The tool bytes
+are byte-identical between the entries; only the workflow pin moves. Every
+embedded catalog is authenticated before parsing. A future reviewed source update
+must add a new stable catalog ID and preserve each entry's meaning; no accepted
+catalog is invented from Git ancestry. The v1 -> v2 cross-revision upgrade is
+proven by deterministic tests, but operational migration between two accepted
+workflow/catalog revisions on a real consumer remains an integration gate (#5).
+Unknown IDs, moving branches/tags, source substitution and failed catalog
+authentication never trigger import or downgrade fallback; `--allow-downgrade`
+cannot make an unknown authority trusted.
 
 Review the complete JSON. Each of the five fixed local targets shows its stored
 generated base, exact current bytes, target-generated candidate, proposed bytes,
@@ -73,7 +76,7 @@ Identical unowned files stay unowned by default. Import each supported file thro
 its own flag, then review its before and proposed images:
 
 ```sh
-armorer --repository /path/to/project upgrade plan --policy /path/to/reviewed-policy.toml --catalog bootstrap-v1 --import-file .github/workflows/armorer-ci.yml --import-file armorer.lock > /path/outside-project/upgrade.json
+armorer --repository /path/to/project upgrade plan --policy /path/to/reviewed-policy.toml --catalog bootstrap-v2 --import-file .github/workflows/armorer-ci.yml --import-file armorer.lock > /path/outside-project/upgrade.json
 ```
 
 An import may adopt an identical compiled target, a supported appended-job caller,
@@ -161,7 +164,7 @@ concurrency and every write/owner/commit-marker boundary in both directions.
 
 ## Runtime version boundary
 
-`bootstrap-v1` freezes runtime `0.1.0` as part of its independently reviewed
+Both `bootstrap-v1` and `bootstrap-v2` freeze runtime `0.1.0` as part of their independently reviewed
 authority. The compiled runtime must match that entry before an upgrade plan can
 be made or accepted. A crate version bump fails with an explicit catalog-successor
 error; it does not reinterpret this ID or widen historical lock acceptance. A new
