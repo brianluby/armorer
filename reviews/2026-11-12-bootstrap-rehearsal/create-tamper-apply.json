@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "transaction",
+    "message": "transaction blocked: committed bootstrap receipt conflicts with files or ownership"
+  }
+}
