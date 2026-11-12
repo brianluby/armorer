@@ -1,6 +1,6 @@
 //! Independent consumer expectations. Never populate this policy from downloads.
 use super::inventory::AssetRole;
-use super::{ByteIdentity, Review, Source, WorkflowIdentity, release_ref, release_tag, require};
+use super::{ByteIdentity, Review, Source, WorkflowIdentity, release_ref, require};
 use crate::Result;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -225,42 +225,5 @@ impl VerificationPolicy {
                 }),
             "signer-or-predicate-not-allowed",
         )
-    }
-
-    /// Explicit historical selection, never an error fallback. Return weaker
-    /// status only after exact allowlist bytes are matched. #8 must refuse this
-    /// path if required/invalid attestation evidence exists for the requested mode.
-    pub fn compare_historical_bytes(
-        &self,
-        tag: &str,
-        source: &Source,
-        supplied: &BTreeMap<String, Vec<u8>>,
-        now: u64,
-    ) -> Result<()> {
-        self.validate(now)?;
-        require(
-            self.mode == VerificationMode::Release,
-            "historical-rehearsal-forbidden",
-        )?;
-        require(
-            release_tag(tag) && source.git_ref == format!("refs/tags/{tag}"),
-            "historical-ref-mismatch",
-        )?;
-        let h = self
-            .historical
-            .iter()
-            .find(|h| h.source == *source)
-            .ok_or_else(|| crate::Error::Invalid("historical-release-not-allowed".into()))?;
-        require(
-            supplied.len() == h.assets.len(),
-            "historical-asset-set-mismatch",
-        )?;
-        for (name, expected) in &h.assets {
-            let bytes = supplied
-                .get(name)
-                .ok_or_else(|| crate::Error::Invalid("historical-asset-missing".into()))?;
-            expected.matches(bytes)?;
-        }
-        Ok(())
     }
 }

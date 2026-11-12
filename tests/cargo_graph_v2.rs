@@ -648,3 +648,43 @@ fn real_cargo_resolution_distinguishes_requested_flags_from_resolved_features() 
     assert_eq!(fs::read(root.join("Cargo.lock")).unwrap(), lock);
     assert!(!root.join("target").exists());
 }
+
+/// The exported schema must require run/selection/context presence while keeping null for unhosted fixtures.
+#[test]
+fn exported_graph_schema_requires_run_selection_and_context_presence() {
+    let schema = serde_json::to_value(schemars::schema_for!(CargoGraphV2)).unwrap();
+    let top = schema["required"].as_array().unwrap();
+    for field in ["run_id", "run_attempt"] {
+        assert!(top.iter().any(|v| v == field), "missing required {field}");
+        let prop = &schema["properties"][field];
+        assert_eq!(prop["minimum"], 1, "{field} minimum");
+        let types = prop["type"].as_array().unwrap();
+        assert!(
+            types.iter().any(|t| t == "null"),
+            "{field} must stay nullable"
+        );
+        assert!(
+            types.iter().any(|t| t == "integer"),
+            "{field} must stay integer"
+        );
+    }
+    let defs = &schema["$defs"];
+    let selection_required = defs["Selection"]["required"].as_array().unwrap();
+    assert!(selection_required.iter().any(|v| v == "binary"));
+    let binary_types = defs["Selection"]["properties"]["binary"]["type"]
+        .as_array()
+        .unwrap();
+    assert!(
+        binary_types.iter().any(|t| t == "null"),
+        "binary must stay nullable"
+    );
+    let context_required = defs["DependencyContext"]["required"].as_array().unwrap();
+    assert!(context_required.iter().any(|v| v == "target"));
+    let target_types = defs["DependencyContext"]["properties"]["target"]["type"]
+        .as_array()
+        .unwrap();
+    assert!(
+        target_types.iter().any(|t| t == "null"),
+        "target must stay nullable"
+    );
+}

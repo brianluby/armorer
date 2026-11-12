@@ -12,6 +12,7 @@ use std::collections::BTreeSet;
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+#[schemars(extend("required" = serde_json::json!(["deliverable_id", "profile", "package", "package_version", "binary", "target", "feature_set", "default_features", "features", "toolchain"])))]
 pub struct Selection {
     pub deliverable_id: String,
     pub profile: Profile,

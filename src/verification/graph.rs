@@ -72,6 +72,7 @@ pub enum DependencyKind {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+#[schemars(extend("required" = serde_json::json!(["kind", "target"])))]
 pub struct DependencyContext {
     pub kind: DependencyKind,
     pub target: Option<String>,
@@ -102,6 +103,7 @@ pub struct NativeLinkage {
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+#[schemars(extend("required" = serde_json::json!(["schema_version", "source", "runtime_commit", "run_id", "run_attempt", "input_sha256", "selection", "root_component_name", "root", "packages", "nodes", "native_linkage", "graph_scope", "coverage_gaps"])))]
 pub struct CargoGraphV2 {
     #[schemars(range(min = 2, max = 2))]
     #[schemars(transform = crate::schema_bounds::unsigned)]
@@ -109,8 +111,10 @@ pub struct CargoGraphV2 {
     pub source: GraphSource,
     pub runtime_commit: String,
     /// Null identifies an unhosted development fixture and cannot satisfy release verification.
+    #[schemars(range(min = 1))]
     #[schemars(transform = crate::schema_bounds::unsigned)]
     pub run_id: Option<u64>,
+    #[schemars(range(min = 1))]
     #[schemars(transform = crate::schema_bounds::unsigned)]
     pub run_attempt: Option<u64>,
     pub input_sha256: GraphInputs,

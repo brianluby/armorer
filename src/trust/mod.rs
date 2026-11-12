@@ -351,3 +351,23 @@ pub(crate) fn valid_source_ref(value: &str) -> bool {
     }
     false
 }
+
+#[cfg(test)]
+mod tests {
+    use super::asset_name;
+
+    #[test]
+    /// Flat asset names reject traversal and dot-prefixed names; internal dots stay valid.
+    fn asset_name_rejects_traversal_and_dot_prefix() {
+        for rejected in [
+            ".", "..", "...", ".hidden", "", "a/b", "a\\b", "a b", "a\nb",
+        ] {
+            assert!(!asset_name(rejected), "expected rejection of {rejected:?}");
+        }
+        for accepted in ["a..b", "app.tar.gz", "a", "a.", "a_b-c.d"] {
+            assert!(asset_name(accepted), "expected acceptance of {accepted:?}");
+        }
+        assert!(asset_name(&"a".repeat(255)));
+        assert!(!asset_name(&"a".repeat(256)));
+    }
+}
