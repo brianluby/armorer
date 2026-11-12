@@ -35,6 +35,16 @@ explicitly accept that publish rehearsal stays blocked. This is an
 independent-approval requirement, not a defect; no gate may be weakened to
 accommodate it.
 
+Follow-up verification (read-only): `release-publish` has exactly one
+deployment branch policy (`main`, id 66495435). Tag **creation** is not
+blocked by the ruleset: GitHub governs creation with a separate `creation`
+rule type, which ruleset 27148316 does not include; `update` blocks moving
+existing tags and `deletion` blocks removal, with no bypass actors. This
+matches the controller flow (owner pushes a new tag; the tag-push run is
+authenticated; the controller resolves the existing tag and never creates
+tags). Doc/schema-based verification, not a live push test — a test tag
+would be permanent under the deletion rule.
+
 ## Remaining owner gates for this vehicle
 
 - Apple Developer ID + notarization credentials provisioned into
