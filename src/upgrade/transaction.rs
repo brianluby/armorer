@@ -493,7 +493,10 @@ fn transaction(
             cause: Box::new(cause),
         });
     }
-    remove_journal(&root, &committed)?;
+    remove_journal(&root, &committed).map_err(|cause| Error::TransactionCause {
+        message: "upgrade committed; journal cleanup failed; run recovery to finalize",
+        cause: Box::new(cause),
+    })?;
     Ok(receipt(
         p,
         if matches!(p, Approval::Upgrade { .. }) {
@@ -546,7 +549,10 @@ pub fn recover(root: &Path, expected: &str) -> Result<Receipt> {
                 "committed upgrade conflicts with intervening edit",
             ));
         }
-        remove_journal(&root, &bytes)?;
+        remove_journal(&root, &bytes).map_err(|cause| Error::TransactionCause {
+            message: "upgrade recovery committed; journal cleanup failed; run recovery to finalize",
+            cause: Box::new(cause),
+        })?;
         Ok(receipt(
             &j.approval,
             "commit-recovered",

@@ -152,7 +152,12 @@ impl OfflineSbomValidator {
                 stderr: 1024 * 1024,
             },
         )
-        .map_err(|_| Error::Invalid("sbom-schema-validation-failed".into()))?;
+        .map_err(|error| match error {
+            Error::Invalid(code) if code == "attestation-authentication-failed" => {
+                Error::Invalid("sbom-schema-validation-failed".into())
+            }
+            _ => Error::Invalid("sbom-validator-execution-failed".into()),
+        })?;
         // Qualification binds this success text to the exact implementation; no autodetection or relaxed exit is used.
         require(
             std::str::from_utf8(&output).is_ok_and(|text| {

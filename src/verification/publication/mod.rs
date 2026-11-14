@@ -396,8 +396,21 @@ impl StateStore {
             .read(true)
             .write(true)
             .open(&path)?;
+        // Validate the opened handle; a path re-stat would race a symlink swap.
+        require(file.metadata()?.is_file(), "publication-lock-type")?;
         require(file.try_lock().is_ok(), "publication-controller-busy")?;
         let journal = root.join(format!("{repository_id}.json"));
+        // The store must still be the inspected directory after canonicalization.
+        let rechecked = fs::symlink_metadata(&root)?;
+        require(rechecked.is_dir(), "publication-state-directory-type")?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            require(
+                rechecked.permissions().mode() & 0o077 == 0,
+                "publication-state-directory-permissions",
+            )?;
+        }
         Ok(Self {
             root,
             _lock: file,
