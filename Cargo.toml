@@ -7,6 +7,7 @@ license = "MIT"
 description = "Repeatable secure CI and verifiable releases for Rust repositories"
 repository = "https://github.com/brianluby/armorer"
 readme = "README.md"
+include = ["src/**/*", "Cargo.toml", "README.md", "LICENSE"]
 
 [dependencies]
 base64 = "=0.22.1"

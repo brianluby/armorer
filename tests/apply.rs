@@ -249,6 +249,35 @@ fn cli_requires_approval_and_emits_honest_receipt() {
     let plan = inspect(root.path(), "plan").unwrap();
     let output = root.path().join("approved.json");
     fs::write(&output, serde_json::to_vec(&plan).unwrap()).unwrap();
+    // Approval is required: omitting or mistyping the digest must fail without applying anything.
+    let missing = Command::new(env!("CARGO_BIN_EXE_armorer"))
+        .arg("--repository")
+        .arg(root.path())
+        .args(["apply", "--plan"])
+        .arg(&output)
+        .output()
+        .unwrap();
+    assert!(
+        !missing.status.success(),
+        "stdout: {} stderr: {}",
+        String::from_utf8_lossy(&missing.stdout),
+        String::from_utf8_lossy(&missing.stderr)
+    );
+    let wrong = Command::new(env!("CARGO_BIN_EXE_armorer"))
+        .arg("--repository")
+        .arg(root.path())
+        .args(["apply", "--plan"])
+        .arg(&output)
+        .args(["--expect-plan-sha256", &"0".repeat(64)])
+        .output()
+        .unwrap();
+    assert!(
+        !wrong.status.success(),
+        "stdout: {} stderr: {}",
+        String::from_utf8_lossy(&wrong.stdout),
+        String::from_utf8_lossy(&wrong.stderr)
+    );
+    assert!(!root.path().join(".armorer/state.json").exists());
     let result = Command::new(env!("CARGO_BIN_EXE_armorer"))
         .arg("--repository")
         .arg(root.path())
@@ -259,8 +288,9 @@ fn cli_requires_approval_and_emits_honest_receipt() {
         .unwrap();
     assert!(
         result.status.success(),
-        "{}",
-        String::from_utf8_lossy(&result.stdout)
+        "stdout: {} stderr: {}",
+        String::from_utf8_lossy(&result.stdout),
+        String::from_utf8_lossy(&result.stderr)
     );
     let receipt: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
     assert_eq!(receipt["outcome"], "applied");
