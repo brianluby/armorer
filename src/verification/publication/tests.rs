@@ -22,6 +22,8 @@ struct Fake {
     mutate_download: bool,
     bad_immutable: bool,
     bad_attestation: bool,
+    /// Override one gate: (name, replacement state) with None removing the gate entirely.
+    gate_override: Option<(&'static str, Option<GateState>)>,
 }
 impl Backend for Fake {
     /// Supply test-only prerequisite observations; no production caller can install this backend.
@@ -37,15 +39,22 @@ impl Backend for Fake {
         if self.triggering_actor_change_at == Some(self.checks) {
             self.triggering_actor = Some(Some(3));
         }
+        let mut gates: BTreeMap<String, GateState> = github::REQUIRED_GATES
+            .iter()
+            .map(|name| ((*name).into(), GateState::Enforced))
+            .collect();
+        if let Some((name, state)) = self.gate_override {
+            match state {
+                Some(state) => gates.insert(name.into(), state),
+                None => gates.remove(name),
+            };
+        }
         Ok(CapabilityReport {
             observed_at: now()?,
             repository_id: policy.policy.repository_id,
             actor_id: self.actor.unwrap_or(Some(1)),
             triggering_actor_id: self.triggering_actor.unwrap_or(Some(1)),
-            gates: github::REQUIRED_GATES
-                .iter()
-                .map(|name| ((*name).into(), GateState::Enforced))
-                .collect(),
+            gates,
             evidence: BTreeMap::new(),
             limitations: vec!["Synthetic state-machine observations only".into()],
         })
@@ -270,7 +279,7 @@ fn owned_retry_and_one_time_publication_preserve_exact_ids() {
 #[test]
 /// Every unavailable required gate and every omitted gate prevents a mutation permit.
 fn required_capability_states_and_missing_gates_fail_closed() {
-    let (mut c, _, _dir) = fixture();
+    let (mut c, approval, _dir) = fixture();
     let original = c.backend.check(&c.release, &c.policy).unwrap();
     for name in github::REQUIRED_GATES {
         for state in [
@@ -283,12 +292,20 @@ fn required_capability_states_and_missing_gates_fail_closed() {
             let mut changed = original.clone();
             changed.gates.insert((*name).into(), state);
             assert!(changed.require_ready(now().unwrap(), 30).is_err());
+            // Drive the controller, not just the report: degraded gates must block staging writes.
+            c.backend.gate_override = Some((name, Some(state)));
+            assert!(c.stage(&approval).is_err(), "{name}: {state:?}");
         }
         let mut changed = original.clone();
         changed.gates.remove(*name);
         assert!(changed.require_ready(now().unwrap(), 30).is_err());
+        c.backend.gate_override = Some((name, None));
+        assert!(c.stage(&approval).is_err(), "{name}: missing");
     }
-    assert_eq!(c.backend.creates, 0);
+    assert_eq!(
+        (c.backend.creates, c.backend.uploads, c.backend.publishes),
+        (0, 0, 0)
+    );
 }
 #[test]
 /// Expired, wrong-action, substituted-plan and unauthorized human approvals issue zero writes.
@@ -800,6 +817,32 @@ fn self_approval_blocks_enforcement_only() {
         json!({"state": "approved", "environments": [{"id": 9}], "user": {"id": 1}});
     assert_eq!(
         decide(vec![bound_deployment(100)], statuses, vec![self_approval]),
+        (GateState::Unknown, GateState::Enforced)
+    );
+    // A rerun initiator distinct from the actor is equally excluded: approver == triggering actor.
+    let commit = "a".repeat(40);
+    let approvers: BTreeSet<u64> = [1, 3].into();
+    let expected = github::DeploymentExpectation {
+        run_id: 10,
+        run_attempt: 1,
+        source_commit: &commit,
+        environment: "release-publish",
+        environment_id: 9,
+        approvers: &approvers,
+        actor: Some(1),
+        triggering_actor: Some(3),
+    };
+    let initiator_approval =
+        json!({"state": "approved", "environments": [{"id": 9}], "user": {"id": 3}});
+    let mut statuses = BTreeMap::new();
+    statuses.insert(100, active_status(500));
+    assert_eq!(
+        github::deployment_gate_states(
+            &[bound_deployment(100)],
+            &statuses,
+            &[initiator_approval],
+            &expected,
+        ),
         (GateState::Unknown, GateState::Enforced)
     );
 }
