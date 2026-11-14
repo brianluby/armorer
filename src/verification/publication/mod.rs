@@ -432,10 +432,20 @@ impl StateStore {
             return Ok(None);
         }
         let value: Journal = io::parse(&io::read_bounded(&self.journal, 1024 * 1024)?)?;
-        require(
-            value.schema_version == 1 && value.plan == *plan,
-            "publication-journal-conflict",
-        )?;
+        require(value.schema_version == 1, "publication-journal-conflict")?;
+        if value.plan != *plan {
+            // A completed prior release must not wedge the store for the next plan; archive it.
+            require(
+                value.phase == Phase::Complete,
+                "publication-journal-conflict",
+            )?;
+            let archive = self
+                .journal
+                .with_file_name(format!("{}.complete.json", value.plan.sha256));
+            fs::rename(&self.journal, archive)?;
+            File::open(&self.root)?.sync_all()?;
+            return Ok(None);
+        }
         Ok(Some(value))
     }
     /// Persist mutation intent before a network write, with atomic replacement and directory fsync.

@@ -37,6 +37,12 @@ pub(crate) fn regular(path: &Path, max: u64) -> Result<File> {
             "verification-input-changed",
         )?;
     }
+    // Without inode binding a same-size swap is undetectable; fail closed like readonly().
+    #[cfg(not(unix))]
+    {
+        let _ = (&before, &opened);
+        return Err(Error::Invalid("unsupported-verifier-platform".into()));
+    }
     Ok(file)
 }
 
@@ -149,8 +155,17 @@ pub(crate) fn parse<T: DeserializeOwned>(bytes: &[u8]) -> Result<T> {
         depth: 0,
     }
     .deserialize(&mut decoder)
-    .map_err(|_| Error::Json)?;
-    decoder.end().map_err(|_| Error::Json)?;
+    .map_err(|e| {
+        // Data errors are the duplicate-key/budget guards: a tampering signal, not malformed syntax.
+        if e.classify() == serde_json::error::Category::Data {
+            Error::Invalid("verification-json-structure".into())
+        } else {
+            Error::Json
+        }
+    })?;
+    decoder
+        .end()
+        .map_err(|_| Error::Invalid("verification-json-trailing".into()))?;
     serde_json::from_value(value).map_err(|_| Error::Json)
 }
 

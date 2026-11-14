@@ -560,6 +560,23 @@ fn post_publication_failures_never_claim_completion_or_repair_bytes() {
     }
 }
 #[test]
+/// A completed prior plan is archived on load so the next release is not wedged by journal conflict.
+fn completed_journal_is_archived_for_the_next_plan() {
+    let (mut c, stage, _dir) = fixture();
+    let served = c.stage(&stage).unwrap();
+    let publish = publish_approval(&c, &served);
+    c.publish(&publish).unwrap();
+    let prior_plan = c.release.identity.clone();
+    let other_plan = ByteIdentity::from_bytes(b"a different release plan");
+    assert!(c.state.load(&other_plan).unwrap().is_none());
+    assert!(c.state.load(&prior_plan).unwrap().is_none());
+    assert!(
+        _dir.path()
+            .join(format!("{}.complete.json", prior_plan.sha256))
+            .exists()
+    );
+}
+#[test]
 /// One kernel lock covers different tags and releases automatically when its owning process drops it.
 fn repository_wide_lock_serializes_concurrent_tags_and_releases_on_drop() {
     let directory = tempfile::tempdir().unwrap();
