@@ -18,14 +18,16 @@ fn fixture(name: &str) -> PathBuf {
         .join("tests/fixtures/cargo-graph-v2")
         .join(name)
 }
-/// Write a synthetic malformed SBOM and use its observed identity solely for this negative schema test.
-fn assert_invalid(validator: &OfflineSbomValidator, bytes: &[u8]) {
+/// Write a synthetic malformed SBOM and assert the specific rejection gate, not just any error.
+fn assert_invalid(validator: &OfflineSbomValidator, bytes: &[u8], expected_code: &str) {
     let file = tempfile::NamedTempFile::new().unwrap();
     fs::write(file.path(), bytes).unwrap();
+    let err = validator
+        .validate(file.path(), &ByteIdentity::from_bytes(bytes))
+        .expect_err(expected_code);
     assert!(
-        validator
-            .validate(file.path(), &ByteIdentity::from_bytes(bytes))
-            .is_err()
+        matches!(&err, armorer::Error::Invalid(code) if code == expected_code),
+        "expected {expected_code}, got {err:?}"
     );
 }
 #[test]
@@ -84,24 +86,41 @@ fn native_cyclonedx_validates_complete_documents_and_rejects_non_graph_field_err
         json!([{"license":{"id":"not-an-SPDX-license"}}]);
     // Graph reconciliation intentionally doesn't validate unrelated schema fields.
     graph.compare_sbom(&invalid).unwrap();
-    assert_invalid(&validator, &serde_json::to_vec(&invalid).unwrap());
+    assert_invalid(
+        &validator,
+        &serde_json::to_vec(&invalid).unwrap(),
+        "sbom-schema-validation-failed",
+    );
     let mut invalid = original.clone();
     invalid["metadata"]["timestamp"] = json!("invalid-date-time");
     graph.compare_sbom(&invalid).unwrap();
-    assert_invalid(&validator, &serde_json::to_vec(&invalid).unwrap());
+    assert_invalid(
+        &validator,
+        &serde_json::to_vec(&invalid).unwrap(),
+        "sbom-schema-validation-failed",
+    );
     let mut invalid = original.clone();
     invalid["metadata"]["component"]["externalReferences"] =
         json!([{"type":"not-a-reference-type","url":"https://example.invalid"}]);
     graph.compare_sbom(&invalid).unwrap();
-    assert_invalid(&validator, &serde_json::to_vec(&invalid).unwrap());
+    assert_invalid(
+        &validator,
+        &serde_json::to_vec(&invalid).unwrap(),
+        "sbom-schema-validation-failed",
+    );
     let mut invalid = original.clone();
     invalid["specVersion"] = json!("1.6");
-    assert_invalid(&validator, &serde_json::to_vec(&invalid).unwrap());
+    assert_invalid(
+        &validator,
+        &serde_json::to_vec(&invalid).unwrap(),
+        "unsupported-sbom-document-version",
+    );
     assert_invalid(
         &validator,
         b"{\"bomFormat\":\"CycloneDX\",\"specVersion\":\"1.5\",\"metadata\":{\"a\":1,\"a\":2}}",
+        "verification-json-structure",
     );
-    assert_invalid(&validator, b"{} {}");
+    assert_invalid(&validator, b"{} {}", "verification-json-trailing");
     let mut wrong = ByteIdentity::from_bytes(&bytes);
     wrong.sha256 = "a".repeat(64);
     assert!(
