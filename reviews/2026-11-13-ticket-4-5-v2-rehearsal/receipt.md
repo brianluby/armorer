@@ -53,6 +53,7 @@ digest the owner approved. Every new bootstrap plan in this rehearsal carried
 | conflict apply | `bootstrap apply` | 1 | `transaction blocked: bootstrap conflict or unfinished transaction requires explicit resolution`. Unowned files **byte-identical**; no `.armorer` state created (no partial writes). |
 | hostile discovery | `build.rs` + `build = "build.rs"`; check/plan | 2 / 0 | `BUILD_EXECUTED` absent, no `target/` — consuming code never executed. |
 | symlink | replace managed file with a symlink; plan | 1 | `unsafe-path: symlinks require migration before discovery`. |
+| concurrent apply | hold `.armorer/apply.lock` exclusively (`flock LOCK_EX`) in a second process, then `bootstrap apply` | 1 | `transaction blocked: another Armorer transaction is active`. All five managed digests unchanged under contention (`concurrent-apply.json`, `concurrent-apply.exit`). |
 
 ## 4. Ticket #5 — cross-revision migration, rollback, conflict, import
 

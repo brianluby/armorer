@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "transaction",
+    "message": "transaction blocked: another Armorer transaction is active"
+  }
+}
