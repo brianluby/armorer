@@ -145,16 +145,23 @@ pub(super) fn inspect_bytes(root: &Path, policy: &[u8]) -> Result<Plan> {
     crate::upgrade::guard_previous(root)?;
     ci_policy::parse_at(policy, ci_policy::today()?)?;
     let (intent, config) = load_config(root)?;
-    if TARGETS.contains(&intent.policy.license_file.as_str())
-        || [
-            STATE,
-            JOURNAL,
-            V1_STATE,
-            V1_JOURNAL,
-            ".armorer/apply.lock",
-            "armorer.toml",
-        ]
-        .contains(&intent.policy.license_file.as_str())
+    // Compare normalized components: safe_path collapses `//`, `./` and trailing slashes.
+    let license_path: std::path::PathBuf =
+        std::path::Path::new(intent.policy.license_file.as_str())
+            .components()
+            .collect();
+    let controls = [
+        STATE,
+        JOURNAL,
+        V1_STATE,
+        V1_JOURNAL,
+        ".armorer/apply.lock",
+        "armorer.toml",
+    ];
+    if TARGETS
+        .iter()
+        .chain(controls.iter())
+        .any(|target| license_path == std::path::Path::new(target))
     {
         return Err(Error::Transaction(
             "license input overlaps bootstrap control or generated files",

@@ -5,6 +5,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
+    io::Read,
     path::{Component, Path, PathBuf},
     process::{Command, Stdio},
     time::{Duration, Instant},
@@ -336,6 +337,32 @@ impl Snapshot {
     }
 }
 
+/// Kill and reap a supervised child on every exit, including I/O error propagation.
+struct Supervised(std::process::Child);
+impl Drop for Supervised {
+    fn drop(&mut self) {
+        let _ = self.0.kill();
+        let _ = self.0.wait();
+    }
+}
+
+/// Wait for a spawned child under a fixed deadline; kill and reap on expiry or I/O failure.
+fn wait_bounded(child: &mut Supervised, code: &'static str) -> Result<()> {
+    let started = Instant::now();
+    loop {
+        match child.0.try_wait() {
+            Ok(Some(status)) if status.success() => return Ok(()),
+            Ok(Some(_)) => return Err(Error::Cargo(code)),
+            Ok(None) => {}
+            Err(_) => return Err(Error::Cargo(code)),
+        }
+        if started.elapsed() > Duration::from_secs(15) {
+            return Err(Error::Cargo("metadata-limit"));
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+}
+
 /// Read metadata without dependencies, networking, installation, or repository Cargo configuration.
 ///
 /// Validates the configuration and selected packages, targets, features, and
@@ -399,6 +426,7 @@ pub fn discover(root: &Path, config: &Config) -> Result<Workspace> {
         .env_clear()
         .env("RUSTUP_AUTO_INSTALL", "0")
         .stdin(Stdio::null())
+        .stdout(Stdio::piped())
         .stderr(Stdio::null());
     if cfg!(unix) {
         lookup.env("PATH", "/usr/bin:/bin:/usr/sbin:/sbin");
@@ -408,14 +436,26 @@ pub fn discover(root: &Path, config: &Config) -> Result<Workspace> {
             lookup.env(name, value);
         }
     }
-    let installed = lookup
-        .output()
+    let mut lookup_child = Supervised(
+        lookup
+            .spawn()
+            .map_err(|_| Error::Cargo("toolchain-lookup"))?,
+    );
+    let mut stdout_bytes = Vec::new();
+    lookup_child
+        .0
+        .stdout
+        .take()
+        .ok_or(Error::Cargo("toolchain-lookup"))?
+        .take(4097)
+        .read_to_end(&mut stdout_bytes)
         .map_err(|_| Error::Cargo("toolchain-lookup"))?;
-    if !installed.status.success() {
+    wait_bounded(&mut lookup_child, "toolchain-lookup")?;
+    if stdout_bytes.len() > 4096 {
         return Err(Error::Cargo("toolchain-lookup"));
     }
     let cargo = PathBuf::from(
-        std::str::from_utf8(&installed.stdout)
+        std::str::from_utf8(&stdout_bytes)
             .map_err(|_| Error::Cargo("toolchain-lookup"))?
             .trim(),
     )
@@ -424,8 +464,11 @@ pub fn discover(root: &Path, config: &Config) -> Result<Workspace> {
         return Err(Error::Cargo("toolchain-path"));
     }
     let bin = cargo.parent().ok_or(Error::Cargo("toolchain-path"))?;
-    let rustc = bin.join(if cfg!(windows) { "rustc.exe" } else { "rustc" });
-    if !rustc.is_file() {
+    let rustc = bin
+        .join(if cfg!(windows) { "rustc.exe" } else { "rustc" })
+        .canonicalize()
+        .map_err(|_| Error::Cargo("compiler-path"))?;
+    if !rustc.is_file() || rustc.starts_with(&root) {
         return Err(Error::Cargo("compiler-path"));
     }
     let mut command = Command::new(&cargo);
@@ -462,22 +505,25 @@ pub fn discover(root: &Path, config: &Config) -> Result<Workspace> {
             command.env(name, value);
         }
     }
-    let mut child = command
-        .spawn()
-        .map_err(|_| Error::Cargo("metadata-spawn"))?;
+    let mut child = Supervised(
+        command
+            .spawn()
+            .map_err(|_| Error::Cargo("metadata-spawn"))?,
+    );
     let started = Instant::now();
     loop {
-        if let Some(status) = child.try_wait()? {
-            if !status.success() {
-                return Err(Error::Cargo("metadata-exit"));
-            }
-            break;
+        match child.0.try_wait() {
+            Ok(Some(status)) if status.success() => break,
+            Ok(Some(_)) => return Err(Error::Cargo("metadata-exit")),
+            Ok(None) => {}
+            Err(_) => return Err(Error::Cargo("metadata-exit")),
         }
         if started.elapsed() > Duration::from_secs(15)
-            || std::fs::metadata(&stdout_path)?.len() > 1_048_576
+            || std::fs::metadata(&stdout_path)
+                .map(|m| m.len())
+                .unwrap_or(u64::MAX)
+                > 1_048_576
         {
-            let _ = child.kill();
-            let _ = child.wait();
             return Err(Error::Cargo("metadata-limit"));
         }
         std::thread::sleep(Duration::from_millis(10));

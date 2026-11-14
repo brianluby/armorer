@@ -223,7 +223,8 @@ pub(crate) fn ensure_parent(root: &Path, relative: &str) -> Result<()> {
                     .ok_or(Error::Transaction("invalid directory parent"))?,
             )?,
             Err(error)
-                if error.kind() == std::io::ErrorKind::AlreadyExists && directory.is_dir() => {}
+                if error.kind() == std::io::ErrorKind::AlreadyExists
+                    && fs::symlink_metadata(&directory)?.is_dir() => {}
             Err(error) => return Err(error.into()),
         }
     }
@@ -423,7 +424,10 @@ fn transaction(
             cause: Box::new(cause),
         });
     }
-    remove_journal(&root)?;
+    remove_journal(&root).map_err(|cause| Error::TransactionCause {
+        message: "bootstrap transaction committed; journal cleanup failed; run recovery to finalize",
+        cause: Box::new(cause),
+    })?;
     Ok(receipt(plan, "applied", true))
 }
 
@@ -500,7 +504,11 @@ pub fn recover(root: &Path, expected: &str) -> Result<Receipt> {
                 ));
             }
         }
-        remove_journal(&root)?;
+        remove_journal(&root).map_err(|cause| Error::TransactionCause {
+            message:
+                "bootstrap recovery committed; journal cleanup failed; run recovery to finalize",
+            cause: Box::new(cause),
+        })?;
         Ok(receipt(&journal.plan, "commit-recovered", true))
     } else {
         rollback(&root, &journal)?;

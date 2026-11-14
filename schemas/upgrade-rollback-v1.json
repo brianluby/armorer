@@ -280,6 +280,7 @@
         "features": {
           "default": [],
           "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_+.-]{0,99}$(?![\\s\\S])",
             "type": "string"
           },
           "maxItems": 128,

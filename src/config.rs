@@ -76,6 +76,7 @@ pub struct FeatureSet {
     #[serde(default)]
     #[schemars(length(max = 128))]
     #[schemars(extend("uniqueItems" = true))]
+    #[schemars(inner(regex(pattern = "^[A-Za-z0-9][A-Za-z0-9_+.-]{0,99}$(?![\\s\\S])")))]
     pub features: Vec<String>,
 }
 
@@ -207,9 +208,17 @@ fn require(condition: bool, message: &str) -> Result<()> {
 pub fn load_config(root: &Path) -> Result<(Config, Vec<u8>)> {
     let bytes = read_small(&safe_path(root, "armorer.toml")?)?;
     let text = std::str::from_utf8(&bytes).map_err(|_| Error::Toml)?;
-    let config: Config = toml::from_str(text).map_err(|_| Error::Toml)?;
+    let config: Config = toml::from_str(text).map_err(toml_error)?;
     config.validate(root)?;
     Ok((config, bytes))
+}
+
+/// Preserve the failure offset without echoing any untrusted config value.
+fn toml_error(error: toml::de::Error) -> Error {
+    match error.span() {
+        Some(span) => Error::TomlAt { offset: span.start },
+        None => Error::Toml,
+    }
 }
 
 impl Config {
@@ -322,12 +331,14 @@ impl Config {
 /// contents. Propagates path and I/O errors.
 pub fn load_lock(root: &Path, config_digest: &str) -> Result<Option<(Lock, Vec<u8>)>> {
     let path = safe_path(root, "armorer.lock")?;
-    if !path.try_exists()? {
-        return Ok(None);
-    }
-    let bytes = read_small(&path)?;
+    // One metadata step: a dangling symlink is an error, never a silent "no lock".
+    let bytes = match std::fs::symlink_metadata(&path) {
+        Ok(_) => read_small(&path)?,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error.into()),
+    };
     let lock: Lock = toml::from_str(std::str::from_utf8(&bytes).map_err(|_| Error::Toml)?)
-        .map_err(|_| Error::Toml)?;
+        .map_err(toml_error)?;
     require(
         lock.schema_version == VERSION,
         "unsupported lock schema_version",

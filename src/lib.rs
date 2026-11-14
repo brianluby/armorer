@@ -28,10 +28,12 @@ use std::path::{Component, Path, PathBuf};
 /// Stable machine-readable failures. Values from configuration are not echoed.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("cannot read local input: {0}")]
+    #[error("local filesystem operation failed: {0}")]
     Io(#[from] std::io::Error),
     #[error("invalid TOML input (values omitted)")]
     Toml,
+    #[error("invalid TOML input at byte offset {offset} (values omitted)")]
+    TomlAt { offset: usize },
     #[error("invalid configuration: {0}")]
     Invalid(String),
     #[error("unsafe or unsupported repository path: {0}")]
@@ -66,7 +68,7 @@ impl Error {
     pub fn code(&self) -> &'static str {
         match self {
             Self::Io(_) => "io",
-            Self::Toml => "invalid-toml",
+            Self::Toml | Self::TomlAt { .. } => "invalid-toml",
             Self::Invalid(_) => "invalid-config",
             Self::Path(_) => "unsafe-path",
             Self::Cargo(_) => "cargo-discovery",
@@ -123,13 +125,26 @@ pub fn safe_path(root: &Path, relative: &str) -> Result<PathBuf> {
 /// with `Error::Path` before opening; inspection assumes a stable filesystem.
 pub(crate) fn read_small(path: &Path) -> Result<Vec<u8>> {
     use std::io::Read;
-    if !std::fs::symlink_metadata(path)?.file_type().is_file() {
+    // Pre-stat rejects FIFOs without blocking on open; the opened inode is then bound
+    // so a symlink swap between stat and open cannot redirect the read.
+    let before = std::fs::symlink_metadata(path)?;
+    if !before.file_type().is_file() {
         return Err(Error::Path("expected a regular input file".into()));
     }
+    let file = std::fs::File::open(path)?;
+    let opened = file.metadata()?;
+    if !opened.is_file() {
+        return Err(Error::Path("expected a regular input file".into()));
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        if before.dev() != opened.dev() || before.ino() != opened.ino() {
+            return Err(Error::Path("input changed during read".into()));
+        }
+    }
     let mut bytes = Vec::new();
-    std::fs::File::open(path)?
-        .take(1_048_577)
-        .read_to_end(&mut bytes)?;
+    file.take(1_048_577).read_to_end(&mut bytes)?;
     if bytes.len() > 1_048_576 {
         return Err(Error::Invalid("input exceeds 1 MiB".into()));
     }
