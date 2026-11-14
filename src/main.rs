@@ -390,7 +390,9 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
                 let home = owner_home
                     .map(PathBuf::from)
                     .or_else(|| std::env::var_os("HOME").map(PathBuf::from))
-                    .ok_or(Error::Json)?;
+                    .ok_or_else(|| {
+                        Error::Invalid("owner home not provided and HOME is unset".into())
+                    })?;
                 NativeGithub::open_owner_read_only(
                     &inputs.gh,
                     &inputs.release_attestation_root,
@@ -406,10 +408,14 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
             let value = match operation {
                 PublicationOperation::Inspect { .. } => serde_json::to_value(controller.inspect()?),
                 PublicationOperation::Stage { .. } => {
-                    serde_json::to_value(controller.stage(approval.as_ref().ok_or(Error::Json)?)?)
+                    serde_json::to_value(controller.stage(approval.as_ref().ok_or_else(
+                        || Error::Invalid("stage requires an authenticated approval".into()),
+                    )?)?)
                 }
                 PublicationOperation::Publish { .. } => {
-                    serde_json::to_value(controller.publish(approval.as_ref().ok_or(Error::Json)?)?)
+                    serde_json::to_value(controller.publish(approval.as_ref().ok_or_else(
+                        || Error::Invalid("publish requires an authenticated approval".into()),
+                    )?)?)
                 }
                 PublicationOperation::RecoverPublished { .. } => {
                     serde_json::to_value(controller.recover_published()?)

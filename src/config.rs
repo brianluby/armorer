@@ -34,7 +34,7 @@ pub struct Config {
     pub manifest: String,
     #[schemars(length(min = 1, max = 128))]
     pub deliverables: Vec<Deliverable>,
-    #[schemars(extend("minProperties" = 1, "maxProperties" = 128, "propertyNames" = serde_json::json!({"pattern":"^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"})))]
+    #[schemars(extend("minProperties" = 1, "maxProperties" = 128, "propertyNames" = serde_json::json!({"pattern":"^(?!.*--)[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"})))]
     pub feature_sets: BTreeMap<String, FeatureSet>,
     pub policy: Policy,
 }
@@ -47,7 +47,7 @@ fn manifest_default() -> String {
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Deliverable {
-    #[schemars(regex(pattern = "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"))]
+    #[schemars(regex(pattern = "^(?!.*--)[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"))]
     pub id: String,
     pub profile: Profile,
     #[schemars(regex(pattern = "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"))]
@@ -57,7 +57,7 @@ pub struct Deliverable {
     #[schemars(length(min = 1, max = 3))]
     #[schemars(extend("uniqueItems" = true, "items" = serde_json::json!({"enum": crate::config::TARGETS})))]
     pub targets: Vec<String>,
-    #[schemars(regex(pattern = "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"))]
+    #[schemars(regex(pattern = "^(?!.*--)[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"))]
     pub feature_set: String,
 }
 
@@ -263,6 +263,8 @@ impl Config {
         )?;
         for (name, case) in &self.feature_sets {
             require(identifier(name), "invalid feature-set name")?;
+            // Composite asset keys join with `--`; an embedded `--` makes distinct selections collide.
+            require(!name.contains("--"), "feature-set name cannot contain --")?;
             require(
                 case.features.len() <= 128,
                 "feature set exceeds 128 entries",
@@ -280,6 +282,7 @@ impl Config {
         let mut selections = BTreeSet::new();
         for d in &self.deliverables {
             require(identifier(&d.id), "invalid deliverable id")?;
+            require(!d.id.contains("--"), "deliverable id cannot contain --")?;
             require(ids.insert(&d.id), "duplicate deliverable id")?;
             require(identifier(&d.package), "invalid package name")?;
             match (d.profile, &d.binary) {
