@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "transaction",
+    "message": "transaction blocked: historical restoration requires explicit allow-downgrade"
+  }
+}

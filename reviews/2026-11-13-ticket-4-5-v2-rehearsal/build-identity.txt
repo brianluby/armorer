@@ -1,0 +1,5 @@
+head: 3eb6071af77701f0ea83c8aa6f04f9d4f3bea793
+binary: /Users/bluby/repos/armorer/target/debug/armorer
+binary_sha256: 9393b19609027a400a7dd27b0c2e3889d40d8d9baa31d189d1cf09fd6a1d68ae
+rustc: rustc 1.95.0 (59807616e 2026-04-14)
+cargo: cargo 1.95.0 (f2d3ce0bd 2026-03-21)

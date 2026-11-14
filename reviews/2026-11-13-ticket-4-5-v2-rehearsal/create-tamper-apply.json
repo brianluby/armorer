@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "transaction",
+    "message": "transaction blocked: bootstrap plan does not match approved digest, catalog or runtime"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "transaction",
+    "message": "transaction blocked: bootstrap conflict or unfinished transaction requires explicit resolution"
+  }
+}
