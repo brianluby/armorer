@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "transaction",
+    "message": "transaction blocked: upgrade compatibility or merge conflict requires review"
+  }
+}

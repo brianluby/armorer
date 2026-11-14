@@ -1,0 +1,10 @@
+{
+  "ci_verified": false,
+  "configured": false,
+  "outcome": "rolled-back",
+  "plan_sha256": "59f197da55c1145de3258ea38513ec9cfca16b6a12e0bb261312fdc9d0e24098",
+  "provenance_verified": false,
+  "published": false,
+  "release_rehearsed": false,
+  "schema_version": 1
+}

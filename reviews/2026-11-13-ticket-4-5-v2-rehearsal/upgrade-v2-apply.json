@@ -1,0 +1,10 @@
+{
+  "ci_verified": false,
+  "configured": true,
+  "outcome": "applied",
+  "plan_sha256": "90da8f65238299da25e2aca6975d8ec6c8dfc22574e9699dd2c94b11bc8b79dd",
+  "provenance_verified": false,
+  "published": false,
+  "release_rehearsed": false,
+  "schema_version": 1
+}
