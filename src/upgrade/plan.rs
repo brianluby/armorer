@@ -400,6 +400,33 @@ pub fn inspect(
 }
 
 /// Derive review images, ownership decisions and pin changes from the measured input bytes.
+/// The license preimage must never alias a control or generated file; shared by inspect and validate.
+pub(super) fn license_overlap(license_file: &str) -> Result<()> {
+    let license_path: std::path::PathBuf =
+        std::path::Path::new(license_file).components().collect();
+    let controls = [
+        bootstrap::STATE,
+        bootstrap::V1_STATE,
+        bootstrap::JOURNAL,
+        bootstrap::V1_JOURNAL,
+        super::STATE,
+        super::JOURNAL,
+        ".armorer/apply.lock",
+        "armorer.toml",
+        "rust-toolchain",
+    ];
+    if bootstrap::TARGETS
+        .iter()
+        .chain(controls.iter())
+        .any(|target| license_path == std::path::Path::new(target))
+    {
+        return Err(Error::Transaction(
+            "license input overlaps migration control or generated targets",
+        ));
+    }
+    Ok(())
+}
+
 pub(super) fn inspect_bytes(
     root: &Path,
     policy: &[u8],
@@ -410,24 +437,7 @@ pub(super) fn inspect_bytes(
     let policy_review_day = ci_policy::today()?;
     ci_policy::parse_at(policy, policy_review_day)?;
     let (intent, config) = load_config(root)?;
-    if bootstrap::TARGETS.contains(&intent.policy.license_file.as_str())
-        || [
-            bootstrap::STATE,
-            bootstrap::V1_STATE,
-            bootstrap::JOURNAL,
-            bootstrap::V1_JOURNAL,
-            super::STATE,
-            super::JOURNAL,
-            ".armorer/apply.lock",
-            "armorer.toml",
-            "rust-toolchain",
-        ]
-        .contains(&intent.policy.license_file.as_str())
-    {
-        return Err(Error::Transaction(
-            "license input overlaps migration control or generated targets",
-        ));
-    }
+    license_overlap(&intent.policy.license_file)?;
     let Ownership {
         format: source_format,
         catalog: source_catalog,
@@ -679,6 +689,7 @@ pub(super) fn validate(plan: &Plan, expected: &str) -> Result<()> {
     }
     imports(&plan.import_files)?;
     plan.intent.validate_shape()?;
+    license_overlap(&plan.intent.policy.license_file)?;
     let origin = source_bytes(plan.state_preimages.clone())?;
     if plan.source_format != origin.format
         || plan.source_catalog != origin.catalog

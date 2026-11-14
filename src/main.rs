@@ -574,7 +574,7 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
                     "verifier": verified.inventory_proof().verifier(),
                     "trusted_root": verified.inventory_proof().trusted_root(),
                     "assets": verified.inventory().assets,
-                    "attestation_bundles_verified": verified.attestations().len() + 1,
+                    "attestation_bundles_verified": verified.verified_bundle_count(),
                     "sboms_verified": verified.sboms().len(),
                     "apple_verification": if apple.payloads().is_empty() { "not-required" } else { "native-verified" },
                     "apple_payloads": apple.payloads(),
@@ -767,6 +767,9 @@ fn main() {
         {
             std::process::exit(code)
         }
-        _ => std::process::exit(1),
+        _ => {
+            eprintln!("armorer: failed to write JSON output to stdout");
+            std::process::exit(1)
+        }
     }
 }

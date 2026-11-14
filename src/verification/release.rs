@@ -325,6 +325,10 @@ impl AuthenticatedReleaseFiles {
     pub fn inventory_proof(&self) -> &VerifiedAttestation {
         &self.inventory_proof
     }
+    /// Total verified bundles: every asset attestation plus the inventory proof.
+    pub fn verified_bundle_count(&self) -> usize {
+        self.attestations.len() + 1
+    }
     /// Borrow every verified bundle proof; no verified subset can construct this result.
     pub fn attestations(&self) -> &BTreeMap<String, VerifiedAttestation> {
         &self.attestations

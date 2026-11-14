@@ -172,7 +172,9 @@ impl FrozenRelease {
         for name in names {
             require(asset_name(&name), "invalid-publication-asset-name")?;
             let bytes = files.asset_bytes(&name)?;
-            total = total.checked_add(bytes.len() as u64).ok_or(Error::Json)?;
+            total = total
+                .checked_add(bytes.len() as u64)
+                .ok_or_else(|| Error::Invalid("publication-total-byte-overflow".into()))?;
             require(
                 total <= 4 * 1024 * 1024 * 1024,
                 "publication-total-byte-limit",
@@ -219,7 +221,11 @@ impl FrozenRelease {
     }
     /// Rehash one inert frozen snapshot immediately before an upload or native asset verification.
     fn asset_path(&self, name: &str) -> Result<PathBuf> {
-        let identity = self.plan.assets.get(name).ok_or(Error::Json)?;
+        let identity = self
+            .plan
+            .assets
+            .get(name)
+            .ok_or_else(|| Error::Invalid("publication-asset-unknown".into()))?;
         let path = self.workspace.path().join(name);
         require(
             io::identity(&path, identity.size)? == *identity,
@@ -311,7 +317,10 @@ impl ApprovedPublication {
                     a.release_id.is_some_and(|id| id > 0),
                     "publish-approval-release-required",
                 )?;
-                a.served_bytes.as_ref().ok_or(Error::Json)?.validate()
+                a.served_bytes
+                    .as_ref()
+                    .ok_or_else(|| Error::Invalid("publish-approval-served-bytes-required".into()))?
+                    .validate()
             }
         }
     }
@@ -753,7 +762,7 @@ impl<B: Backend> Controller<B> {
         let mut journal = self
             .state
             .load(&self.release.identity)?
-            .ok_or(Error::Json)?;
+            .ok_or_else(|| Error::Invalid("publication-journal-missing".into()))?;
         if journal.phase == Phase::Publishing {
             // A failed publish may reset only on a confirmed still-draft observation; an already
             // published release stays on the read-only recover_published path, never a second write.
@@ -806,7 +815,7 @@ impl<B: Backend> Controller<B> {
         let journal = self
             .state
             .load(&self.release.identity)?
-            .ok_or(Error::Json)?;
+            .ok_or_else(|| Error::Invalid("publication-journal-missing".into()))?;
         require(
             matches!(
                 journal.phase,
