@@ -603,6 +603,11 @@ fn strict_loader_rejects_duplicate_map_keys_unknown_fields_symlinks_and_size_lim
     let path = temp.path().join("contract.json");
     std::fs::write(&path, br#"{"outer":{"required":true,"required":false}}"#).unwrap();
     assert!(armorer::trust::load_json::<serde_json::Value>(temp.path(), "contract.json").is_err());
+    // Unknown field on an otherwise valid record: deny_unknown_fields, not a missing-field failure.
+    let mut unknown = serde_json::to_value(policy()).unwrap();
+    unknown["surprise"] = serde_json::json!(true);
+    std::fs::write(&path, serde_json::to_vec(&unknown).unwrap()).unwrap();
+    assert!(armorer::trust::load_json::<VerificationPolicy>(temp.path(), "contract.json").is_err());
     std::fs::write(&path, vec![b' '; 1_048_577]).unwrap();
     assert!(armorer::trust::load_json::<serde_json::Value>(temp.path(), "contract.json").is_err());
     assert!(armorer::trust::load_json::<serde_json::Value>(temp.path(), "../escape.json").is_err());

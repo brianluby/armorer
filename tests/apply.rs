@@ -1,3 +1,5 @@
+#![cfg(unix)]
+
 use armorer::{
     apply::{apply, load_plan},
     plan::inspect,
@@ -82,6 +84,10 @@ fn applies_approved_bytes_and_same_plan_replay_changes_nothing() {
         "unchanged"
     );
     assert_eq!(bytes(root.path(), ".armorer/state.json"), state);
+    assert_eq!(
+        bytes(root.path(), "rust-toolchain.toml"),
+        plan.changes[0].proposed_content.as_bytes()
+    );
     assert_eq!(
         fs::metadata(root.path().join("rust-toolchain.toml"))
             .unwrap()
@@ -276,11 +282,18 @@ fn replay_rechecks_derived_intent_and_receipt_ownership() {
     forged.plan_sha256 = forged.digest().unwrap();
     state["last_plan_sha256"] = forged.plan_sha256.clone().into();
     fs::write(&state_path, serde_json::to_vec(&state).unwrap()).unwrap();
-    assert!(apply(root.path(), &forged, &forged.plan_sha256).is_err());
+    assert!(matches!(
+        apply(root.path(), &forged, &forged.plan_sha256),
+        Err(armorer::Error::Transaction(reason)) if reason.contains("approved inputs changed")
+    ));
     state = original;
     state["managed"] = serde_json::json!({});
     fs::write(&state_path, serde_json::to_vec(&state).unwrap()).unwrap();
-    assert!(apply(root.path(), &plan, &plan.plan_sha256).is_err());
+    assert!(matches!(
+        apply(root.path(), &plan, &plan.plan_sha256),
+        Err(armorer::Error::Transaction(reason))
+            if reason.contains("committed plan receipt conflicts")
+    ));
 }
 
 #[test]

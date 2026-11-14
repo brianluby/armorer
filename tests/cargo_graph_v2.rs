@@ -575,6 +575,7 @@ fn default_feature_decision_uses_independent_resolved_expectations() {
 }
 
 /// Real Cargo metadata resolves implied/default features and an all-features substitution fails the independent reader.
+#[cfg(unix)]
 #[test]
 fn real_cargo_resolution_distinguishes_requested_flags_from_resolved_features() {
     use std::{fs, process::Command};

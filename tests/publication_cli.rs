@@ -1,6 +1,9 @@
 //! CLI intent authentication precedes all credentials, native tools and consuming mutations.
-use std::{fs, os::unix::fs::PermissionsExt, process::Command};
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+use std::{fs, process::Command};
 
+#[cfg(unix)]
 #[test]
 /// An unapproved context rejects every controller action before running offered tools or creating ownership state.
 fn unapproved_context_precedes_tools_credentials_and_state_for_all_actions() {

@@ -115,14 +115,16 @@ impl Backend for Fake {
         }
     }
     /// Inject wrong served bytes or a during-download release mutation without pretending to sign anything.
-    fn download(&mut self, id: u64, _: u64) -> Result<Vec<u8>> {
+    fn download(&mut self, id: u64, max_bytes: u64) -> Result<Vec<u8>> {
         if self.mutate_download {
             self.remote.as_mut().ok_or(Error::Json)?.body.push('x');
         }
         if self.bad_download {
             return Ok(b"tampered".to_vec());
         }
-        self.bytes.get(&id).cloned().ok_or(Error::Json)
+        let bytes = self.bytes.get(&id).cloned().ok_or(Error::Json)?;
+        require(bytes.len() as u64 <= max_bytes, "test-download-size-limit")?;
+        Ok(bytes)
     }
     /// Simulate one publication and optionally lose its response after immutable server acceptance.
     fn publish(&mut self, id: u64) -> Result<()> {
@@ -463,9 +465,16 @@ fn publication_approval_requires_independent_reviewer_and_exact_draft() {
         let (mut c, stage, _dir) = fixture();
         let served = c.stage(&stage).unwrap();
         let mut approval = publish_approval(&c, &served);
+        let owned_id = c
+            .state
+            .load(&c.release.identity)
+            .unwrap()
+            .unwrap()
+            .release_id
+            .unwrap();
         match case {
             0 => approval.approval.approver_id = 1,
-            1 => approval.approval.release_id = Some(43),
+            1 => approval.approval.release_id = Some(owned_id + 1),
             _ => approval.approval.served_bytes = Some(ByteIdentity::from_bytes(b"other receipt")),
         }
         assert!(c.publish(&approval).is_err());
@@ -803,9 +812,28 @@ fn approval_environment_state_and_reviewer_are_exact() {
 #[test]
 /// More than one hundred deployments fails closed without scanning an unbounded listing.
 fn over_one_hundred_deployments_fail_closed() {
-    let deployments: Vec<_> = (1..=101).map(bound_deployment).collect();
+    // One bound active deployment plus 100 distinct-run active deployments: without the cap the
+    // decision would be (Enforced, Unknown), so only the >100 limit produces (Unknown, Unknown).
+    let mut deployments = vec![bound_deployment(1)];
     let mut statuses = BTreeMap::new();
     statuses.insert(1, active_status(500));
+    for id in 2..=101 {
+        let mut other = bound_deployment(id);
+        other["payload"]["armorer_run_id"] = (id + 1000).into();
+        deployments.push(other);
+        statuses.insert(id, active_status(500 + id));
+    }
+    // The discriminating 100-deployment control decides (Enforced, Unknown).
+    let control: Vec<_> = deployments[..100].to_vec();
+    let control_statuses: BTreeMap<_, _> = statuses
+        .iter()
+        .filter(|(id, _)| **id <= 100)
+        .map(|(k, v)| (*k, v.clone()))
+        .collect();
+    assert_eq!(
+        decide(control, control_statuses, vec![independent_approval()]),
+        (GateState::Enforced, GateState::Unknown)
+    );
     assert_eq!(
         decide(deployments, statuses, vec![independent_approval()]),
         (GateState::Unknown, GateState::Unknown)
