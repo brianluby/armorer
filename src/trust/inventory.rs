@@ -62,6 +62,7 @@ pub fn expected_assets(
     let mut specs = Vec::new();
     for d in &config.deliverables {
         for target in &d.targets {
+            require(specs.len() <= 8192, "invalid-derived-asset-set")?;
             let key = format!("{}--{}--{}", d.id, target, d.feature_set);
             let final_name = format!(
                 "{key}{}",
@@ -146,7 +147,7 @@ pub fn expected_assets(
     Ok(specs)
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReleaseInventory {
     #[schemars(range(min = 1, max = 1))]
@@ -262,14 +263,14 @@ impl ReleaseInventory {
         expected_inventory.matches(inventory_bytes)?;
         expected_inventory_bundle.matches(bundle)?;
         let parsed: ReleaseInventory = super::parse_json(inventory_bytes)?;
-        require(
-            serde_json::to_value(&parsed).map_err(|_| crate::Error::Json)?
-                == serde_json::to_value(self).map_err(|_| crate::Error::Json)?,
-            "published-inventory-content-mismatch",
-        )?;
+        require(parsed == *self, "published-inventory-content-mismatch")?;
         let mut seen = BTreeSet::new();
         for a in &self.assets {
-            require(seen.insert(&a.name), "duplicate-asset")?;
+            // Without validate_against the count alone could hide duplicates or reserved names.
+            require(
+                seen.insert(&a.name) && a.name != INVENTORY_NAME && a.name != INVENTORY_BUNDLE_NAME,
+                "duplicate-or-reserved-asset",
+            )?;
             let bytes = supplied
                 .get(&a.name)
                 .ok_or_else(|| crate::Error::Invalid("published-asset-missing".into()))?;

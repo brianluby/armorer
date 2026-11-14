@@ -129,7 +129,7 @@ pub struct ToolEvidence {
     pub max_age_seconds: Option<u64>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Exception {
     pub id: String,
@@ -523,11 +523,7 @@ impl ArtifactEvidence {
                 .iter()
                 .find(|a| a.id == e.id)
                 .ok_or_else(|| crate::Error::Invalid("exception-not-reviewed".into()))?;
-            require(
-                serde_json::to_value(e).map_err(|_| crate::Error::Json)?
-                    == serde_json::to_value(allowed).map_err(|_| crate::Error::Json)?,
-                "exception-policy-mismatch",
-            )?;
+            require(e == allowed, "exception-policy-mismatch")?;
         }
         Ok(())
     }

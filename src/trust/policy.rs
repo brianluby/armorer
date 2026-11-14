@@ -203,12 +203,17 @@ impl VerificationPolicy {
         Ok(())
     }
 
+    /// Membership check only. Callers MUST run `validate(now)` on this policy
+    /// first and not mutate it afterwards; this helper does not re-check
+    /// repository pinning, review expiry or the signer baseline.
     pub fn accept_source(&self, source: &Source) -> Result<()> {
         require(self.sources.contains(source), "source-not-allowed")
     }
 
     /// Compare claims extracted by #8 from a successfully verified certificate.
     /// Supplying ordinary producer JSON to this function does not authenticate it.
+    /// Membership check only; callers MUST run `validate(now)` first and not
+    /// mutate the policy afterwards.
     pub fn accept_signer(
         &self,
         source: &Source,

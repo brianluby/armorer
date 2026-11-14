@@ -43,15 +43,16 @@ fn require_bootstrap_runtime(runtime_version: &str) -> Result<()> {
 /// Stable IDs have immutable meanings. A future source update must retain these
 /// entries and add a separately reviewed successor, rather than moving an ID.
 pub fn select(id: &str) -> Result<Authority> {
-    let (revision, catalog) = match id {
-        "bootstrap-v1" => (1, catalog::reviewed()?),
-        "bootstrap-v2" => (2, catalog::reviewed_v2()?),
+    let revision = match id {
+        "bootstrap-v1" => 1,
+        "bootstrap-v2" => 2,
         _ => {
             return Err(Error::Transaction(
                 "unknown upgrade catalog; no moving pin or fallback is supported",
             ));
         }
     };
+    let catalog = catalog::reviewed_for(id)?;
     require_bootstrap_runtime(env!("CARGO_PKG_VERSION"))?;
     Ok(Authority {
         id: id.into(),

@@ -68,6 +68,9 @@ pub struct Source {
     pub repository: String,
     #[schemars(regex(pattern = "^[0-9a-f]{40}$(?![\\s\\S])"))]
     pub commit: String,
+    #[schemars(regex(
+        pattern = "^refs/(heads/[A-Za-z0-9][A-Za-z0-9_./-]{0,254}|tags/v(0|[1-9][0-9]{0,19})\\.(0|[1-9][0-9]{0,19})\\.(0|[1-9][0-9]{0,19})|pull/[1-9][0-9]{0,19}/merge)$(?![\\s\\S])"
+    ))]
     pub git_ref: String,
 }
 
@@ -321,7 +324,14 @@ impl<'de> Deserialize<'de> for UniqueJson {
 /// Decode at most one MiB of duplicate-free JSON into the requested contract type.
 pub(crate) fn parse_json<T: serde::de::DeserializeOwned>(bytes: &[u8]) -> Result<T> {
     require(bytes.len() <= 1_048_576, "contract-exceeds-1-mib")?;
-    let strict: UniqueJson = serde_json::from_slice(bytes).map_err(|_| Error::Json)?;
+    let strict: UniqueJson = serde_json::from_slice(bytes).map_err(|e| {
+        // Only the duplicate-key visitor emits Data errors here; everything else stays redacted.
+        if e.classify() == serde_json::error::Category::Data {
+            Error::Invalid("duplicate-json-key".into())
+        } else {
+            Error::Json
+        }
+    })?;
     serde_json::from_value(strict.0).map_err(|_| Error::Json)
 }
 

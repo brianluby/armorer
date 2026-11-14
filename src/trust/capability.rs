@@ -161,7 +161,7 @@ impl CapabilityConfig {
         }
         if config.deliverables.iter().any(|d| {
             d.profile != crate::config::Profile::Library
-                && d.targets.iter().any(|t| t == "aarch64-apple-darwin")
+                && d.targets.iter().any(|t| t.ends_with("-apple-darwin"))
         }) {
             for id in [
                 CapabilityId::AppleSigning,
@@ -241,6 +241,8 @@ impl Catalog {
             p.validate()?;
         }
         let mut ids = std::collections::BTreeSet::new();
+        // Pin names are unique catalog-wide: a lock tool must map to exactly one pinned distribution.
+        let mut pins = std::collections::BTreeSet::new();
         for a in &self.adapters {
             require(ids.insert(format!("{:?}", a.id)), "duplicate-adapter")?;
             a.workflow.validate()?;
@@ -256,13 +258,12 @@ impl Catalog {
             )?;
             let expected = adapter_capability(a.id);
             require(a.capability == expected, "adapter-capability-mismatch")?;
-            let mut pins = std::collections::BTreeSet::new();
             for pin in &a.pins {
                 require(
                     crate::config::identifier(&pin.name)
                         && pins.insert(&pin.name)
-                        && !pin.version.trim().is_empty()
-                        && pin.version.len() <= 100,
+                        && pin.version.len() <= 100
+                        && super::asset_name(&pin.version),
                     "invalid-catalog-pin",
                 )?;
                 pin.distribution.validate()?;
