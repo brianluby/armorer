@@ -57,6 +57,15 @@ fn verify(
     HistoricalByteMatch::verify(&directory.join("download"), &path, &digest, source)
 }
 
+/// Pin the rejection gate so an unrelated earlier failure cannot mask a regression.
+fn expect_code(result: armorer::Result<HistoricalByteMatch>, code: &str) {
+    let err = result.err().unwrap_or_else(|| panic!("expected {code}"));
+    assert!(
+        matches!(&err, armorer::Error::Invalid(c) if c == code),
+        "expected {code}, got {err:?}"
+    );
+}
+
 #[test]
 /// Exact historical bytes return a distinct weaker result and leave repository inputs untouched.
 fn explicit_exact_allowlist_is_read_only_and_never_executes_or_extracts_payloads() {
@@ -115,7 +124,7 @@ fn independent_digest_precedes_parsing_and_download_access() {
         br#"{"schema_version":1,"schema_version":1}"#,
     ] {
         fs::write(&path, bytes).unwrap();
-        assert!(
+        expect_code(
             HistoricalByteMatch::verify(
                 &directory.path().join("missing"),
                 &path,
@@ -123,10 +132,14 @@ fn independent_digest_precedes_parsing_and_download_access() {
                 &Source {
                     repository: "fixture/project".into(),
                     commit: "e".repeat(40),
-                    git_ref: "refs/tags/v0.1.0".into()
+                    git_ref: "refs/tags/v0.1.0".into(),
                 },
-            )
-            .is_err()
+            ),
+            if bytes == b"{} {}" {
+                "verification-json-trailing"
+            } else {
+                "verification-json-structure"
+            },
         );
     }
 }
@@ -136,7 +149,10 @@ fn independent_digest_precedes_parsing_and_download_access() {
 fn exact_source_selection_and_modern_ref_separation_block_downgrade() {
     let (directory, policy, source) = fixture();
     let modern: Source = serde_json::from_value(policy["sources"][0].clone()).unwrap();
-    assert!(verify(directory.path(), &policy, &modern).is_err());
+    expect_code(
+        verify(directory.path(), &policy, &modern),
+        "historical-release-not-allowed",
+    );
     for case in 0..5 {
         let mut wrong = source.clone();
         match case {
@@ -146,15 +162,28 @@ fn exact_source_selection_and_modern_ref_separation_block_downgrade() {
             3 => wrong.git_ref = "refs/tags/v0.1.0-rc.1".into(),
             _ => wrong.git_ref = "refs/heads/main".into(),
         }
-        assert!(verify(directory.path(), &policy, &wrong).is_err());
+        expect_code(
+            verify(directory.path(), &policy, &wrong),
+            match case {
+                3 => "invalid-source-ref",
+                4 => "historical-release-mode-required",
+                _ => "historical-release-not-allowed",
+            },
+        );
     }
     let mut collision = policy.clone();
     collision["sources"][0] = serde_json::to_value(&source).unwrap();
-    assert!(verify(directory.path(), &collision, &source).is_err());
+    expect_code(
+        verify(directory.path(), &collision, &source),
+        "invalid-historical-policy",
+    );
     let mut rehearsal = policy;
     rehearsal["mode"] = "rehearsal".into();
     rehearsal["sources"][0]["git_ref"] = "refs/heads/main".into();
-    assert!(verify(directory.path(), &rehearsal, &source).is_err());
+    expect_code(
+        verify(directory.path(), &rehearsal, &source),
+        "historical-mode-mismatch",
+    );
 }
 
 #[test]
@@ -166,7 +195,10 @@ fn expired_or_future_reviews_and_unbounded_limitations_fail() {
             policy.pointer_mut(pointer).unwrap()
                 [if future { "reviewed_at" } else { "expires_at" }] =
                 (if future { now() + 3600 } else { now() - 1 }).into();
-            assert!(verify(directory.path(), &policy, &source).is_err());
+            expect_code(
+                verify(directory.path(), &policy, &source),
+                "invalid-or-expired-review",
+            );
         }
     }
     for limitations in [
@@ -177,8 +209,15 @@ fn expired_or_future_reviews_and_unbounded_limitations_fail() {
         json!(vec!["x"; 129]),
     ] {
         let (directory, mut policy, source) = fixture();
-        policy["historical"][0]["limitations"] = limitations;
-        assert!(verify(directory.path(), &policy, &source).is_err());
+        policy["historical"][0]["limitations"] = limitations.clone();
+        expect_code(
+            verify(directory.path(), &policy, &source),
+            if limitations == json!([]) {
+                "invalid-historical-policy"
+            } else {
+                "historical-policy-limits"
+            },
+        );
     }
 }
 
@@ -243,20 +282,24 @@ fn policy_and_aggregate_byte_limits_fail_before_copying() {
     let (directory, mut policy, source) = fixture();
     policy["historical"][0]["assets"]["../escape"] =
         serde_json::to_value(ByteIdentity::from_bytes(b"escape")).unwrap();
-    assert!(verify(directory.path(), &policy, &source).is_err());
+    expect_code(
+        verify(directory.path(), &policy, &source),
+        "invalid-historical-asset-name",
+    );
     let path = directory.path().join("huge-policy.json");
     fs::File::create(&path)
         .unwrap()
         .set_len(1024 * 1024 + 1)
         .unwrap();
-    assert!(
+    // Real digest of the zero-filled file: only the size cap can reject it.
+    expect_code(
         HistoricalByteMatch::verify(
             &directory.path().join("download"),
             &path,
-            &"a".repeat(64),
-            &source
-        )
-        .is_err()
+            &ByteIdentity::from_bytes(&vec![0_u8; 1024 * 1024 + 1]).sha256,
+            &source,
+        ),
+        "verification-input-type-or-size",
     );
 }
 
@@ -298,7 +341,14 @@ fn symlinks_and_special_files_are_rejected_without_following_or_execution() {
                 let _listener = UnixListener::bind(download.join("socket")).unwrap();
             }
         }
-        assert!(HistoricalByteMatch::verify(&download, &path, &digest, &source).is_err());
+        expect_code(
+            HistoricalByteMatch::verify(&download, &path, &digest, &source),
+            match case {
+                0 => "verification-input-type-or-size",
+                1 => "historical-download-directory-type",
+                _ => "historical-download-entry-type-or-count",
+            },
+        );
     }
 }
 
