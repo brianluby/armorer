@@ -385,9 +385,10 @@ impl StateStore {
         require(metadata.is_dir(), "publication-state-directory-type")?;
         #[cfg(unix)]
         {
-            use std::os::unix::fs::PermissionsExt;
+            use std::os::unix::fs::{MetadataExt, PermissionsExt};
+            let uid = rustix::process::getuid().as_raw();
             require(
-                metadata.permissions().mode() & 0o077 == 0,
+                metadata.permissions().mode() & 0o077 == 0 && metadata.uid() == uid,
                 "publication-state-directory-permissions",
             )?;
         }
@@ -414,9 +415,10 @@ impl StateStore {
         require(rechecked.is_dir(), "publication-state-directory-type")?;
         #[cfg(unix)]
         {
-            use std::os::unix::fs::PermissionsExt;
+            use std::os::unix::fs::{MetadataExt, PermissionsExt};
+            let uid = rustix::process::getuid().as_raw();
             require(
-                rechecked.permissions().mode() & 0o077 == 0,
+                rechecked.permissions().mode() & 0o077 == 0 && rechecked.uid() == uid,
                 "publication-state-directory-permissions",
             )?;
         }
