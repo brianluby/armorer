@@ -564,14 +564,39 @@ impl<B: Backend> Controller<B> {
     /// Create only a new owned draft, then upload missing exact assets without overwrite or tag mutation APIs.
     fn stage(&mut self, approval: &ApprovedPublication) -> Result<DraftVerification> {
         self.preflight(approval, ApprovalKind::StageDraft)?;
-        let mut journal = if let Some(journal) = self.state.load(&self.release.identity)? {
+        let mut journal = if let Some(mut journal) = self.state.load(&self.release.identity)? {
             require(
                 matches!(
                     journal.phase,
-                    Phase::OwnedDraft | Phase::Uploaded | Phase::DraftVerified
+                    Phase::Creating
+                        | Phase::OwnedDraft
+                        | Phase::Uploading
+                        | Phase::Uploaded
+                        | Phase::DraftVerified
                 ),
                 "draft-retry-requires-owned-state",
             )?;
+            if journal.phase == Phase::Creating {
+                // Lost create response: adopt only our exact marker draft, or create when none exists.
+                let existing = self.backend.releases_for_tag(&self.release.plan.tag)?;
+                let remote = match existing.len() {
+                    0 => {
+                        self.preflight(approval, ApprovalKind::StageDraft)?;
+                        self.backend.create(&self.release, &self.marker())?
+                    }
+                    1 => existing.into_iter().next().ok_or(Error::Json)?,
+                    _ => {
+                        return Err(Error::Invalid(
+                            "release-tag-already-owned-or-published".into(),
+                        ));
+                    }
+                };
+                self.validate_remote(&remote, false, true)?;
+                require(remote.assets.is_empty(), "new-draft-not-empty")?;
+                journal.release_id = Some(remote.id);
+                journal.phase = Phase::OwnedDraft;
+                self.state.save(&journal)?;
+            }
             journal
         } else {
             require(
@@ -602,6 +627,20 @@ impl<B: Backend> Controller<B> {
         let id = journal.release_id.ok_or(Error::Json)?;
         let remote = self.backend.release(id)?;
         self.validate_remote(&remote, false, true)?;
+        if journal.phase == Phase::Uploading {
+            // Lost upload response: reconcile exact-plan provider asset IDs without re-uploading.
+            for asset in &remote.assets {
+                journal
+                    .uploaded
+                    .entry(asset.name.clone())
+                    .or_insert(ServedAsset {
+                        id: asset.id,
+                        bytes: asset.bytes.clone(),
+                    });
+            }
+            journal.phase = Phase::OwnedDraft;
+            self.state.save(&journal)?;
+        }
         self.validate_recorded_assets(&remote, &journal)?;
         if let Some(previous) = &journal.served_bytes {
             let verified = self.verify_bytes(id, true)?;
@@ -702,6 +741,16 @@ impl<B: Backend> Controller<B> {
             .state
             .load(&self.release.identity)?
             .ok_or(Error::Json)?;
+        if journal.phase == Phase::Publishing {
+            // A failed publish may reset only on a confirmed still-draft observation; an already
+            // published release stays on the read-only recover_published path, never a second write.
+            let id = journal.release_id.ok_or(Error::Json)?;
+            let current = self.backend.release(id)?;
+            self.validate_remote(&current, true, true)?;
+            self.validate_recorded_assets(&current, &journal)?;
+            journal.phase = Phase::DraftVerified;
+            self.state.save(&journal)?;
+        }
         require(
             journal.phase == Phase::DraftVerified
                 && journal.release_id == approval.approval.release_id

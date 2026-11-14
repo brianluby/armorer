@@ -188,6 +188,16 @@ fn context_digest_is_checked_before_parsing_or_other_authorities() {
     assert!(TrustedReleaseContext::open(directory.path(), "moving-ref").is_err());
 }
 
+#[cfg_attr(
+    not(any(
+        all(
+            target_os = "linux",
+            any(target_arch = "x86_64", target_arch = "aarch64")
+        ),
+        all(target_os = "macos", target_arch = "aarch64")
+    )),
+    ignore = "native SBOM identity is unsupported on this host"
+)]
 #[test]
 /// Changing any separately retained authority is rejected despite unchanged approved context bytes.
 fn exact_config_lock_catalog_policy_and_cargo_lock_substitution_fail() {

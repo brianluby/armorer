@@ -256,7 +256,10 @@ impl GithubReceipt {
                 && self.tag == next.tag
                 && self.release_id == next.release_id
                 && self.inventory == next.inventory
-                && self.policy == next.policy,
+                && self.policy == next.policy
+                && self.draft_download_receipt == next.draft_download_receipt
+                && self.approval == next.approval
+                && self.immutable_setting == next.immutable_setting,
             "conflicting-retry-identity",
         )
     }
@@ -271,11 +274,16 @@ pub enum Registry {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CrateIntent {
+    #[schemars(regex(pattern = "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"))]
     pub name: String,
+    #[schemars(regex(
+        pattern = "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$(?![\\s\\S])"
+    ))]
     pub version: String,
     pub archive: ByteIdentity,
     /// Names within this approved set. External dependencies must be separately
     /// resolved/byte-verified before preparation by the future adapter.
+    #[schemars(inner(regex(pattern = "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])")))]
     pub dependencies: Vec<String>,
 }
 

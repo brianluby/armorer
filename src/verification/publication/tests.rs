@@ -17,6 +17,7 @@ struct Fake {
     ambiguous_create: bool,
     ambiguous_upload: bool,
     ambiguous_publish: bool,
+    failed_publish: bool,
     bad_download: bool,
     mutate_download: bool,
     bad_immutable: bool,
@@ -126,6 +127,9 @@ impl Backend for Fake {
     /// Simulate one publication and optionally lose its response after immutable server acceptance.
     fn publish(&mut self, id: u64) -> Result<()> {
         self.publishes += 1;
+        if self.failed_publish {
+            return Err(Error::Invalid("test-publish-denied".into()));
+        }
         let value = self
             .remote
             .as_mut()
@@ -347,16 +351,13 @@ fn cross_run_attempt_asset_and_policy_journals_are_conflicts() {
     }
 }
 #[test]
-/// Ambiguous create and upload outcomes are retained before the write and never automatically retried.
-fn ambiguous_draft_and_upload_failures_require_recovery_review() {
+/// Ambiguous create and upload outcomes recover on retry without repeating the accepted write.
+fn ambiguous_draft_and_upload_outcomes_recover_without_duplicate_writes() {
     for create in [true, false] {
         let (mut c, approval, _dir) = fixture();
         c.backend.ambiguous_create = create;
         c.backend.ambiguous_upload = !create;
         assert!(c.stage(&approval).is_err());
-        let counts = (c.backend.creates, c.backend.uploads);
-        assert!(c.stage(&approval).is_err());
-        assert_eq!((c.backend.creates, c.backend.uploads), counts);
         let journal = c.state.load(&c.release.identity).unwrap().unwrap();
         assert_eq!(
             journal.phase,
@@ -366,7 +367,29 @@ fn ambiguous_draft_and_upload_failures_require_recovery_review() {
                 Phase::Uploading
             }
         );
+        c.backend.ambiguous_create = false;
+        c.backend.ambiguous_upload = false;
+        let served = c.stage(&approval).unwrap();
+        // The lost create/upload response is reconciled, never re-created or re-uploaded.
+        assert_eq!((c.backend.creates, c.backend.uploads), (1, 2));
+        assert_eq!(served.release_id, 42);
     }
+}
+#[test]
+/// A definitively failed publish restores the verified draft so a later approved publish succeeds.
+fn definitively_failed_publish_does_not_wedge_the_journal() {
+    let (mut c, stage, _dir) = fixture();
+    let served = c.stage(&stage).unwrap();
+    let publish = publish_approval(&c, &served);
+    c.backend.failed_publish = true;
+    assert!(c.publish(&publish).is_err());
+    let journal = c.state.load(&c.release.identity).unwrap().unwrap();
+    assert_eq!(journal.phase, Phase::Publishing);
+    // The release is still an owned draft: recovery must not claim publication.
+    assert!(c.recover_published().is_err());
+    c.backend.failed_publish = false;
+    assert_eq!(c.publish(&publish).unwrap(), served);
+    assert_eq!(c.backend.publishes, 2);
 }
 #[test]
 /// A lost publish response permits only read-only immutable-byte and attestation recovery.

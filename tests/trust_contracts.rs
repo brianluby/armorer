@@ -496,6 +496,9 @@ fn conflicting_github_retry_identity_and_missing_publication_receipts_are_reject
         |r: &mut GithubReceipt| r.inventory.sha256 = "f".repeat(64),
         |r: &mut GithubReceipt| r.release_id += 1,
         |r: &mut GithubReceipt| r.inputs.source.commit = "f".repeat(40),
+        |r: &mut GithubReceipt| {
+            r.draft_download_receipt = Some(ByteIdentity::from_bytes(b"replaced draft bytes"))
+        },
     ] {
         let mut wrong = receipt.clone();
         mutation(&mut wrong);

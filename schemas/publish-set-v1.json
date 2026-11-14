@@ -30,14 +30,17 @@
         "dependencies": {
           "description": "Names within this approved set. External dependencies must be separately\nresolved/byte-verified before preparation by the future adapter.",
           "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])",
             "type": "string"
           },
           "type": "array"
         },
         "name": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])",
           "type": "string"
         },
         "version": {
+          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$(?![\\s\\S])",
           "type": "string"
         }
       },
