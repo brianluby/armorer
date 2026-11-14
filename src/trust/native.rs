@@ -207,6 +207,7 @@ pub struct NativeAdapter {
     pub config_versions: Vec<u32>,
     pub runtime_versions: Vec<String>,
     pub workflow: WorkflowIdentity,
+    #[schemars(length(min = 1, max = 128))]
     pub pins: Vec<NativePin>,
     pub review: Review,
 }
@@ -218,6 +219,8 @@ pub struct NativeCatalogV2 {
     #[schemars(range(min = 2, max = 2))]
     #[schemars(transform = crate::schema_bounds::unsigned)]
     pub schema_version: u32,
+    // Required key, explicit null allowed: absence must be stated as null.
+    #[schemars(required, extend("type" = ["object", "null"]))]
     pub previous_catalog: Option<ByteIdentity>,
     pub runtime: RuntimeDistributionV1,
     pub adapters: Vec<NativeAdapter>,

@@ -539,7 +539,7 @@
         },
         "path": {
           "maxLength": 273,
-          "pattern": "^\\.github/workflows/[A-Za-z0-9][A-Za-z0-9_.-]*\\.yml$(?![\\s\\S])",
+          "pattern": "^\\.github/workflows/[A-Za-z0-9][A-Za-z0-9_.-]*\\.ya?ml$(?![\\s\\S])",
           "type": "string"
         },
         "repository": {

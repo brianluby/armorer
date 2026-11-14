@@ -283,7 +283,11 @@ pub struct CrateIntent {
     pub archive: ByteIdentity,
     /// Names within this approved set. External dependencies must be separately
     /// resolved/byte-verified before preparation by the future adapter.
-    #[schemars(inner(regex(pattern = "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])")))]
+    #[schemars(
+        length(max = 128),
+        inner(regex(pattern = "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])")),
+        extend("uniqueItems" = true)
+    )]
     pub dependencies: Vec<String>,
 }
 
@@ -295,6 +299,7 @@ pub struct PublishSet {
     pub schema_version: u32,
     pub inputs: InputIdentity,
     pub registry: Registry,
+    #[schemars(length(min = 1, max = 128), extend("uniqueItems" = true))]
     pub crates: Vec<CrateIntent>,
 }
 

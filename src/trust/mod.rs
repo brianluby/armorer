@@ -97,7 +97,7 @@ pub struct WorkflowIdentity {
     ))]
     pub repository: String,
     #[schemars(regex(
-        pattern = "^\\.github/workflows/[A-Za-z0-9][A-Za-z0-9_.-]*\\.yml$(?![\\s\\S])"
+        pattern = "^\\.github/workflows/[A-Za-z0-9][A-Za-z0-9_.-]*\\.ya?ml$(?![\\s\\S])"
     ))]
     #[schemars(length(max = 273))]
     pub path: String,
@@ -112,7 +112,9 @@ impl WorkflowIdentity {
         require(
             repository_name(&self.repository)
                 && hex_digest(&self.commit, 40)
-                && file.is_some_and(|s| s.ends_with(".yml") && asset_name(s)),
+                && file.is_some_and(|s| {
+                    (s.ends_with(".yml") || s.ends_with(".yaml")) && asset_name(s)
+                }),
             "invalid-workflow-identity",
         )
     }
