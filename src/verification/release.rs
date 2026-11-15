@@ -283,6 +283,7 @@ impl AuthenticatedReleaseFiles {
         context.validate_at(sigstore::wall_time()?)?;
         compare_directory(directory, &names)?;
         for (name, identity) in &identities {
+            deadline(started)?;
             require(
                 io::identity(
                     &workspace.path().join(name),

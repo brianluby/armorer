@@ -438,8 +438,8 @@ impl TrustedReleaseContext {
                     && requirements.catalog == self.expectations.catalog,
                 "release-context-evidence-requirements-mismatch",
             )?;
-            let mac =
-                selection.profile != Profile::Library && selection.target == "aarch64-apple-darwin";
+            let mac = selection.profile != Profile::Library
+                && selection.target.ends_with("-apple-darwin");
             if mac {
                 require(
                     self.policy.apple_team.is_some()

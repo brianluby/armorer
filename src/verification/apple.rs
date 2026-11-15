@@ -75,7 +75,7 @@ impl VerifiedAppleRelease {
             let key = selection.key();
             let name = format!("{key}.tar.gz");
             let archive = files.asset_bytes(&name)?;
-            let archive_identity = identity(&archive);
+            let archive_identity = ByteIdentity::from_bytes(&archive);
             let evidence_bytes = files.asset_bytes(&format!("{key}.apple.json"))?;
             require(
                 evidence_bytes.len() <= MAX_METADATA,
@@ -101,7 +101,7 @@ impl VerifiedAppleRelease {
                 .as_deref()
                 .ok_or_else(|| invalid("apple-binary-required"))?;
             let binary = unpack(&archive, binary_name)?;
-            let binary_identity = identity(&binary);
+            let binary_identity = ByteIdentity::from_bytes(&binary);
             let sign = evidence
                 .steps
                 .iter()
@@ -172,14 +172,6 @@ impl VerifiedAppleRelease {
 /// Use static constant errors so offered metadata never reaches diagnostic messages.
 fn invalid(code: &str) -> Error {
     Error::Invalid(code.into())
-}
-
-/// Measure actual bytes; a digest is an identity, not authentication by itself.
-fn identity(bytes: &[u8]) -> ByteIdentity {
-    ByteIdentity {
-        sha256: crate::digest(bytes),
-        size: bytes.len() as u64,
-    }
 }
 
 /// Restrict the independent team identifier before constructing native requirement syntax.
@@ -487,7 +479,7 @@ fn native(path: &Path, binary: &[u8], team: &str, certificate: &str) -> Result<u
         valid_team(team) && crate::config::hex_digest(certificate, 64),
         "apple-native-expectation-format",
     )?;
-    identity(binary).matches(&io::read_bounded(path, MAX_BINARY as u64)?)?;
+    ByteIdentity::from_bytes(binary).matches(&io::read_bounded(path, MAX_BINARY as u64)?)?;
     let url = CFURL::from_path(path, false).ok_or_else(|| invalid("apple-native-file-url"))?;
     let code = SecStaticCode::from_path(&url, Flags::NONE)
         .map_err(|_| invalid("apple-native-code-object"))?;
@@ -547,14 +539,14 @@ fn native(path: &Path, binary: &[u8], team: &str, certificate: &str) -> Result<u
     let notarized_requirement = expected + " and notarized";
     // The requirement interpreter consults the local ticket store. The documented codesign
     // option first requests an online lookup; its success alone never grants this proof.
-    identity(binary).matches(&io::read_bounded(path, MAX_BINARY as u64)?)?;
+    ByteIdentity::from_bytes(binary).matches(&io::read_bounded(path, MAX_BINARY as u64)?)?;
     check_online_notarization(path, &notarized_requirement)?;
-    identity(binary).matches(&io::read_bounded(path, MAX_BINARY as u64)?)?;
+    ByteIdentity::from_bytes(binary).matches(&io::read_bounded(path, MAX_BINARY as u64)?)?;
     let notarized = SecRequirement::from_str(&notarized_requirement)
         .map_err(|_| invalid("apple-notarization-requirement-unsupported"))?;
     code.check_validity(flags, &notarized)
         .map_err(|_| invalid("apple-notarization-ticket-missing-or-invalid"))?;
-    identity(binary).matches(&io::read_bounded(path, MAX_BINARY as u64)?)?;
+    ByteIdentity::from_bytes(binary).matches(&io::read_bounded(path, MAX_BINARY as u64)?)?;
     Ok(timestamp.floor() as u64)
 }
 
