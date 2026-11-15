@@ -61,3 +61,34 @@ dedicated change rather than a blind patch:
   tests/release_context.rs (tar builder), tests/trust_contracts.rs (pin-error codes),
   tests/historical.rs:89-91 (child-process markers) — remaining test-hardening
   findings; each is a valid improvement, batched for a follow-up test-only change.
+
+## Low tier (93 findings) — result
+
+~70 fixed across commits 92eef2f..48c8316 (batches 1, 2, 3a–3d, B, C, D, E +
+schema_bounds). All fixes verified: 274 tests pass, clippy/fmt clean, schemas
+regenerated, library fixture regenerated via CLI after the MSRV addition.
+
+### Invalid (1)
+
+- .github/workflows/momus.yml (timeout finding): self-invalidating — the finding's
+  own text notes `timeout-minutes` on a reusable-workflow `uses:` job makes the
+  workflow invalid. Upstream (momus-review) fix only; no local action.
+
+### Deferred — valid, not implemented (~22)
+
+Test hardening needing fixture redesign or environment probes:
+- tests/bootstrap.rs:159 (positional changes[i] → select by path), :135 (inode/mtime idempotence)
+- tests/apply.rs:202 (cross-process flock contention), :236 (intermediate-symlink cases)
+- tests/preview.rs:294 + tests/upgrade.rs:965 (GNU patch probe/skip gate)
+- tests/upgrade.rs:592 (timestamp-tick before replay)
+- tests/release_context.rs:47 (single clock sample in fixture), :598 (tar layout builder),
+  remaining pointer/error-code pinning
+- tests/cargo_graph_v2.rs:252 (edge lookup by package), :313 (independent source_commit pin)
+- tests/inspection.rs:411 (missing-toolchain vs rustup-path message distinction)
+- tests/integrated_cli.rs:247 (blocked-write ordering decoupling)
+- tests/historical.rs:334 (omit --policy/--expect-policy-sha256 negative)
+
+Source refactors (no live bug, blast radius warrants own change):
+- src/verification/io.rs:184 (shared streaming hash helper for snapshot/identity)
+- src/upgrade/state.rs:42 (split six-way gate message), :91 (borrowed source_bytes)
+- src/verification/release.rs:161 (name index for O(n²) lookups at max scale)
