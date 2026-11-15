@@ -92,3 +92,20 @@ Source refactors (no live bug, blast radius warrants own change):
 - src/verification/io.rs:184 (shared streaming hash helper for snapshot/identity)
 - src/upgrade/state.rs:42 (split six-way gate message), :91 (borrowed source_bytes)
 - src/verification/release.rs:161 (name index for O(n²) lookups at max scale)
+
+## PR #36 automated review (momus / codex / Copilot / CodeRabbit)
+
+20 inline findings triaged; 15 fixed (commits 8c0f956, 1bb514b), inline replies posted on all 20.
+
+### Already covered — no change (2)
+- src/upgrade/authority.rs:46 — unknown-id no-fallback branch already asserted for 8 forged ids
+  by `registry_identity_is_independent_of_claims_and_unknown_downgrades_stay_blocked`.
+- src/verification/cyclonedx.rs:155 — the `attestation-authentication-failed` →
+  `sbom-schema-validation-failed` mapping already driven by real-validator negative cases in
+  `native_cyclonedx_validates_complete_documents_and_rejects_non_graph_field_errors`.
+
+### Invalid by design (2)
+- src/catalog.rs:179 (compatibility) — exact-toolchain guard is deliberate hardening: the string
+  is interpolated into generated TOML; loose strings were the injection surface being closed.
+- scripts/qualify-test-verifier.py:78 (compatibility) — refusing group/world-accessible output
+  directories is the fail-closed security contract for a pinned executable; CI caller unaffected.
