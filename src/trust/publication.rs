@@ -291,7 +291,7 @@ pub struct CrateIntent {
     #[schemars(regex(pattern = "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"))]
     pub name: String,
     #[schemars(regex(
-        pattern = "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$(?![\\s\\S])"
+        pattern = "^(0|[1-9][0-9]{0,19})\\.(0|[1-9][0-9]{0,19})\\.(0|[1-9][0-9]{0,19})$(?![\\s\\S])"
     ))]
     pub version: String,
     pub archive: ByteIdentity,

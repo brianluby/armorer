@@ -62,7 +62,13 @@ pub fn expected_assets(
     let mut specs = Vec::new();
     for d in &config.deliverables {
         for target in &d.targets {
-            require(specs.len() <= 8192, "invalid-derived-asset-set")?;
+            // Bound before generating: one target adds 3 + 2 per record (4 base, +1 apple,
+            // +supplementals), so reserve the worst case instead of overshooting the cap.
+            let worst_case = 3 + 2 * (5 + policy.supplemental_assets.len());
+            require(
+                specs.len() + worst_case <= 8192,
+                "invalid-derived-asset-set",
+            )?;
             let key = format!("{}--{}--{}", d.id, target, d.feature_set);
             let final_name = format!(
                 "{key}{}",

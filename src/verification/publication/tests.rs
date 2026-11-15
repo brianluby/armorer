@@ -400,6 +400,23 @@ fn ambiguous_draft_and_upload_outcomes_recover_without_duplicate_writes() {
     }
 }
 #[test]
+/// A lost create response with no remote effect recovers by creating exactly one draft.
+fn creating_journal_without_remote_draft_creates_once_on_recovery() {
+    let (mut c, approval, _dir) = fixture();
+    c.backend.ambiguous_create = true;
+    assert!(c.stage(&approval).is_err());
+    assert_eq!(
+        c.state.load(&c.release.identity).unwrap().unwrap().phase,
+        Phase::Creating
+    );
+    // The create never took effect server-side: no release exists for the tag.
+    c.backend.remote = None;
+    c.backend.ambiguous_create = false;
+    let served = c.stage(&approval).unwrap();
+    assert_eq!(c.backend.creates, 2);
+    assert_eq!(served.release_id, 42);
+}
+#[test]
 /// A definitively failed publish restores the verified draft so a later approved publish succeeds.
 fn definitively_failed_publish_does_not_wedge_the_journal() {
     let (mut c, stage, _dir) = fixture();

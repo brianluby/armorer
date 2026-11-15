@@ -651,6 +651,10 @@
     },
     "root_features": {
       "additionalProperties": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array",
         "uniqueItems": true
       },
       "description": "Selection keys map to sorted unique features resolved from separately reviewed source and flags.\nSortedness and key linkage are enforced at runtime (resolved_root_features), not by schema.",

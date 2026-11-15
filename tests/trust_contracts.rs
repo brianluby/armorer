@@ -698,7 +698,7 @@ fn detached_inventory_authentication_is_required_without_creating_a_hash_cycle()
     let expected_bundle = ByteIdentity::from_bytes(&detached);
     let mut all = bytes(&i);
     all.insert(armorer::trust::inventory::INVENTORY_NAME.into(), serialized);
-    all.insert(INVENTORY_BUNDLE_NAME.into(), detached);
+    all.insert(INVENTORY_BUNDLE_NAME.into(), detached.clone());
     i.compare_published_bytes(&all, &expected, &expected_bundle)
         .unwrap();
     all.remove(INVENTORY_BUNDLE_NAME);
@@ -706,6 +706,30 @@ fn detached_inventory_authentication_is_required_without_creating_a_hash_cycle()
         i.compare_published_bytes(&all, &expected, &expected_bundle)
             .is_err()
     );
+    // The count alone must not hide a reserved name inside the asset list.
+    let mut reserved = i.clone();
+    let original_name = reserved.assets[0].name.clone();
+    reserved.assets[0].name = INVENTORY_BUNDLE_NAME.into();
+    let serialized = serde_json::to_vec(&reserved).unwrap();
+    let mut all = bytes(&reserved);
+    // Keep the set count exact so only the reserved-name guard can reject.
+    all.insert(
+        original_name.clone(),
+        format!("fixture:{original_name}").into_bytes(),
+    );
+    all.insert(
+        armorer::trust::inventory::INVENTORY_NAME.into(),
+        serialized.clone(),
+    );
+    all.insert(INVENTORY_BUNDLE_NAME.into(), detached.clone());
+    assert!(matches!(
+        reserved.compare_published_bytes(
+            &all,
+            &ByteIdentity::from_bytes(&serialized),
+            &ByteIdentity::from_bytes(&detached),
+        ),
+        Err(armorer::Error::Invalid(code)) if code == "duplicate-or-reserved-asset"
+    ));
     let mut receipt: GithubReceipt = read("linux-cli", "github-receipt");
     receipt.state = GithubState::Published;
     assert!(receipt.same_owned_retry(&receipt).is_err());

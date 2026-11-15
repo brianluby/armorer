@@ -449,6 +449,9 @@ pub fn discover(root: &Path, config: &Config) -> Result<Workspace> {
             .spawn()
             .map_err(|_| Error::Cargo("toolchain-lookup"))?,
     );
+    // Wait under the deadline first; a hung child is killed on exit, closing the pipe,
+    // so the bounded drain below cannot block past the supervision budget.
+    wait_bounded(&mut lookup_child, "toolchain-lookup")?;
     let mut stdout_bytes = Vec::new();
     lookup_child
         .0
@@ -458,7 +461,6 @@ pub fn discover(root: &Path, config: &Config) -> Result<Workspace> {
         .take(4097)
         .read_to_end(&mut stdout_bytes)
         .map_err(|_| Error::Cargo("toolchain-lookup"))?;
-    wait_bounded(&mut lookup_child, "toolchain-lookup")?;
     if stdout_bytes.len() > 4096 {
         return Err(Error::Cargo("toolchain-lookup"));
     }

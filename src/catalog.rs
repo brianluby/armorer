@@ -243,4 +243,21 @@ mod tests {
         bad.push(b'\n');
         assert!(authenticate_with(&bad, WORKFLOW_COMMIT_V2).is_err());
     }
+
+    #[test]
+    /// The shared boundary rejects non-exact toolchains before TOML interpolation.
+    fn bootstrap_files_reject_non_exact_toolchain() {
+        let catalog = reviewed().unwrap();
+        for bad in ["1.95", "1.95.0-rc.1", "1.95.0\nx = \"y", "stable"] {
+            assert!(
+                catalog.bootstrap_files(&"a".repeat(64), bad, "").is_err(),
+                "accepted {bad:?}"
+            );
+        }
+        assert!(
+            catalog
+                .bootstrap_files(&"a".repeat(64), "1.95.0", "")
+                .is_ok()
+        );
+    }
 }

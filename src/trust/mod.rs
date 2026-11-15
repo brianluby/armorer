@@ -372,6 +372,20 @@ mod tests {
     use super::asset_name;
 
     #[test]
+    /// Duplicate keys are a tampering signal with a distinct code; syntax errors stay redacted.
+    fn parse_json_distinguishes_duplicate_keys_from_syntax_errors() {
+        assert!(matches!(
+            super::parse_json::<serde_json::Value>(b"{\"a\":1,\"a\":2}"),
+            Err(crate::Error::Invalid(code)) if code == "duplicate-json-key"
+        ));
+        assert!(matches!(
+            super::parse_json::<serde_json::Value>(b"{invalid"),
+            Err(crate::Error::Json)
+        ));
+        assert!(super::parse_json::<serde_json::Value>(b"{\"a\":1}").is_ok());
+    }
+
+    #[test]
     /// Flat asset names reject traversal and dot-prefixed names; internal dots stay valid.
     fn asset_name_rejects_traversal_and_dot_prefix() {
         for rejected in [

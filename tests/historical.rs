@@ -271,6 +271,13 @@ fn modern_evidence_is_forbidden_even_when_historical_hashes_were_approved() {
 #[test]
 /// Approved metadata cannot authorize oversized aggregate copies or traversal paths.
 fn policy_and_aggregate_byte_limits_fail_before_copying() {
+    // An empty allowlist must never yield a vacuous zero-byte match.
+    let (directory, mut policy, source) = fixture();
+    policy["historical"][0]["assets"] = json!({});
+    expect_code(
+        verify(directory.path(), &policy, &source),
+        "invalid-historical-policy",
+    );
     let (directory, mut policy, source) = fixture();
     policy["historical"][0]["assets"] = json!({});
     for index in 0..5 {

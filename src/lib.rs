@@ -156,3 +156,31 @@ pub(crate) fn digest(bytes: &[u8]) -> String {
     use sha2::{Digest, Sha256};
     format!("{:x}", Sha256::digest(bytes))
 }
+
+#[cfg(test)]
+mod tests {
+    #[cfg(unix)]
+    #[test]
+    /// The read guard rejects symlinks, directories and oversized inputs before returning bytes.
+    fn read_small_rejects_symlink_directory_and_oversize() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("file");
+        std::fs::write(&file, b"ok").unwrap();
+        assert_eq!(super::read_small(&file).unwrap(), b"ok");
+        let link = dir.path().join("link");
+        std::os::unix::fs::symlink(&file, &link).unwrap();
+        assert!(matches!(
+            super::read_small(&link),
+            Err(super::Error::Path(_))
+        ));
+        assert!(matches!(
+            super::read_small(dir.path()),
+            Err(super::Error::Path(_))
+        ));
+        std::fs::write(&file, vec![b'x'; 1_048_577]).unwrap();
+        assert!(matches!(
+            super::read_small(&file),
+            Err(super::Error::Invalid(_))
+        ));
+    }
+}
