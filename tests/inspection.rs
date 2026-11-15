@@ -647,3 +647,49 @@ fn rejects_inherited_temporary_ancestor_cargo_configuration() {
     assert_eq!(fs::metadata(&scratch).unwrap().modified().unwrap(), before);
     assert_eq!(fs::read_dir(&scratch).unwrap().count(), 0);
 }
+
+#[cfg(unix)]
+#[test]
+/// A descendant inheriting rustup's stdout must not block discovery after the child exits.
+fn inherited_stdout_descendant_does_not_block_toolchain_lookup() {
+    use std::{
+        os::unix::fs::PermissionsExt,
+        process::Stdio,
+        time::{Duration, Instant},
+    };
+    let root = fixture();
+    let tools = tempfile::tempdir().unwrap();
+    // The direct child exits at once; the backgrounded descendant keeps the inherited
+    // stdout open. With a pipe this hung the drain; stdout is a file, so it cannot.
+    write(
+        tools.path(),
+        "rustup",
+        "#!/bin/sh\nsleep 5 &\nprintf '/nonexistent-cargo\\n'\nexit 0\n",
+    );
+    fs::set_permissions(
+        tools.path().join("rustup"),
+        fs::Permissions::from_mode(0o700),
+    )
+    .unwrap();
+    let mut child = Command::new(env!("CARGO_BIN_EXE_armorer"))
+        .env("PATH", tools.path())
+        .args(["--repository", root.path().to_str().unwrap(), "plan"])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+    let started = Instant::now();
+    let output = loop {
+        if child.try_wait().unwrap().is_some() {
+            break child.wait_with_output().unwrap();
+        }
+        if started.elapsed() > Duration::from_secs(10) {
+            child.kill().unwrap();
+            child.wait().unwrap();
+            panic!("toolchain lookup blocked on inherited stdout");
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    };
+    // The fake cargo path fails canonically; the point is prompt termination, not success.
+    assert_eq!(output.status.code(), Some(1));
+}

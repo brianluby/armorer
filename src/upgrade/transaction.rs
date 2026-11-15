@@ -346,9 +346,10 @@ fn remove_journal(root: &Path, expected: &[u8]) -> Result<()> {
     }
     fs::remove_file(safe_path(root, JOURNAL)?)?;
     // The journal is already gone here: recovery is no longer available, so the
-    // failure must not instruct the operator to run it.
+    // failure must not instruct the operator to run it. Phase-neutral: this runs on
+    // commit, recovery and rollback paths alike.
     sync_directory(&safe_path(root, ".armorer")?).map_err(|cause| Error::TransactionCause {
-        message: "journal deleted but directory sync failed; the upgrade is committed and no recovery journal remains",
+        message: "journal deleted but directory sync failed; no recovery journal remains",
         cause: Box::new(cause),
     })
 }
@@ -482,8 +483,15 @@ fn transaction(
     })();
     if let Err(error) = result {
         if let Err(rollback) = rollback(&root, &j, &initial) {
+            // Rollback may have deleted the journal before a later sync failure; only
+            // claim it is preserved when it is observably still there.
+            let message = if matches!(optional_bytes(&root, JOURNAL), Ok(None)) {
+                "upgrade failed; rollback restored prior images but journal cleanup did not complete; no recovery journal remains"
+            } else {
+                "upgrade failed; explicit recovery required; journal preserved"
+            };
             return Err(Error::TransactionRollback {
-                message: "upgrade failed; explicit recovery required; journal preserved",
+                message,
                 cause: Box::new(error),
                 rollback: Box::new(rollback),
             });

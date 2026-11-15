@@ -5,7 +5,6 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
-    io::Read,
     path::{Component, Path, PathBuf},
     process::{Command, Stdio},
     time::{Duration, Instant},
@@ -427,6 +426,8 @@ pub fn discover(root: &Path, config: &Config) -> Result<Workspace> {
     std::fs::create_dir(&cargo_home)?;
     let stdout_path = temporary.path().join("metadata.json");
     let stdout = std::fs::File::create(&stdout_path)?;
+    let lookup_path = temporary.path().join("toolchain.txt");
+    let lookup_stdout = std::fs::File::create(&lookup_path)?;
     let mut lookup = Command::new(&rustup);
     lookup
         .args(["which", "--toolchain", &config.toolchain, "cargo"])
@@ -434,7 +435,7 @@ pub fn discover(root: &Path, config: &Config) -> Result<Workspace> {
         .env_clear()
         .env("RUSTUP_AUTO_INSTALL", "0")
         .stdin(Stdio::null())
-        .stdout(Stdio::piped())
+        .stdout(lookup_stdout)
         .stderr(Stdio::null());
     if cfg!(unix) {
         lookup.env("PATH", "/usr/bin:/bin:/usr/sbin:/sbin");
@@ -449,18 +450,10 @@ pub fn discover(root: &Path, config: &Config) -> Result<Workspace> {
             .spawn()
             .map_err(|_| Error::Cargo("toolchain-lookup"))?,
     );
-    // Wait under the deadline first; a hung child is killed on exit, closing the pipe,
-    // so the bounded drain below cannot block past the supervision budget.
+    // stdout goes to a file, not a pipe: a descendant inheriting stdout cannot keep a
+    // pipe open and block the read after the deadline-bounded wait reaps the child.
     wait_bounded(&mut lookup_child, "toolchain-lookup")?;
-    let mut stdout_bytes = Vec::new();
-    lookup_child
-        .0
-        .stdout
-        .take()
-        .ok_or(Error::Cargo("toolchain-lookup"))?
-        .take(4097)
-        .read_to_end(&mut stdout_bytes)
-        .map_err(|_| Error::Cargo("toolchain-lookup"))?;
+    let stdout_bytes = read_small(&lookup_path).map_err(|_| Error::Cargo("toolchain-lookup"))?;
     if stdout_bytes.len() > 4096 {
         return Err(Error::Cargo("toolchain-lookup"));
     }
