@@ -166,6 +166,7 @@ fn approved_context_reads_exact_authorities_without_executing_repository_code() 
         assert!(matches!(
             result,
             Err(armorer::Error::Invalid(code)) if code == "unsupported-sbom-validator-platform"
+                || (!cfg!(unix) && code == "unsupported-verifier-platform")
         ));
     }
     assert!(!directory.path().join("executed").exists());
@@ -1091,7 +1092,8 @@ fn cli_requires_compiled_native_tool_approval_before_release_processing() {
         assert!(message.contains("unqualified-native-verifier-policy"));
     } else {
         assert!(
-            message.contains("unsupported-sbom-validator-platform"),
+            message.contains("unsupported-sbom-validator-platform")
+                || (!cfg!(unix) && message.contains("unsupported-verifier-platform")),
             "{message}"
         );
     }

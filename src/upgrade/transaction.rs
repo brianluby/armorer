@@ -345,7 +345,12 @@ fn remove_journal(root: &Path, expected: &[u8]) -> Result<()> {
         ));
     }
     fs::remove_file(safe_path(root, JOURNAL)?)?;
-    sync_directory(&safe_path(root, ".armorer")?)
+    // The journal is already gone here: recovery is no longer available, so the
+    // failure must not instruct the operator to run it.
+    sync_directory(&safe_path(root, ".armorer")?).map_err(|cause| Error::TransactionCause {
+        message: "journal deleted but directory sync failed; the upgrade is committed and no recovery journal remains",
+        cause: Box::new(cause),
+    })
 }
 
 /// Validate every before/after possibility before restoring any file. Neither
@@ -494,7 +499,7 @@ fn transaction(
         });
     }
     remove_journal(&root, &committed).map_err(|cause| Error::TransactionCause {
-        message: "upgrade committed; journal cleanup failed; run recovery to finalize",
+        message: "upgrade committed; journal cleanup failed; if the journal remains, run recovery to finalize",
         cause: Box::new(cause),
     })?;
     Ok(receipt(
@@ -550,7 +555,7 @@ pub fn recover(root: &Path, expected: &str) -> Result<Receipt> {
             ));
         }
         remove_journal(&root, &bytes).map_err(|cause| Error::TransactionCause {
-            message: "upgrade recovery committed; journal cleanup failed; run recovery to finalize",
+            message: "upgrade recovery committed; journal cleanup failed; if the journal remains, run recovery to finalize",
             cause: Box::new(cause),
         })?;
         Ok(receipt(

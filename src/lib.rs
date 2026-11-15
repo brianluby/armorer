@@ -125,12 +125,25 @@ pub fn safe_path(root: &Path, relative: &str) -> Result<PathBuf> {
 /// with `Error::Path` before opening; inspection assumes a stable filesystem.
 pub(crate) fn read_small(path: &Path) -> Result<Vec<u8>> {
     use std::io::Read;
-    // Pre-stat rejects FIFOs without blocking on open; the opened inode is then bound
-    // so a symlink swap between stat and open cannot redirect the read.
+    // Pre-stat rejects FIFOs; the open itself is nonblocking and refuses symlinks so a
+    // FIFO/symlink swapped in after the stat cannot block or redirect the read. The
+    // opened inode is then bound to the stat.
     let before = std::fs::symlink_metadata(path)?;
     if !before.file_type().is_file() {
         return Err(Error::Path("expected a regular input file".into()));
     }
+    #[cfg(unix)]
+    let file = {
+        use rustix::fs::{Mode, OFlags};
+        let fd = rustix::fs::open(
+            path,
+            OFlags::RDONLY | OFlags::NONBLOCK | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+            Mode::empty(),
+        )
+        .map_err(std::io::Error::from)?;
+        std::fs::File::from(fd)
+    };
+    #[cfg(not(unix))]
     let file = std::fs::File::open(path)?;
     let opened = file.metadata()?;
     if !opened.is_file() {
