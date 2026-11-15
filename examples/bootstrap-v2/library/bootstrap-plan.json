@@ -98,7 +98,7 @@
     "toolchain": "1.95.0"
   },
   "mode": "bootstrap-plan",
-  "plan_sha256": "1dcff0bf9e639614361df64bf2e5b45c91d327c6bcb632f569b3e64438364bbe",
+  "plan_sha256": "e004506dabb1a63337adf0f956ff85a8611e7304ced9cf88820872fb86f78b41",
   "policy_content": "# Fixture-only decision for this dependency-free MIT example.\n# Replace with the consuming owner's reviewed dependency policy.\nschema_version = 1\n\n[licenses]\nallow = [\"MIT\"]\n\n[advisories]\nexceptions = []\n\n[sources]\nallow_git = []\n\n[bans]\nmultiple_versions = \"warn\"\ndeny = []\n",
   "preserved_inputs": {
     ".armorer/state.json": null,
@@ -113,7 +113,7 @@
     "cargo_lock_present": true,
     "inputs": {
       "Cargo.lock": "4747b0f0dce62536528581bad765727dd6a678e7e5571dca92ba7d66f0bb61f8",
-      "Cargo.toml": "cb3d894548bc1ad3581c6e7214eb889e22bb3e78feebd871023775d311127b53",
+      "Cargo.toml": "e9e7f08a39e22d25d9e487f27b4a920c0a28c030991a84f78c5f80a3ec6d1aab",
       "src/lib.rs": "target-path-present"
     },
     "packages": [
@@ -122,7 +122,7 @@
         "license": "MIT",
         "links": null,
         "name": "bootstrap-library",
-        "rust_version": null,
+        "rust_version": "1.95",
         "targets": [
           {
             "kind": [

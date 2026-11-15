@@ -45,6 +45,8 @@ impl<'context> ApprovedRuntimeFiles<'context> {
         let started = Instant::now();
         let directory = crate::filesystem::private_tempdir("armorer-runtime-", None)?;
         let snapshot = directory.path().join("runtime.tar");
+        // The 20-minute budget is best-effort: snapshot/rehash below are not deadline-aware,
+        // so a hung filesystem can exceed it; the deadline bounds decode work only.
         let distribution_identity = io::snapshot(archive, &snapshot, spec.distribution.size)?;
         require(
             distribution_identity == spec.distribution,

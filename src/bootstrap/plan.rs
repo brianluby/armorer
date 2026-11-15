@@ -79,8 +79,13 @@ pub(crate) fn diff(path: &str, before: Option<&str>, after: &str) -> String {
     let old_lines = old.split_inclusive('\n').count();
     let new_lines = after.split_inclusive('\n').count();
     let old_name = before.map_or_else(|| "/dev/null".into(), |_| format!("a/{path}"));
+    let new_name = if after.is_empty() {
+        "/dev/null".into()
+    } else {
+        format!("b/{path}")
+    };
     let mut output = format!(
-        "--- {old_name}\n+++ b/{path}\n@@ -{},{old_lines} +{},{new_lines} @@\n",
+        "--- {old_name}\n+++ {new_name}\n@@ -{},{old_lines} +{},{new_lines} @@\n",
         usize::from(old_lines != 0),
         usize::from(new_lines != 0),
     );
@@ -145,16 +150,23 @@ pub(super) fn inspect_bytes(root: &Path, policy: &[u8]) -> Result<Plan> {
     crate::upgrade::guard_previous(root)?;
     ci_policy::parse_at(policy, ci_policy::today()?)?;
     let (intent, config) = load_config(root)?;
-    if TARGETS.contains(&intent.policy.license_file.as_str())
-        || [
-            STATE,
-            JOURNAL,
-            V1_STATE,
-            V1_JOURNAL,
-            ".armorer/apply.lock",
-            "armorer.toml",
-        ]
-        .contains(&intent.policy.license_file.as_str())
+    // Compare normalized components: safe_path collapses `//`, `./` and trailing slashes.
+    let license_path: std::path::PathBuf =
+        std::path::Path::new(intent.policy.license_file.as_str())
+            .components()
+            .collect();
+    let controls = [
+        STATE,
+        JOURNAL,
+        V1_STATE,
+        V1_JOURNAL,
+        ".armorer/apply.lock",
+        "armorer.toml",
+    ];
+    if TARGETS
+        .iter()
+        .chain(controls.iter())
+        .any(|target| license_path == std::path::Path::new(target))
     {
         return Err(Error::Transaction(
             "license input overlaps bootstrap control or generated files",
@@ -291,6 +303,11 @@ pub(super) fn validate(plan: &Plan, expected: &str) -> Result<()> {
     // Structural config rules are independent of existing project files.
     plan.intent.validate_shape()?;
     let generated = generated(plan)?;
+    if generated.len() != plan.changes.len() {
+        return Err(Error::Transaction(
+            "generated target set differs from fixed contract",
+        ));
+    }
     for (change, (path, after)) in plan.changes.iter().zip(generated) {
         if change.path != path
             || change.proposed_content != after

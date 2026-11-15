@@ -37,6 +37,7 @@ pub struct UnverifiedBundle {
 }
 impl UnverifiedBundle {
     /// Return the exact unverified bare transport bytes; this establishes no authenticity.
+    /// For `load_download` records these are canonicalized (re-serialized) bytes, not the raw line.
     pub fn bytes(&self) -> &[u8] {
         &self.bytes
     }
@@ -70,7 +71,7 @@ fn bare(bytes: Vec<u8>) -> Result<UnverifiedBundle> {
     )?;
     let payload = STANDARD
         .decode(&bundle.dsse_envelope.payload)
-        .map_err(|_| Error::Json)?;
+        .map_err(|_| Error::Invalid("attestation-payload-encoding".into()))?;
     require(
         payload.len() <= MAX_PAYLOAD,
         "attestation-payload-size-limit",

@@ -141,10 +141,12 @@ fn text(value: &str, max: usize) -> bool {
 
 /// Read a required JSON string without retaining or displaying untrusted error contents.
 fn string<'a>(value: &'a Value, key: &str) -> Result<&'a str> {
-    value
-        .get(key)
-        .and_then(Value::as_str)
-        .ok_or_else(|| crate::Error::Invalid("sbom-string-field-missing".into()))
+    match value.get(key) {
+        None => Err(crate::Error::Invalid("sbom-string-field-missing".into())),
+        Some(v) => v
+            .as_str()
+            .ok_or_else(|| crate::Error::Invalid("sbom-string-field-invalid".into())),
+    }
 }
 
 /// Require a flat component whose scope matches independently derived dependency paths.
@@ -380,9 +382,11 @@ impl CargoGraphV2 {
             self.native_linkage.len() <= MAX_PACKAGES,
             "cargo-graph-native-budget",
         )?;
+        let mut native_ids = BTreeSet::new();
         for native in &self.native_linkage {
             require(
-                packages.contains_key(native.package_id.as_str())
+                native_ids.insert(native.package_id.as_str())
+                    && packages.contains_key(native.package_id.as_str())
                     && !native.linked_libraries.is_empty()
                     && native.linked_libraries.len() <= 1024
                     && native.linked_libraries.iter().all(|l| text(l, 4096)),
@@ -396,14 +400,16 @@ impl CargoGraphV2 {
     fn runtime_packages<'a>(
         &'a self,
         nodes: &BTreeMap<&'a str, &'a CargoNode>,
-    ) -> BTreeSet<&'a str> {
+    ) -> Result<BTreeSet<&'a str>> {
         let mut required = BTreeSet::new();
         let mut pending = vec![self.root.as_str()];
         while let Some(id) = pending.pop() {
             if required.insert(id) {
+                let node = nodes
+                    .get(id)
+                    .ok_or_else(|| crate::Error::Invalid("cargo-graph-node-missing".into()))?;
                 pending.extend(
-                    nodes[id]
-                        .dependencies
+                    node.dependencies
                         .iter()
                         .filter(|edge| {
                             edge.contexts
@@ -414,7 +420,7 @@ impl CargoGraphV2 {
                 );
             }
         }
-        required
+        Ok(required)
     }
 
     /// Compare one flat CycloneDX 1.5 Cargo SBOM against every retained identity and dependency edge.
@@ -457,7 +463,7 @@ impl CargoGraphV2 {
                 .as_array()
                 .ok_or_else(|| crate::Error::Invalid("invalid-cargo-sbom-components".into()))?,
         };
-        let required_packages = self.runtime_packages(&nodes);
+        let required_packages = self.runtime_packages(&nodes)?;
         let mut references = BTreeSet::from([self.root.as_str()]);
         for component in components {
             let id = string(component, "bom-ref")?;

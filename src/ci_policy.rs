@@ -168,20 +168,20 @@ pub fn parse_at(bytes: &[u8], today: u64) -> Result<CiPolicy> {
     require(policy.advisories.exceptions.len() <= 32)?;
     let mut seen = BTreeSet::new();
     for e in &policy.advisories.exceptions {
+        require(seen.insert(&e.id))?;
         let b = e.id.as_bytes();
         require(
             b.len() == 17
                 && b.starts_with(b"RUSTSEC-")
                 && b[12] == b'-'
                 && b[8..12].iter().all(u8::is_ascii_digit)
-                && b[13..].iter().all(u8::is_ascii_digit)
-                && seen.insert(&e.id),
+                && b[13..].iter().all(u8::is_ascii_digit),
         )?;
         for value in [&e.owner, &e.reason] {
             require(
                 !value.trim().is_empty()
                     && value.chars().count() <= 512
-                    && !value.chars().any(|c| u32::from(c) < 32),
+                    && !value.chars().any(char::is_control),
             )?;
         }
         let expiry = utc_day(&e.expires)?;

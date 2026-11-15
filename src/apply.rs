@@ -297,8 +297,12 @@ pub(crate) struct TransactionLock(File);
 impl Drop for TransactionLock {
     /// End the transaction's lock even while a duplicate descriptor remains open.
     fn drop(&mut self) {
-        // File closure remains a fallback if the explicit unlock fails.
-        let _ = self.0.unlock();
+        // Close is NOT a fallback while a child holds a duplicate descriptor; retry EINTR.
+        while let Err(error) = self.0.unlock() {
+            if error.kind() != std::io::ErrorKind::Interrupted {
+                break;
+            }
+        }
     }
 }
 
@@ -311,15 +315,16 @@ pub(crate) fn lock(root: &Path) -> Result<TransactionLock> {
         Err(error) => return Err(error.into()),
     }
     let path = safe_path(root, ".armorer/apply.lock")?;
-    if path.try_exists()? && !fs::symlink_metadata(&path)?.is_file() {
-        return Err(Error::Transaction("apply lock must be a regular file"));
-    }
     let file = OpenOptions::new()
         .read(true)
         .write(true)
         .create(true)
         .truncate(false)
         .open(path)?;
+    // Validate the opened handle; a path re-stat would race a symlink swap.
+    if !file.metadata()?.is_file() {
+        return Err(Error::Transaction("apply lock must be a regular file"));
+    }
     match file.try_lock() {
         Ok(()) => Ok(TransactionLock(file)),
         Err(TryLockError::WouldBlock) => {
@@ -502,14 +507,16 @@ fn apply_transaction(
                     base.sha256 == change.after_sha256 && base.content == change.proposed_content
                 })
         });
-        if bases_match
-            && plan.changes.iter().all(|change| {
-                optional_bytes(&root, &change.path).is_ok_and(|bytes| {
-                    bytes.as_deref().map(digest).as_deref() == Some(change.after_sha256.as_str())
-                })
-            })
-        {
-            return Ok(receipt(plan, "unchanged", true));
+        if bases_match {
+            let mut unchanged = true;
+            for change in &plan.changes {
+                let bytes = optional_bytes(&root, &change.path)?;
+                unchanged &=
+                    bytes.as_deref().map(digest).as_deref() == Some(change.after_sha256.as_str());
+            }
+            if unchanged {
+                return Ok(receipt(plan, "unchanged", true));
+            }
         }
         return Err(Error::Transaction(
             "committed plan receipt conflicts with managed files",
@@ -598,7 +605,10 @@ fn apply_transaction(
             cause: Box::new(cause),
         });
     }
-    remove_journal(&root)?;
+    remove_journal(&root).map_err(|cause| Error::TransactionCause {
+        message: "transaction committed but journal cleanup failed; recovery is required",
+        cause: Box::new(cause),
+    })?;
     Ok(receipt(plan, "applied", true))
 }
 

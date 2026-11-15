@@ -218,7 +218,7 @@ pub fn inspect(root: &Path, mode: &str) -> Result<Plan> {
         .len()
         > 1_048_576
     {
-        return Err(crate::Error::Transaction("plan exceeds 1 MiB"));
+        return Err(crate::Error::Invalid("plan exceeds 1 MiB".into()));
     }
     Ok(plan)
 }

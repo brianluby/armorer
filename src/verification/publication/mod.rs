@@ -172,7 +172,9 @@ impl FrozenRelease {
         for name in names {
             require(asset_name(&name), "invalid-publication-asset-name")?;
             let bytes = files.asset_bytes(&name)?;
-            total = total.checked_add(bytes.len() as u64).ok_or(Error::Json)?;
+            total = total
+                .checked_add(bytes.len() as u64)
+                .ok_or_else(|| Error::Invalid("publication-total-byte-overflow".into()))?;
             require(
                 total <= 4 * 1024 * 1024 * 1024,
                 "publication-total-byte-limit",
@@ -219,7 +221,11 @@ impl FrozenRelease {
     }
     /// Rehash one inert frozen snapshot immediately before an upload or native asset verification.
     fn asset_path(&self, name: &str) -> Result<PathBuf> {
-        let identity = self.plan.assets.get(name).ok_or(Error::Json)?;
+        let identity = self
+            .plan
+            .assets
+            .get(name)
+            .ok_or_else(|| Error::Invalid("publication-asset-unknown".into()))?;
         let path = self.workspace.path().join(name);
         require(
             io::identity(&path, identity.size)? == *identity,
@@ -311,7 +317,10 @@ impl ApprovedPublication {
                     a.release_id.is_some_and(|id| id > 0),
                     "publish-approval-release-required",
                 )?;
-                a.served_bytes.as_ref().ok_or(Error::Json)?.validate()
+                a.served_bytes
+                    .as_ref()
+                    .ok_or_else(|| Error::Invalid("publish-approval-served-bytes-required".into()))?
+                    .validate()
             }
         }
     }
@@ -376,9 +385,10 @@ impl StateStore {
         require(metadata.is_dir(), "publication-state-directory-type")?;
         #[cfg(unix)]
         {
-            use std::os::unix::fs::PermissionsExt;
+            use std::os::unix::fs::{MetadataExt, PermissionsExt};
+            let uid = rustix::process::getuid().as_raw();
             require(
-                metadata.permissions().mode() & 0o077 == 0,
+                metadata.permissions().mode() & 0o077 == 0 && metadata.uid() == uid,
                 "publication-state-directory-permissions",
             )?;
         }
@@ -396,8 +406,22 @@ impl StateStore {
             .read(true)
             .write(true)
             .open(&path)?;
+        // Validate the opened handle; a path re-stat would race a symlink swap.
+        require(file.metadata()?.is_file(), "publication-lock-type")?;
         require(file.try_lock().is_ok(), "publication-controller-busy")?;
         let journal = root.join(format!("{repository_id}.json"));
+        // The store must still be the inspected directory after canonicalization.
+        let rechecked = fs::symlink_metadata(&root)?;
+        require(rechecked.is_dir(), "publication-state-directory-type")?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::{MetadataExt, PermissionsExt};
+            let uid = rustix::process::getuid().as_raw();
+            require(
+                rechecked.permissions().mode() & 0o077 == 0 && rechecked.uid() == uid,
+                "publication-state-directory-permissions",
+            )?;
+        }
         Ok(Self {
             root,
             _lock: file,
@@ -410,10 +434,20 @@ impl StateStore {
             return Ok(None);
         }
         let value: Journal = io::parse(&io::read_bounded(&self.journal, 1024 * 1024)?)?;
-        require(
-            value.schema_version == 1 && value.plan == *plan,
-            "publication-journal-conflict",
-        )?;
+        require(value.schema_version == 1, "publication-journal-conflict")?;
+        if value.plan != *plan {
+            // A completed prior release must not wedge the store for the next plan; archive it.
+            require(
+                value.phase == Phase::Complete,
+                "publication-journal-conflict",
+            )?;
+            let archive = self
+                .journal
+                .with_file_name(format!("{}.complete.json", value.plan.sha256));
+            fs::rename(&self.journal, archive)?;
+            File::open(&self.root)?.sync_all()?;
+            return Ok(None);
+        }
         Ok(Some(value))
     }
     /// Persist mutation intent before a network write, with atomic replacement and directory fsync.
@@ -422,7 +456,7 @@ impl StateStore {
         file.write_all(&serde_json::to_vec(journal).map_err(|_| Error::Json)?)?;
         file.as_file().sync_all()?;
         file.persist(&self.journal)
-            .map_err(|_| Error::Invalid("publication-journal-persist-failed".into()))?;
+            .map_err(|e| Error::Invalid(format!("publication-journal-persist-failed: {e}")))?;
         File::open(&self.root)?.sync_all()?;
         Ok(())
     }
@@ -564,14 +598,39 @@ impl<B: Backend> Controller<B> {
     /// Create only a new owned draft, then upload missing exact assets without overwrite or tag mutation APIs.
     fn stage(&mut self, approval: &ApprovedPublication) -> Result<DraftVerification> {
         self.preflight(approval, ApprovalKind::StageDraft)?;
-        let mut journal = if let Some(journal) = self.state.load(&self.release.identity)? {
+        let mut journal = if let Some(mut journal) = self.state.load(&self.release.identity)? {
             require(
                 matches!(
                     journal.phase,
-                    Phase::OwnedDraft | Phase::Uploaded | Phase::DraftVerified
+                    Phase::Creating
+                        | Phase::OwnedDraft
+                        | Phase::Uploading
+                        | Phase::Uploaded
+                        | Phase::DraftVerified
                 ),
                 "draft-retry-requires-owned-state",
             )?;
+            if journal.phase == Phase::Creating {
+                // Lost create response: adopt only our exact marker draft, or create when none exists.
+                let existing = self.backend.releases_for_tag(&self.release.plan.tag)?;
+                let remote = match existing.len() {
+                    0 => {
+                        self.preflight(approval, ApprovalKind::StageDraft)?;
+                        self.backend.create(&self.release, &self.marker())?
+                    }
+                    1 => existing.into_iter().next().ok_or(Error::Json)?,
+                    _ => {
+                        return Err(Error::Invalid(
+                            "release-tag-already-owned-or-published".into(),
+                        ));
+                    }
+                };
+                self.validate_remote(&remote, false, true)?;
+                require(remote.assets.is_empty(), "new-draft-not-empty")?;
+                journal.release_id = Some(remote.id);
+                journal.phase = Phase::OwnedDraft;
+                self.state.save(&journal)?;
+            }
             journal
         } else {
             require(
@@ -602,6 +661,20 @@ impl<B: Backend> Controller<B> {
         let id = journal.release_id.ok_or(Error::Json)?;
         let remote = self.backend.release(id)?;
         self.validate_remote(&remote, false, true)?;
+        if journal.phase == Phase::Uploading {
+            // Lost upload response: reconcile exact-plan provider asset IDs without re-uploading.
+            for asset in &remote.assets {
+                journal
+                    .uploaded
+                    .entry(asset.name.clone())
+                    .or_insert(ServedAsset {
+                        id: asset.id,
+                        bytes: asset.bytes.clone(),
+                    });
+            }
+            journal.phase = Phase::OwnedDraft;
+            self.state.save(&journal)?;
+        }
         self.validate_recorded_assets(&remote, &journal)?;
         if let Some(previous) = &journal.served_bytes {
             let verified = self.verify_bytes(id, true)?;
@@ -701,7 +774,17 @@ impl<B: Backend> Controller<B> {
         let mut journal = self
             .state
             .load(&self.release.identity)?
-            .ok_or(Error::Json)?;
+            .ok_or_else(|| Error::Invalid("publication-journal-missing".into()))?;
+        if journal.phase == Phase::Publishing {
+            // A failed publish may reset only on a confirmed still-draft observation; an already
+            // published release stays on the read-only recover_published path, never a second write.
+            let id = journal.release_id.ok_or(Error::Json)?;
+            let current = self.backend.release(id)?;
+            self.validate_remote(&current, true, true)?;
+            self.validate_recorded_assets(&current, &journal)?;
+            journal.phase = Phase::DraftVerified;
+            self.state.save(&journal)?;
+        }
         require(
             journal.phase == Phase::DraftVerified
                 && journal.release_id == approval.approval.release_id
@@ -744,7 +827,7 @@ impl<B: Backend> Controller<B> {
         let journal = self
             .state
             .load(&self.release.identity)?
-            .ok_or(Error::Json)?;
+            .ok_or_else(|| Error::Invalid("publication-journal-missing".into()))?;
         require(
             matches!(
                 journal.phase,

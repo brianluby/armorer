@@ -163,7 +163,11 @@ fn approved_context_reads_exact_authorities_without_executing_repository_code() 
             &ByteIdentity::from_bytes(&fs::read(directory.path().join(CONTEXT_NAME)).unwrap())
         );
     } else {
-        assert!(result.is_err());
+        assert!(matches!(
+            result,
+            Err(armorer::Error::Invalid(code)) if code == "unsupported-sbom-validator-platform"
+                || (!cfg!(unix) && code == "unsupported-verifier-platform")
+        ));
     }
     assert!(!directory.path().join("executed").exists());
     assert!(!directory.path().join("target").exists());
@@ -188,6 +192,16 @@ fn context_digest_is_checked_before_parsing_or_other_authorities() {
     assert!(TrustedReleaseContext::open(directory.path(), "moving-ref").is_err());
 }
 
+#[cfg_attr(
+    not(any(
+        all(
+            target_os = "linux",
+            any(target_arch = "x86_64", target_arch = "aarch64")
+        ),
+        all(target_os = "macos", target_arch = "aarch64")
+    )),
+    ignore = "native SBOM identity is unsupported on this host"
+)]
 #[test]
 /// Changing any separately retained authority is rejected despite unchanged approved context bytes.
 fn exact_config_lock_catalog_policy_and_cargo_lock_substitution_fail() {
@@ -1073,12 +1087,14 @@ fn cli_requires_compiled_native_tool_approval_before_release_processing() {
     );
     assert_eq!(cli.status.code(), Some(1));
     let error: Value = serde_json::from_slice(&cli.stdout).unwrap();
+    let message = error["error"]["message"].as_str().unwrap();
     if supported() {
+        assert!(message.contains("unqualified-native-verifier-policy"));
+    } else {
         assert!(
-            error["error"]["message"]
-                .as_str()
-                .unwrap()
-                .contains("unqualified-native-verifier-policy")
+            message.contains("unsupported-sbom-validator-platform")
+                || (!cfg!(unix) && message.contains("unsupported-verifier-platform")),
+            "{message}"
         );
     }
     assert!(error.get("provenance_verified").is_none());

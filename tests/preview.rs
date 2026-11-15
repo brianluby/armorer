@@ -58,6 +58,7 @@ fn creation_is_exact_deterministic_read_only_and_keeps_v1_plan_identity() {
         serde_json::to_value(&result.plan).unwrap(),
         serde_json::to_value(plan).unwrap()
     );
+    assert_eq!(result.files.len(), 1);
     assert_eq!(result.files[0].disposition, "create");
     assert_eq!(result.files[0].before_content, None);
     assert_eq!(

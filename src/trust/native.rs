@@ -173,7 +173,10 @@ impl NativePin {
     /// Reject ambiguous material kinds, unsafe member names and oversized native executable claims.
     fn validate(&self) -> Result<()> {
         require(
-            identifier(&self.name) && !self.version.trim().is_empty() && self.version.len() <= 100,
+            identifier(&self.name)
+                && !self.version.is_empty()
+                && self.version.len() <= 100
+                && self.version.trim() == self.version,
             "invalid-native-catalog-pin",
         )?;
         self.distribution.validate()?;
@@ -207,6 +210,7 @@ pub struct NativeAdapter {
     pub config_versions: Vec<u32>,
     pub runtime_versions: Vec<String>,
     pub workflow: WorkflowIdentity,
+    #[schemars(length(min = 1, max = 128))]
     pub pins: Vec<NativePin>,
     pub review: Review,
 }
@@ -218,8 +222,11 @@ pub struct NativeCatalogV2 {
     #[schemars(range(min = 2, max = 2))]
     #[schemars(transform = crate::schema_bounds::unsigned)]
     pub schema_version: u32,
+    // Required key, explicit null allowed: absence must be stated as null.
+    #[schemars(required, extend("type" = ["object", "null"]))]
     pub previous_catalog: Option<ByteIdentity>,
     pub runtime: RuntimeDistributionV1,
+    #[schemars(length(min = 1, max = 32))]
     pub adapters: Vec<NativeAdapter>,
 }
 impl NativeCatalogV2 {
@@ -245,7 +252,7 @@ impl NativeCatalogV2 {
         let mut ids = BTreeSet::new();
         let mut pins = BTreeSet::new();
         for adapter in &self.adapters {
-            require(ids.insert(format!("{:?}", adapter.id)), "duplicate-adapter")?;
+            require(ids.insert(adapter.id), "duplicate-adapter")?;
             adapter.workflow.validate()?;
             adapter.review.validate_at(now)?;
             require(

@@ -80,7 +80,9 @@ pub struct LifecycleRecord {
 }
 
 impl LifecycleRecord {
-    /// Each stage has its own evidence; a scanner pass cannot advance a stage.
+    /// Validate record shape and internal consistency only. Stage advancement is
+    /// enforced by the consumer binding each stage to its own verified evidence;
+    /// this record does not gate it.
     pub fn validate(&self, now: u64) -> Result<()> {
         require(
             self.schema_version == 1
@@ -190,24 +192,36 @@ impl GithubReceipt {
         if let Some(r) = &self.draft_download_receipt {
             r.validate()?;
         }
-        if approved {
-            self.approval
-                .as_ref()
-                .ok_or_else(|| crate::Error::Invalid("publication-approval-missing".into()))?
-                .validate_at(now)?;
-            let setting = self
-                .immutable_setting
-                .as_ref()
-                .ok_or_else(|| crate::Error::Invalid("immutable-setting-missing".into()))?;
+        // Optional evidence is validated whenever present, not only in its owning state.
+        if let Some(a) = &self.approval {
+            a.validate_at(now)?;
+        }
+        if let Some(s) = &self.immutable_setting {
             require(
-                setting.capability == CapabilityId::ImmutableReleases,
+                s.capability == CapabilityId::ImmutableReleases,
                 "wrong-setting-capability",
             )?;
-            setting.satisfies(
+            s.satisfies(
                 CapabilityId::ImmutableReleases,
                 CapabilityPolicy::Required,
                 now,
                 max_setting_age,
+            )?;
+        }
+        if let Some(a) = &self.release_attestation {
+            a.validate()?;
+        }
+        if let Some(p) = &self.provenance_verification {
+            p.validate()?;
+        }
+        if let Some(t) = self.published_at {
+            require(t > 0 && t <= now, "published-observation-missing")?;
+        }
+        if approved {
+            require(self.approval.is_some(), "publication-approval-missing")?;
+            require(
+                self.immutable_setting.is_some(),
+                "immutable-setting-missing",
             )?;
         }
         require(
@@ -218,16 +232,16 @@ impl GithubReceipt {
             self.state,
             GithubState::ReleaseAttestationVerified | GithubState::ProvenanceVerified
         ) {
-            self.release_attestation
-                .as_ref()
-                .ok_or_else(|| crate::Error::Invalid("release-attestation-receipt-missing".into()))?
-                .validate()?;
+            require(
+                self.release_attestation.is_some(),
+                "release-attestation-receipt-missing",
+            )?;
         }
         if self.state == GithubState::ProvenanceVerified {
-            self.provenance_verification
-                .as_ref()
-                .ok_or_else(|| crate::Error::Invalid("provenance-receipt-missing".into()))?
-                .validate()?;
+            require(
+                self.provenance_verification.is_some(),
+                "provenance-receipt-missing",
+            )?;
         }
         require(
             (self.state == GithubState::Conflict) == self.conflict.is_some(),
@@ -256,7 +270,10 @@ impl GithubReceipt {
                 && self.tag == next.tag
                 && self.release_id == next.release_id
                 && self.inventory == next.inventory
-                && self.policy == next.policy,
+                && self.policy == next.policy
+                && self.draft_download_receipt == next.draft_download_receipt
+                && self.approval == next.approval
+                && self.immutable_setting == next.immutable_setting,
             "conflicting-retry-identity",
         )
     }
@@ -271,11 +288,20 @@ pub enum Registry {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CrateIntent {
+    #[schemars(regex(pattern = "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"))]
     pub name: String,
+    #[schemars(regex(
+        pattern = "^(0|[1-9][0-9]{0,19})\\.(0|[1-9][0-9]{0,19})\\.(0|[1-9][0-9]{0,19})$(?![\\s\\S])"
+    ))]
     pub version: String,
     pub archive: ByteIdentity,
     /// Names within this approved set. External dependencies must be separately
     /// resolved/byte-verified before preparation by the future adapter.
+    #[schemars(
+        length(max = 128),
+        inner(regex(pattern = "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])")),
+        extend("uniqueItems" = true)
+    )]
     pub dependencies: Vec<String>,
 }
 
@@ -287,6 +313,7 @@ pub struct PublishSet {
     pub schema_version: u32,
     pub inputs: InputIdentity,
     pub registry: Registry,
+    #[schemars(length(min = 1, max = 128), extend("uniqueItems" = true))]
     pub crates: Vec<CrateIntent>,
 }
 
@@ -399,10 +426,10 @@ impl RegistryReceipt {
                 r.state,
                 RegistryState::RegistryObserved | RegistryState::RegistryBytesVerified
             ) {
-                r.observation
-                    .as_ref()
-                    .ok_or_else(|| crate::Error::Invalid("registry-observation-missing".into()))?
-                    .validate()?;
+                require(r.observation.is_some(), "registry-observation-missing")?;
+            }
+            if let Some(o) = &r.observation {
+                o.validate()?;
             }
             if r.state == RegistryState::RegistryBytesVerified {
                 require(

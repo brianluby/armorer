@@ -88,5 +88,44 @@ class ReviewGates(unittest.TestCase):
             self.assertEqual(output.read_bytes(), data)
 
 
+    def test_verifier_qualification_pins_executable_and_refuses_group_accessible_output(self):
+        import tarfile
+        module = load_script("qualify-test-verifier")
+        leaf = "gh_2.102.0_linux_amd64/bin/gh"
+        archive_name = "gh_2.102.0_linux_amd64.tar.gz"
+        executable = b"inert test executable; never run"
+        buffer = io.BytesIO()
+        with tarfile.open(fileobj=buffer, mode="w:gz") as container:
+            item = tarfile.TarInfo(leaf)
+            item.size = len(executable)
+            container.addfile(item, io.BytesIO(executable))
+        archive = buffer.getvalue()
+        manifest = (hashlib.sha256(archive).hexdigest() + "  " + archive_name + "\n").encode()
+        def pin(exe):
+            return json.dumps({"version": "2.102.0", "source_commit": "fc4b137cdef0a6bd28fd461b7cf9c84a5812a8cd",
+                "manifest_sha256": hashlib.sha256(manifest).hexdigest(),
+                "pins": [{"platform": "linux-amd64", "leaf": leaf,
+                    "archive": {"name": archive_name, "size": len(archive), "sha256": hashlib.sha256(archive).hexdigest()},
+                    "executable": {"size": len(exe), "sha256": hashlib.sha256(exe).hexdigest()}}]})
+        downloads = {"gh_2.102.0_checksums.txt": manifest, archive_name: archive}
+        with tempfile.TemporaryDirectory() as path, \
+                patch.object(module.platform, "system", return_value="Linux"), \
+                patch.object(module.platform, "machine", return_value="x86_64"), \
+                patch.object(module, "fetch", side_effect=lambda name, limit: downloads[name]), \
+                patch.object(Path, "read_text", return_value=pin(executable)):
+            destination = Path(path) / "qualified"
+            output = module.qualify(destination)
+            self.assertEqual(output.read_bytes(), executable)
+            self.assertEqual(stat.S_IMODE(output.stat().st_mode), 0o500)
+            # A group/world-accessible output directory is refused even when pre-existing.
+            destination.chmod(0o755)
+            with self.assertRaises(ValueError):
+                module.qualify(destination)
+            destination.chmod(0o700)
+            # A wrong-size executable leaf cannot pass its digest pin.
+            with patch.object(Path, "read_text", return_value=pin(executable + b"pad")):
+                with self.assertRaises(ValueError):
+                    module.qualify(destination)
+
 if __name__ == "__main__":
     unittest.main()

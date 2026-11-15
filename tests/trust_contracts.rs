@@ -496,6 +496,9 @@ fn conflicting_github_retry_identity_and_missing_publication_receipts_are_reject
         |r: &mut GithubReceipt| r.inventory.sha256 = "f".repeat(64),
         |r: &mut GithubReceipt| r.release_id += 1,
         |r: &mut GithubReceipt| r.inputs.source.commit = "f".repeat(40),
+        |r: &mut GithubReceipt| {
+            r.draft_download_receipt = Some(ByteIdentity::from_bytes(b"replaced draft bytes"))
+        },
     ] {
         let mut wrong = receipt.clone();
         mutation(&mut wrong);
@@ -584,7 +587,11 @@ fn generated_schemas_match_all_committed_version_one_schemas() {
             .args(["schema", kind])
             .output()
             .unwrap();
-        assert!(output.status.success(), "schema {kind}");
+        assert!(
+            output.status.success(),
+            "schema {kind}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
         let committed = std::fs::read(
             Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("schemas/{kind}-v1.json")),
         )
@@ -600,6 +607,11 @@ fn strict_loader_rejects_duplicate_map_keys_unknown_fields_symlinks_and_size_lim
     let path = temp.path().join("contract.json");
     std::fs::write(&path, br#"{"outer":{"required":true,"required":false}}"#).unwrap();
     assert!(armorer::trust::load_json::<serde_json::Value>(temp.path(), "contract.json").is_err());
+    // Unknown field on an otherwise valid record: deny_unknown_fields, not a missing-field failure.
+    let mut unknown = serde_json::to_value(policy()).unwrap();
+    unknown["surprise"] = serde_json::json!(true);
+    std::fs::write(&path, serde_json::to_vec(&unknown).unwrap()).unwrap();
+    assert!(armorer::trust::load_json::<VerificationPolicy>(temp.path(), "contract.json").is_err());
     std::fs::write(&path, vec![b' '; 1_048_577]).unwrap();
     assert!(armorer::trust::load_json::<serde_json::Value>(temp.path(), "contract.json").is_err());
     assert!(armorer::trust::load_json::<serde_json::Value>(temp.path(), "../escape.json").is_err());
@@ -686,7 +698,7 @@ fn detached_inventory_authentication_is_required_without_creating_a_hash_cycle()
     let expected_bundle = ByteIdentity::from_bytes(&detached);
     let mut all = bytes(&i);
     all.insert(armorer::trust::inventory::INVENTORY_NAME.into(), serialized);
-    all.insert(INVENTORY_BUNDLE_NAME.into(), detached);
+    all.insert(INVENTORY_BUNDLE_NAME.into(), detached.clone());
     i.compare_published_bytes(&all, &expected, &expected_bundle)
         .unwrap();
     all.remove(INVENTORY_BUNDLE_NAME);
@@ -694,6 +706,30 @@ fn detached_inventory_authentication_is_required_without_creating_a_hash_cycle()
         i.compare_published_bytes(&all, &expected, &expected_bundle)
             .is_err()
     );
+    // The count alone must not hide a reserved name inside the asset list.
+    let mut reserved = i.clone();
+    let original_name = reserved.assets[0].name.clone();
+    reserved.assets[0].name = INVENTORY_BUNDLE_NAME.into();
+    let serialized = serde_json::to_vec(&reserved).unwrap();
+    let mut all = bytes(&reserved);
+    // Keep the set count exact so only the reserved-name guard can reject.
+    all.insert(
+        original_name.clone(),
+        format!("fixture:{original_name}").into_bytes(),
+    );
+    all.insert(
+        armorer::trust::inventory::INVENTORY_NAME.into(),
+        serialized.clone(),
+    );
+    all.insert(INVENTORY_BUNDLE_NAME.into(), detached.clone());
+    assert!(matches!(
+        reserved.compare_published_bytes(
+            &all,
+            &ByteIdentity::from_bytes(&serialized),
+            &ByteIdentity::from_bytes(&detached),
+        ),
+        Err(armorer::Error::Invalid(code)) if code == "duplicate-or-reserved-asset"
+    ));
     let mut receipt: GithubReceipt = read("linux-cli", "github-receipt");
     receipt.state = GithubState::Published;
     assert!(receipt.same_owned_retry(&receipt).is_err());

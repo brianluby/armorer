@@ -126,6 +126,8 @@ fn producer_graph_cannot_select_its_own_consumer_context() {
         ("/selection/binary", json!("other")),
         ("/selection/package_version", json!("0.2.0")),
         ("/selection/toolchain", json!("1.94.0")),
+        ("/selection/package", json!("other")),
+        ("/selection/feature_set", json!("minimal")),
         ("/root_component_name", json!("other")),
         ("/coverage_gaps", json!([])),
         ("/nodes/0/features", json!([])),
@@ -575,6 +577,7 @@ fn default_feature_decision_uses_independent_resolved_expectations() {
 }
 
 /// Real Cargo metadata resolves implied/default features and an all-features substitution fails the independent reader.
+#[cfg(unix)]
 #[test]
 fn real_cargo_resolution_distinguishes_requested_flags_from_resolved_features() {
     use std::{fs, process::Command};

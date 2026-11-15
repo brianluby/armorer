@@ -46,6 +46,22 @@ fn limitations() -> Vec<String> {
         "Local byte restoration does not establish configured readiness, CI, signing, publication, provenance or SLSA.".into(),
     ]
 }
+/// Reverse-image unified diff; deletions retarget the header to /dev/null even when
+/// the deleted file was empty and the diff itself short-circuits.
+fn reverse_diff(path: &str, before: Option<&str>, after: Option<&str>) -> String {
+    let diff = bootstrap::plan::diff(path, before, after.unwrap_or(""));
+    if after.is_none() {
+        if diff.is_empty() {
+            // Deletion of an empty file: diff short-circuits, keep the header.
+            format!("--- a/{path}\n+++ /dev/null\n")
+        } else {
+            diff.replacen(&format!("+++ b/{path}\n"), "+++ /dev/null\n", 1)
+        }
+    } else {
+        diff
+    }
+}
+
 /// Derive exact reverse images from the completed approved forward plan.
 fn changes(original: &Plan) -> Result<Vec<Restore>> {
     transaction::reverse_operations(original)?
@@ -54,18 +70,7 @@ fn changes(original: &Plan) -> Result<Vec<Restore>> {
             Ok(Restore {
                 before_sha256: w.before.as_deref().map(|s| digest(s.as_bytes())),
                 after_sha256: w.after.as_deref().map(|s| digest(s.as_bytes())),
-                unified_diff: {
-                    let diff = bootstrap::plan::diff(
-                        &w.path,
-                        w.before.as_deref(),
-                        w.after.as_deref().unwrap_or(""),
-                    );
-                    if w.after.is_none() {
-                        diff.replacen(&format!("+++ b/{}\n", w.path), "+++ /dev/null\n", 1)
-                    } else {
-                        diff
-                    }
-                },
+                unified_diff: reverse_diff(&w.path, w.before.as_deref(), w.after.as_deref()),
                 path: w.path,
                 before_content: w.before,
                 proposed_content: w.after,
@@ -148,4 +153,23 @@ pub fn load_rollback_plan(path: &Path, expected: &str) -> Result<RollbackPlan> {
     let plan: RollbackPlan = decode(&read_small(path)?)?;
     validate(&plan, expected)?;
     Ok(plan)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::reverse_diff;
+
+    #[test]
+    /// Deletion diffs retarget /dev/null even when the deleted file was empty.
+    fn reverse_diff_covers_empty_and_nonempty_deletions() {
+        assert_eq!(
+            reverse_diff("gone", Some(""), None),
+            "--- a/gone\n+++ /dev/null\n"
+        );
+        let diff = reverse_diff("gone", Some("line\n"), None);
+        assert!(diff.starts_with("--- a/gone\n+++ /dev/null\n"), "{diff}");
+        assert!(!diff.contains("+++ b/gone"));
+        // Non-deletion images keep the ordinary two-sided diff.
+        assert!(reverse_diff("kept", Some("a\n"), Some("b\n")).contains("+++ b/kept"));
+    }
 }

@@ -960,9 +960,10 @@ pub(super) fn deployment_gate_states(
             continue;
         };
         let latest = latest_status_map.get(&id).cloned().unwrap_or(Value::Null);
+        // A deployment without any observed status still holds the environment; absence is active.
         let active = latest["state"]
             .as_str()
-            .is_some_and(|state| !terminal_deployment_status(state));
+            .is_none_or(|state| !terminal_deployment_status(state));
         if active {
             active_count += 1;
         }
@@ -1258,6 +1259,39 @@ mod tests {
             };
             assert!(check(&v, &frozen, &served).is_err());
         }
+    }
+    #[test]
+    /// A deployment with no observed status still holds the environment; absence never means inactive.
+    fn statusless_deployments_count_as_active_for_serialization() {
+        let approvers = BTreeSet::from([9]);
+        let expected = DeploymentExpectation {
+            run_id: 1,
+            run_attempt: 1,
+            source_commit: "a",
+            environment: "publish",
+            environment_id: 7,
+            approvers: &approvers,
+            actor: Some(1),
+            triggering_actor: Some(1),
+        };
+        let bound = json!({"id":1,"environment":"publish","sha":"a",
+            "creator":{"login":"github-actions[bot]"},
+            "payload":{"armorer_run_id":1,"armorer_run_attempt":1,"armorer_source_commit":"a"}});
+        let competing =
+            json!({"id":2,"environment":"publish","sha":"b","creator":{"login":"x"},"payload":{}});
+        let active = json!({"id":10,"state":"in_progress"});
+        let approvals = json!([{"state":"approved","environments":[{"id":7}],"user":{"id":9}}]);
+        let approvals = approvals.as_array().unwrap();
+        // Competing deployment without any status must block serialization, not vanish from the count.
+        let statuses = BTreeMap::from([(1, active.clone())]);
+        let (enforcement, serialization) = deployment_gate_states(
+            &[bound.clone(), competing.clone()],
+            &statuses,
+            approvals,
+            &expected,
+        );
+        assert_eq!(serialization, GateState::Unknown);
+        assert_eq!(enforcement, GateState::Enforced);
     }
     #[test]
     /// Header parsing distinguishes actual denied, ambiguous throttled/denied and provider error states.

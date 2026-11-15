@@ -104,7 +104,7 @@
           "$ref": "#/$defs/ByteIdentity"
         },
         "runtime_version": {
-          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$(?![\\s\\S])",
+          "pattern": "^(0|[1-9][0-9]{0,19})\\.(0|[1-9][0-9]{0,19})\\.(0|[1-9][0-9]{0,19})$(?![\\s\\S])",
           "type": "string"
         },
         "source": {
@@ -163,6 +163,7 @@
           "type": "string"
         },
         "git_ref": {
+          "pattern": "^refs/(heads/[A-Za-z0-9][A-Za-z0-9_./-]{0,254}|tags/v(0|[1-9][0-9]{0,19})\\.(0|[1-9][0-9]{0,19})\\.(0|[1-9][0-9]{0,19})|pull/[1-9][0-9]{0,19}/merge)$(?![\\s\\S])",
           "type": "string"
         },
         "repository": {
@@ -186,7 +187,7 @@
         },
         "path": {
           "maxLength": 273,
-          "pattern": "^\\.github/workflows/[A-Za-z0-9][A-Za-z0-9_.-]*\\.yml$(?![\\s\\S])",
+          "pattern": "^\\.github/workflows/[A-Za-z0-9][A-Za-z0-9_.-]*\\.ya?ml$(?![\\s\\S])",
           "type": "string"
         },
         "repository": {

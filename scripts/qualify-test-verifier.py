@@ -75,6 +75,9 @@ def qualify(destination):
     if len(executable) != pin["executable"]["size"] or hashlib.sha256(executable).hexdigest() != pin["executable"]["sha256"]:
         raise ValueError("unapproved executable bytes")
     destination.mkdir(mode=0o700, parents=True, exist_ok=True)
+    status = destination.stat()
+    if status.st_uid != os.getuid() or status.st_mode & 0o077:
+        raise ValueError("output directory must be owned by the current user and not group/world accessible")
     output = destination / "gh"
     # A conflicting existing file is an error; do not replace an unrelated tool.
     with os.fdopen(os.open(output, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "wb") as stream:

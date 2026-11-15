@@ -7,11 +7,13 @@ license = "MIT"
 description = "Repeatable secure CI and verifiable releases for Rust repositories"
 repository = "https://github.com/brianluby/armorer"
 readme = "README.md"
+include = ["src/**/*", "catalogs/bootstrap-tools-v1.json", "Cargo.toml", "README.md", "LICENSE"]
 
 [dependencies]
 base64 = "=0.22.1"
 clap = { version = "=4.6.7", features = ["derive"] }
 flate2 = { version = "=1.1.10", default-features = false, features = ["miniz_oxide"] }
+rustix = { version = "=1.1.5", default-features = false, features = ["process", "fs", "std"] }
 schemars = "=1.2.1"
 semver = "=1.0.28"
 serde = { version = "=1.0.228", features = ["derive"] }

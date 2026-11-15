@@ -1,9 +1,5 @@
 //! Owner-only staging primitives. Unsupported platforms fail before creating anything.
-use std::{
-    fs::{File, OpenOptions},
-    io,
-    path::Path,
-};
+use std::{fs::File, io, path::Path};
 
 /// Request private directory permissions in the creation syscall, including under a permissive umask.
 pub(crate) fn private_tempdir(
@@ -36,6 +32,7 @@ pub(crate) fn private_tempdir(
 pub(crate) fn private_file(path: &Path) -> io::Result<File> {
     #[cfg(unix)]
     {
+        use std::fs::OpenOptions;
         use std::os::unix::fs::OpenOptionsExt;
         OpenOptions::new()
             .create_new(true)
@@ -74,7 +71,8 @@ mod tests {
             io::ErrorKind::AlreadyExists
         );
         let linked = directory.path().join("link");
-        std::os::unix::fs::symlink(&path, &linked).unwrap();
+        // Dangling target: O_NOFOLLOW must reject the link itself, not report target-exists.
+        std::os::unix::fs::symlink(directory.path().join("missing-target"), &linked).unwrap();
         assert_eq!(
             private_file(&linked).unwrap_err().kind(),
             io::ErrorKind::AlreadyExists

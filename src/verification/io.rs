@@ -37,6 +37,12 @@ pub(crate) fn regular(path: &Path, max: u64) -> Result<File> {
             "verification-input-changed",
         )?;
     }
+    // Without inode binding a same-size swap is undetectable; fail closed like readonly().
+    #[cfg(not(unix))]
+    {
+        let _ = (&before, &opened);
+        return Err(Error::Invalid("unsupported-verifier-platform".into()));
+    }
     Ok(file)
 }
 
@@ -149,34 +155,53 @@ pub(crate) fn parse<T: DeserializeOwned>(bytes: &[u8]) -> Result<T> {
         depth: 0,
     }
     .deserialize(&mut decoder)
-    .map_err(|_| Error::Json)?;
-    decoder.end().map_err(|_| Error::Json)?;
+    .map_err(|e| {
+        // Data errors are the duplicate-key/budget guards: a tampering signal, not malformed syntax.
+        if e.classify() == serde_json::error::Category::Data {
+            Error::Invalid("verification-json-structure".into())
+        } else {
+            Error::Json
+        }
+    })?;
+    decoder
+        .end()
+        .map_err(|_| Error::Invalid("verification-json-trailing".into()))?;
     serde_json::from_value(value).map_err(|_| Error::Json)
 }
 
 /// Create a new byte-for-byte file while streaming its bounded SHA-256 identity.
+/// The destination appears only after the full copy succeeds; failures leave no partial leaf.
 pub(crate) fn snapshot(source: &Path, destination: &Path, max: u64) -> Result<ByteIdentity> {
-    let mut input = regular(source, max)?.take(max + 1);
-    let mut output = crate::filesystem::private_file(destination)?;
-    let mut hash = Sha256::new();
-    let mut size = 0_u64;
-    let mut block = [0_u8; 65536];
-    loop {
-        let count = input.read(&mut block)?;
-        if count == 0 {
-            break;
+    let parent = destination
+        .parent()
+        .ok_or_else(|| Error::Invalid("verification-snapshot-destination".into()))?;
+    let mut output = tempfile::NamedTempFile::new_in(parent)?;
+    let identity = (|| -> Result<ByteIdentity> {
+        let mut input = regular(source, max)?.take(max + 1);
+        let mut hash = Sha256::new();
+        let mut size = 0_u64;
+        let mut block = [0_u8; 65536];
+        loop {
+            let count = input.read(&mut block)?;
+            if count == 0 {
+                break;
+            }
+            size += count as u64;
+            require(size <= max, "verification-input-size-limit")?;
+            hash.update(&block[..count]);
+            output.write_all(&block[..count])?;
         }
-        size += count as u64;
-        require(size <= max, "verification-input-size-limit")?;
-        hash.update(&block[..count]);
-        output.write_all(&block[..count])?;
-    }
-    output.sync_all()?;
-    let identity = ByteIdentity {
-        sha256: format!("{:x}", hash.finalize()),
-        size,
-    };
-    identity.validate()?;
+        output.as_file().sync_all()?;
+        let identity = ByteIdentity {
+            sha256: format!("{:x}", hash.finalize()),
+            size,
+        };
+        identity.validate()?;
+        Ok(identity)
+    })()?;
+    output
+        .persist_noclobber(destination)
+        .map_err(|_| Error::Invalid("verification-snapshot-destination-exists".into()))?;
     Ok(identity)
 }
 
@@ -217,14 +242,16 @@ pub(crate) fn write_readonly(path: &Path, bytes: &[u8]) -> Result<()> {
 }
 
 /// Limit snapshot access to owner reads and optional approved native execution.
+/// Uses the opened, inode-verified handle so a swapped symlink can never be chmod'ed.
 pub(crate) fn readonly(path: &Path, executable: bool) -> Result<()> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(
-            path,
-            fs::Permissions::from_mode(if executable { 0o500 } else { 0o400 }),
-        )?;
+        regular(path, u64::MAX)?.set_permissions(fs::Permissions::from_mode(if executable {
+            0o500
+        } else {
+            0o400
+        }))?;
     }
     #[cfg(not(unix))]
     {
@@ -265,6 +292,39 @@ mod tests {
         assert!(!destination.exists());
         let identity = snapshot(&source, &destination, 2).unwrap();
         assert_eq!(identity, crate::trust::ByteIdentity::from_bytes(b"ab"));
+    }
+    #[test]
+    /// A failed snapshot never clobbers an existing destination or leaves a partial leaf.
+    fn snapshot_never_clobbers_or_leaves_partial_destination() {
+        let directory = tempfile::tempdir().unwrap();
+        let source = directory.path().join("source");
+        let destination = directory.path().join("snapshot");
+        fs::write(&source, b"new bytes").unwrap();
+        fs::write(&destination, b"existing").unwrap();
+        assert!(snapshot(&source, &destination, 1024).is_err());
+        assert_eq!(fs::read(&destination).unwrap(), b"existing");
+        let missing = directory.path().join("missing");
+        fs::write(&source, b"ab").unwrap();
+        assert!(snapshot(&source, &missing, 1).is_err());
+        assert!(!missing.exists());
+        assert_eq!(fs::read_dir(directory.path()).unwrap().count(), 2);
+    }
+    #[test]
+    #[cfg(unix)]
+    /// Permission hardening rejects a symlink swap and never chmods the link target.
+    fn readonly_rejects_symlink_without_touching_target() {
+        use std::os::unix::fs::PermissionsExt;
+        let directory = tempfile::tempdir().unwrap();
+        let victim = directory.path().join("victim");
+        let link = directory.path().join("snapshot");
+        fs::write(&victim, b"unrelated").unwrap();
+        fs::set_permissions(&victim, fs::Permissions::from_mode(0o600)).unwrap();
+        std::os::unix::fs::symlink(&victim, &link).unwrap();
+        assert!(readonly(&link, true).is_err());
+        assert_eq!(
+            fs::metadata(&victim).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
     }
     #[test]
     /// Reject allocation-amplifying, ambiguous and trailing JSON while retaining ordinary values.

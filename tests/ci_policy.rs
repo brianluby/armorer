@@ -24,8 +24,12 @@ fn explicit_complete_policy_has_no_permissive_defaults_or_extra_fields() {
         POLICY.replace("Apache-2.0", "MIT"),
         POLICY.replace("MIT", "MIT; execute"),
     ] {
-        let error = parse_at(invalid.as_bytes(), today).unwrap_err();
-        assert!(!error.to_string().contains("DO-NOT-ECHO"));
+        let error = parse_at(invalid.as_bytes(), today)
+            .expect_err(&format!("policy should be rejected: {invalid}"));
+        assert!(
+            !error.to_string().contains("DO-NOT-ECHO"),
+            "error echoed untrusted input: {error}"
+        );
     }
 }
 /// Verify that advisory exceptions enforce exact ids owner reason and current utc expiry.
@@ -41,7 +45,7 @@ fn advisory_exceptions_enforce_exact_ids_owner_reason_and_current_utc_expiry() {
     for date in [
         "2026-10-01",
         "2027-01-01",
-        "2026-2-03",
+        "2026-12-3",
         "2026-02-30",
         "2026-10-02T00:00:00Z",
     ] {
@@ -55,7 +59,10 @@ fn advisory_exceptions_enforce_exact_ids_owner_reason_and_current_utc_expiry() {
         with_exception("2026-10-02").replace("security-maintainer", " "),
         with_exception("2026-10-02").replace("Reviewed and tracked", ""),
     ] {
-        assert!(parse_at(bad.as_bytes(), today).is_err());
+        assert!(
+            parse_at(bad.as_bytes(), today).is_err(),
+            "policy should be rejected: {bad}"
+        );
     }
 }
 /// Verify that date validation handles gregorian centuries and boundaries.
@@ -101,6 +108,9 @@ fn source_and_ban_injection_unknown_keys_and_duplicates_are_rejected() {
         good.replace("unsafe-crate\"]", "unsafe-crate\", \"unsafe-crate\"]"),
         good.replace("[bans]", "[bans]\ncustom_hook = \"DO-NOT-ECHO\""),
     ] {
-        assert!(parse_at(bad.as_bytes(), today).is_err());
+        assert!(
+            parse_at(bad.as_bytes(), today).is_err(),
+            "policy should be rejected: {bad}"
+        );
     }
 }

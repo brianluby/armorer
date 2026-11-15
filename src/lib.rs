@@ -28,10 +28,12 @@ use std::path::{Component, Path, PathBuf};
 /// Stable machine-readable failures. Values from configuration are not echoed.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("cannot read local input: {0}")]
+    #[error("local filesystem operation failed: {0}")]
     Io(#[from] std::io::Error),
     #[error("invalid TOML input (values omitted)")]
     Toml,
+    #[error("invalid TOML input at byte offset {offset} (values omitted)")]
+    TomlAt { offset: usize },
     #[error("invalid configuration: {0}")]
     Invalid(String),
     #[error("unsafe or unsupported repository path: {0}")]
@@ -66,7 +68,7 @@ impl Error {
     pub fn code(&self) -> &'static str {
         match self {
             Self::Io(_) => "io",
-            Self::Toml => "invalid-toml",
+            Self::Toml | Self::TomlAt { .. } => "invalid-toml",
             Self::Invalid(_) => "invalid-config",
             Self::Path(_) => "unsafe-path",
             Self::Cargo(_) => "cargo-discovery",
@@ -123,13 +125,39 @@ pub fn safe_path(root: &Path, relative: &str) -> Result<PathBuf> {
 /// with `Error::Path` before opening; inspection assumes a stable filesystem.
 pub(crate) fn read_small(path: &Path) -> Result<Vec<u8>> {
     use std::io::Read;
-    if !std::fs::symlink_metadata(path)?.file_type().is_file() {
+    // Pre-stat rejects FIFOs; the open itself is nonblocking and refuses symlinks so a
+    // FIFO/symlink swapped in after the stat cannot block or redirect the read. The
+    // opened inode is then bound to the stat.
+    let before = std::fs::symlink_metadata(path)?;
+    if !before.file_type().is_file() {
         return Err(Error::Path("expected a regular input file".into()));
     }
+    #[cfg(unix)]
+    let file = {
+        use rustix::fs::{Mode, OFlags};
+        let fd = rustix::fs::open(
+            path,
+            OFlags::RDONLY | OFlags::NONBLOCK | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+            Mode::empty(),
+        )
+        .map_err(std::io::Error::from)?;
+        std::fs::File::from(fd)
+    };
+    #[cfg(not(unix))]
+    let file = std::fs::File::open(path)?;
+    let opened = file.metadata()?;
+    if !opened.is_file() {
+        return Err(Error::Path("expected a regular input file".into()));
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        if before.dev() != opened.dev() || before.ino() != opened.ino() {
+            return Err(Error::Path("input changed during read".into()));
+        }
+    }
     let mut bytes = Vec::new();
-    std::fs::File::open(path)?
-        .take(1_048_577)
-        .read_to_end(&mut bytes)?;
+    file.take(1_048_577).read_to_end(&mut bytes)?;
     if bytes.len() > 1_048_576 {
         return Err(Error::Invalid("input exceeds 1 MiB".into()));
     }
@@ -140,4 +168,32 @@ pub(crate) fn read_small(path: &Path) -> Result<Vec<u8>> {
 pub(crate) fn digest(bytes: &[u8]) -> String {
     use sha2::{Digest, Sha256};
     format!("{:x}", Sha256::digest(bytes))
+}
+
+#[cfg(test)]
+mod tests {
+    #[cfg(unix)]
+    #[test]
+    /// The read guard rejects symlinks, directories and oversized inputs before returning bytes.
+    fn read_small_rejects_symlink_directory_and_oversize() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("file");
+        std::fs::write(&file, b"ok").unwrap();
+        assert_eq!(super::read_small(&file).unwrap(), b"ok");
+        let link = dir.path().join("link");
+        std::os::unix::fs::symlink(&file, &link).unwrap();
+        assert!(matches!(
+            super::read_small(&link),
+            Err(super::Error::Path(_))
+        ));
+        assert!(matches!(
+            super::read_small(dir.path()),
+            Err(super::Error::Path(_))
+        ));
+        std::fs::write(&file, vec![b'x'; 1_048_577]).unwrap();
+        assert!(matches!(
+            super::read_small(&file),
+            Err(super::Error::Invalid(_))
+        ));
+    }
 }

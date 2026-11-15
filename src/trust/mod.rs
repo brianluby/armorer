@@ -68,6 +68,9 @@ pub struct Source {
     pub repository: String,
     #[schemars(regex(pattern = "^[0-9a-f]{40}$(?![\\s\\S])"))]
     pub commit: String,
+    #[schemars(regex(
+        pattern = "^refs/(heads/[A-Za-z0-9][A-Za-z0-9_./-]{0,254}|tags/v(0|[1-9][0-9]{0,19})\\.(0|[1-9][0-9]{0,19})\\.(0|[1-9][0-9]{0,19})|pull/[1-9][0-9]{0,19}/merge)$(?![\\s\\S])"
+    ))]
     pub git_ref: String,
 }
 
@@ -97,7 +100,7 @@ pub struct WorkflowIdentity {
     ))]
     pub repository: String,
     #[schemars(regex(
-        pattern = "^\\.github/workflows/[A-Za-z0-9][A-Za-z0-9_.-]*\\.yml$(?![\\s\\S])"
+        pattern = "^\\.github/workflows/[A-Za-z0-9][A-Za-z0-9_.-]*\\.ya?ml$(?![\\s\\S])"
     ))]
     #[schemars(length(max = 273))]
     pub path: String,
@@ -112,7 +115,9 @@ impl WorkflowIdentity {
         require(
             repository_name(&self.repository)
                 && hex_digest(&self.commit, 40)
-                && file.is_some_and(|s| s.ends_with(".yml") && asset_name(s)),
+                && file.is_some_and(|s| {
+                    (s.ends_with(".yml") || s.ends_with(".yaml")) && asset_name(s)
+                }),
             "invalid-workflow-identity",
         )
     }
@@ -150,7 +155,7 @@ pub struct InputIdentity {
     pub cargo_lock_sha256: String,
     pub runtime: ByteIdentity,
     #[schemars(regex(
-        pattern = "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$(?![\\s\\S])"
+        pattern = "^(0|[1-9][0-9]{0,19})\\.(0|[1-9][0-9]{0,19})\\.(0|[1-9][0-9]{0,19})$(?![\\s\\S])"
     ))]
     pub runtime_version: String,
     pub run: RunIdentity,
@@ -198,6 +203,9 @@ pub struct Review {
     #[schemars(regex(pattern = "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"))]
     pub owner: String,
     #[schemars(length(min = 1, max = 4096))]
+    #[schemars(
+        description = "Runtime bound is 1-4096 UTF-8 bytes (not code points) and must contain non-whitespace text"
+    )]
     pub rationale: String,
     #[schemars(transform = crate::schema_bounds::unsigned)]
     #[schemars(range(min = 1))]
@@ -319,7 +327,14 @@ impl<'de> Deserialize<'de> for UniqueJson {
 /// Decode at most one MiB of duplicate-free JSON into the requested contract type.
 pub(crate) fn parse_json<T: serde::de::DeserializeOwned>(bytes: &[u8]) -> Result<T> {
     require(bytes.len() <= 1_048_576, "contract-exceeds-1-mib")?;
-    let strict: UniqueJson = serde_json::from_slice(bytes).map_err(|_| Error::Json)?;
+    let strict: UniqueJson = serde_json::from_slice(bytes).map_err(|e| {
+        // Only the duplicate-key visitor emits Data errors here; everything else stays redacted.
+        if e.classify() == serde_json::error::Category::Data {
+            Error::Invalid("duplicate-json-key".into())
+        } else {
+            Error::Json
+        }
+    })?;
     serde_json::from_value(strict.0).map_err(|_| Error::Json)
 }
 
@@ -355,6 +370,20 @@ pub(crate) fn valid_source_ref(value: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::asset_name;
+
+    #[test]
+    /// Duplicate keys are a tampering signal with a distinct code; syntax errors stay redacted.
+    fn parse_json_distinguishes_duplicate_keys_from_syntax_errors() {
+        assert!(matches!(
+            super::parse_json::<serde_json::Value>(b"{\"a\":1,\"a\":2}"),
+            Err(crate::Error::Invalid(code)) if code == "duplicate-json-key"
+        ));
+        assert!(matches!(
+            super::parse_json::<serde_json::Value>(b"{invalid"),
+            Err(crate::Error::Json)
+        ));
+        assert!(super::parse_json::<serde_json::Value>(b"{\"a\":1}").is_ok());
+    }
 
     #[test]
     /// Flat asset names reject traversal and dot-prefixed names; internal dots stay valid.

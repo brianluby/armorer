@@ -17,10 +17,13 @@ struct Fake {
     ambiguous_create: bool,
     ambiguous_upload: bool,
     ambiguous_publish: bool,
+    failed_publish: bool,
     bad_download: bool,
     mutate_download: bool,
     bad_immutable: bool,
     bad_attestation: bool,
+    /// Override one gate: (name, replacement state) with None removing the gate entirely.
+    gate_override: Option<(&'static str, Option<GateState>)>,
 }
 impl Backend for Fake {
     /// Supply test-only prerequisite observations; no production caller can install this backend.
@@ -36,15 +39,22 @@ impl Backend for Fake {
         if self.triggering_actor_change_at == Some(self.checks) {
             self.triggering_actor = Some(Some(3));
         }
+        let mut gates: BTreeMap<String, GateState> = github::REQUIRED_GATES
+            .iter()
+            .map(|name| ((*name).into(), GateState::Enforced))
+            .collect();
+        if let Some((name, state)) = self.gate_override {
+            match state {
+                Some(state) => gates.insert(name.into(), state),
+                None => gates.remove(name),
+            };
+        }
         Ok(CapabilityReport {
             observed_at: now()?,
             repository_id: policy.policy.repository_id,
             actor_id: self.actor.unwrap_or(Some(1)),
             triggering_actor_id: self.triggering_actor.unwrap_or(Some(1)),
-            gates: github::REQUIRED_GATES
-                .iter()
-                .map(|name| ((*name).into(), GateState::Enforced))
-                .collect(),
+            gates,
             evidence: BTreeMap::new(),
             limitations: vec!["Synthetic state-machine observations only".into()],
         })
@@ -69,6 +79,8 @@ impl Backend for Fake {
     /// Simulate server acceptance followed by an ambiguous client failure to test non-retry ownership.
     fn create(&mut self, release: &FrozenRelease, body: &str) -> Result<RemoteRelease> {
         self.creates += 1;
+        // The real provider rejects a duplicate tag (422); never replace an existing release.
+        require(self.remote.is_none(), "test-duplicate-tag")?;
         let value = RemoteRelease {
             id: 42,
             tag: release.plan.tag.clone(),
@@ -114,18 +126,23 @@ impl Backend for Fake {
         }
     }
     /// Inject wrong served bytes or a during-download release mutation without pretending to sign anything.
-    fn download(&mut self, id: u64, _: u64) -> Result<Vec<u8>> {
+    fn download(&mut self, id: u64, max_bytes: u64) -> Result<Vec<u8>> {
         if self.mutate_download {
             self.remote.as_mut().ok_or(Error::Json)?.body.push('x');
         }
         if self.bad_download {
             return Ok(b"tampered".to_vec());
         }
-        self.bytes.get(&id).cloned().ok_or(Error::Json)
+        let bytes = self.bytes.get(&id).cloned().ok_or(Error::Json)?;
+        require(bytes.len() as u64 <= max_bytes, "test-download-size-limit")?;
+        Ok(bytes)
     }
     /// Simulate one publication and optionally lose its response after immutable server acceptance.
     fn publish(&mut self, id: u64) -> Result<()> {
         self.publishes += 1;
+        if self.failed_publish {
+            return Err(Error::Invalid("test-publish-denied".into()));
+        }
         let value = self
             .remote
             .as_mut()
@@ -264,7 +281,7 @@ fn owned_retry_and_one_time_publication_preserve_exact_ids() {
 #[test]
 /// Every unavailable required gate and every omitted gate prevents a mutation permit.
 fn required_capability_states_and_missing_gates_fail_closed() {
-    let (mut c, _, _dir) = fixture();
+    let (mut c, approval, _dir) = fixture();
     let original = c.backend.check(&c.release, &c.policy).unwrap();
     for name in github::REQUIRED_GATES {
         for state in [
@@ -277,12 +294,20 @@ fn required_capability_states_and_missing_gates_fail_closed() {
             let mut changed = original.clone();
             changed.gates.insert((*name).into(), state);
             assert!(changed.require_ready(now().unwrap(), 30).is_err());
+            // Drive the controller, not just the report: degraded gates must block staging writes.
+            c.backend.gate_override = Some((name, Some(state)));
+            assert!(c.stage(&approval).is_err(), "{name}: {state:?}");
         }
         let mut changed = original.clone();
         changed.gates.remove(*name);
         assert!(changed.require_ready(now().unwrap(), 30).is_err());
+        c.backend.gate_override = Some((name, None));
+        assert!(c.stage(&approval).is_err(), "{name}: missing");
     }
-    assert_eq!(c.backend.creates, 0);
+    assert_eq!(
+        (c.backend.creates, c.backend.uploads, c.backend.publishes),
+        (0, 0, 0)
+    );
 }
 #[test]
 /// Expired, wrong-action, substituted-plan and unauthorized human approvals issue zero writes.
@@ -307,16 +332,19 @@ fn approval_scope_identity_and_expiry_block_every_write() {
 /// An existing foreign draft or published release is never adopted, replaced or deleted.
 fn foreign_existing_draft_and_published_release_block_creation() {
     for draft in [true, false] {
-        let (mut c, approval, _dir) = fixture();
-        let mut foreign = c.backend.create(&c.release, "foreign").unwrap();
-        foreign.draft = draft;
-        c.backend.remote = Some(foreign);
-        c.backend.creates = 0;
-        assert!(c.stage(&approval).is_err());
-        assert_eq!(
-            (c.backend.creates, c.backend.uploads, c.backend.publishes),
-            (0, 0, 0)
-        );
+        for author in [2, 99] {
+            let (mut c, approval, _dir) = fixture();
+            let mut foreign = c.backend.create(&c.release, "foreign").unwrap();
+            foreign.draft = draft;
+            foreign.author = author;
+            c.backend.remote = Some(foreign);
+            c.backend.creates = 0;
+            assert!(c.stage(&approval).is_err());
+            assert_eq!(
+                (c.backend.creates, c.backend.uploads, c.backend.publishes),
+                (0, 0, 0)
+            );
+        }
     }
 }
 #[test]
@@ -347,16 +375,13 @@ fn cross_run_attempt_asset_and_policy_journals_are_conflicts() {
     }
 }
 #[test]
-/// Ambiguous create and upload outcomes are retained before the write and never automatically retried.
-fn ambiguous_draft_and_upload_failures_require_recovery_review() {
+/// Ambiguous create and upload outcomes recover on retry without repeating the accepted write.
+fn ambiguous_draft_and_upload_outcomes_recover_without_duplicate_writes() {
     for create in [true, false] {
         let (mut c, approval, _dir) = fixture();
         c.backend.ambiguous_create = create;
         c.backend.ambiguous_upload = !create;
         assert!(c.stage(&approval).is_err());
-        let counts = (c.backend.creates, c.backend.uploads);
-        assert!(c.stage(&approval).is_err());
-        assert_eq!((c.backend.creates, c.backend.uploads), counts);
         let journal = c.state.load(&c.release.identity).unwrap().unwrap();
         assert_eq!(
             journal.phase,
@@ -366,7 +391,46 @@ fn ambiguous_draft_and_upload_failures_require_recovery_review() {
                 Phase::Uploading
             }
         );
+        c.backend.ambiguous_create = false;
+        c.backend.ambiguous_upload = false;
+        let served = c.stage(&approval).unwrap();
+        // The lost create/upload response is reconciled, never re-created or re-uploaded.
+        assert_eq!((c.backend.creates, c.backend.uploads), (1, 2));
+        assert_eq!(served.release_id, 42);
     }
+}
+#[test]
+/// A lost create response with no remote effect recovers by creating exactly one draft.
+fn creating_journal_without_remote_draft_creates_once_on_recovery() {
+    let (mut c, approval, _dir) = fixture();
+    c.backend.ambiguous_create = true;
+    assert!(c.stage(&approval).is_err());
+    assert_eq!(
+        c.state.load(&c.release.identity).unwrap().unwrap().phase,
+        Phase::Creating
+    );
+    // The create never took effect server-side: no release exists for the tag.
+    c.backend.remote = None;
+    c.backend.ambiguous_create = false;
+    let served = c.stage(&approval).unwrap();
+    assert_eq!(c.backend.creates, 2);
+    assert_eq!(served.release_id, 42);
+}
+#[test]
+/// A definitively failed publish restores the verified draft so a later approved publish succeeds.
+fn definitively_failed_publish_does_not_wedge_the_journal() {
+    let (mut c, stage, _dir) = fixture();
+    let served = c.stage(&stage).unwrap();
+    let publish = publish_approval(&c, &served);
+    c.backend.failed_publish = true;
+    assert!(c.publish(&publish).is_err());
+    let journal = c.state.load(&c.release.identity).unwrap().unwrap();
+    assert_eq!(journal.phase, Phase::Publishing);
+    // The release is still an owned draft: recovery must not claim publication.
+    assert!(c.recover_published().is_err());
+    c.backend.failed_publish = false;
+    assert_eq!(c.publish(&publish).unwrap(), served);
+    assert_eq!(c.backend.publishes, 2);
 }
 #[test]
 /// A lost publish response permits only read-only immutable-byte and attestation recovery.
@@ -440,9 +504,16 @@ fn publication_approval_requires_independent_reviewer_and_exact_draft() {
         let (mut c, stage, _dir) = fixture();
         let served = c.stage(&stage).unwrap();
         let mut approval = publish_approval(&c, &served);
+        let owned_id = c
+            .state
+            .load(&c.release.identity)
+            .unwrap()
+            .unwrap()
+            .release_id
+            .unwrap();
         match case {
             0 => approval.approval.approver_id = 1,
-            1 => approval.approval.release_id = Some(43),
+            1 => approval.approval.release_id = Some(owned_id + 1),
             _ => approval.approval.served_bytes = Some(ByteIdentity::from_bytes(b"other receipt")),
         }
         assert!(c.publish(&approval).is_err());
@@ -526,6 +597,23 @@ fn post_publication_failures_never_claim_completion_or_repair_bytes() {
         assert!(c.stage(&stage).is_err());
         assert_eq!((c.backend.uploads, c.backend.publishes), (2, 1));
     }
+}
+#[test]
+/// A completed prior plan is archived on load so the next release is not wedged by journal conflict.
+fn completed_journal_is_archived_for_the_next_plan() {
+    let (mut c, stage, _dir) = fixture();
+    let served = c.stage(&stage).unwrap();
+    let publish = publish_approval(&c, &served);
+    c.publish(&publish).unwrap();
+    let prior_plan = c.release.identity.clone();
+    let other_plan = ByteIdentity::from_bytes(b"a different release plan");
+    assert!(c.state.load(&other_plan).unwrap().is_none());
+    assert!(c.state.load(&prior_plan).unwrap().is_none());
+    assert!(
+        _dir.path()
+            .join(format!("{}.complete.json", prior_plan.sha256))
+            .exists()
+    );
 }
 #[test]
 /// One kernel lock covers different tags and releases automatically when its owning process drops it.
@@ -753,6 +841,32 @@ fn self_approval_blocks_enforcement_only() {
         decide(vec![bound_deployment(100)], statuses, vec![self_approval]),
         (GateState::Unknown, GateState::Enforced)
     );
+    // A rerun initiator distinct from the actor is equally excluded: approver == triggering actor.
+    let commit = "a".repeat(40);
+    let approvers: BTreeSet<u64> = [1, 3].into();
+    let expected = github::DeploymentExpectation {
+        run_id: 10,
+        run_attempt: 1,
+        source_commit: &commit,
+        environment: "release-publish",
+        environment_id: 9,
+        approvers: &approvers,
+        actor: Some(1),
+        triggering_actor: Some(3),
+    };
+    let initiator_approval =
+        json!({"state": "approved", "environments": [{"id": 9}], "user": {"id": 3}});
+    let mut statuses = BTreeMap::new();
+    statuses.insert(100, active_status(500));
+    assert_eq!(
+        github::deployment_gate_states(
+            &[bound_deployment(100)],
+            &statuses,
+            &[initiator_approval],
+            &expected,
+        ),
+        (GateState::Unknown, GateState::Enforced)
+    );
 }
 
 #[test]
@@ -780,9 +894,28 @@ fn approval_environment_state_and_reviewer_are_exact() {
 #[test]
 /// More than one hundred deployments fails closed without scanning an unbounded listing.
 fn over_one_hundred_deployments_fail_closed() {
-    let deployments: Vec<_> = (1..=101).map(bound_deployment).collect();
+    // One bound active deployment plus 100 distinct-run active deployments: without the cap the
+    // decision would be (Enforced, Unknown), so only the >100 limit produces (Unknown, Unknown).
+    let mut deployments = vec![bound_deployment(1)];
     let mut statuses = BTreeMap::new();
     statuses.insert(1, active_status(500));
+    for id in 2..=101 {
+        let mut other = bound_deployment(id);
+        other["payload"]["armorer_run_id"] = (id + 1000).into();
+        deployments.push(other);
+        statuses.insert(id, active_status(500 + id));
+    }
+    // The discriminating 100-deployment control decides (Enforced, Unknown).
+    let control: Vec<_> = deployments[..100].to_vec();
+    let control_statuses: BTreeMap<_, _> = statuses
+        .iter()
+        .filter(|(id, _)| **id <= 100)
+        .map(|(k, v)| (*k, v.clone()))
+        .collect();
+    assert_eq!(
+        decide(control, control_statuses, vec![independent_approval()]),
+        (GateState::Enforced, GateState::Unknown)
+    );
     assert_eq!(
         decide(deployments, statuses, vec![independent_approval()]),
         (GateState::Unknown, GateState::Unknown)

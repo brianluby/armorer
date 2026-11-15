@@ -1,3 +1,5 @@
+#![cfg(unix)]
+
 use armorer::{
     apply::{apply, load_plan},
     plan::inspect,
@@ -82,6 +84,10 @@ fn applies_approved_bytes_and_same_plan_replay_changes_nothing() {
         "unchanged"
     );
     assert_eq!(bytes(root.path(), ".armorer/state.json"), state);
+    assert_eq!(
+        bytes(root.path(), "rust-toolchain.toml"),
+        plan.changes[0].proposed_content.as_bytes()
+    );
     assert_eq!(
         fs::metadata(root.path().join("rust-toolchain.toml"))
             .unwrap()
@@ -243,6 +249,35 @@ fn cli_requires_approval_and_emits_honest_receipt() {
     let plan = inspect(root.path(), "plan").unwrap();
     let output = root.path().join("approved.json");
     fs::write(&output, serde_json::to_vec(&plan).unwrap()).unwrap();
+    // Approval is required: omitting or mistyping the digest must fail without applying anything.
+    let missing = Command::new(env!("CARGO_BIN_EXE_armorer"))
+        .arg("--repository")
+        .arg(root.path())
+        .args(["apply", "--plan"])
+        .arg(&output)
+        .output()
+        .unwrap();
+    assert!(
+        !missing.status.success(),
+        "stdout: {} stderr: {}",
+        String::from_utf8_lossy(&missing.stdout),
+        String::from_utf8_lossy(&missing.stderr)
+    );
+    let wrong = Command::new(env!("CARGO_BIN_EXE_armorer"))
+        .arg("--repository")
+        .arg(root.path())
+        .args(["apply", "--plan"])
+        .arg(&output)
+        .args(["--expect-plan-sha256", &"0".repeat(64)])
+        .output()
+        .unwrap();
+    assert!(
+        !wrong.status.success(),
+        "stdout: {} stderr: {}",
+        String::from_utf8_lossy(&wrong.stdout),
+        String::from_utf8_lossy(&wrong.stderr)
+    );
+    assert!(!root.path().join(".armorer/state.json").exists());
     let result = Command::new(env!("CARGO_BIN_EXE_armorer"))
         .arg("--repository")
         .arg(root.path())
@@ -253,8 +288,9 @@ fn cli_requires_approval_and_emits_honest_receipt() {
         .unwrap();
     assert!(
         result.status.success(),
-        "{}",
-        String::from_utf8_lossy(&result.stdout)
+        "stdout: {} stderr: {}",
+        String::from_utf8_lossy(&result.stdout),
+        String::from_utf8_lossy(&result.stderr)
     );
     let receipt: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
     assert_eq!(receipt["outcome"], "applied");
@@ -276,11 +312,18 @@ fn replay_rechecks_derived_intent_and_receipt_ownership() {
     forged.plan_sha256 = forged.digest().unwrap();
     state["last_plan_sha256"] = forged.plan_sha256.clone().into();
     fs::write(&state_path, serde_json::to_vec(&state).unwrap()).unwrap();
-    assert!(apply(root.path(), &forged, &forged.plan_sha256).is_err());
+    assert!(matches!(
+        apply(root.path(), &forged, &forged.plan_sha256),
+        Err(armorer::Error::Transaction(reason)) if reason.contains("approved inputs changed")
+    ));
     state = original;
     state["managed"] = serde_json::json!({});
     fs::write(&state_path, serde_json::to_vec(&state).unwrap()).unwrap();
-    assert!(apply(root.path(), &plan, &plan.plan_sha256).is_err());
+    assert!(matches!(
+        apply(root.path(), &plan, &plan.plan_sha256),
+        Err(armorer::Error::Transaction(reason))
+            if reason.contains("committed plan receipt conflicts")
+    ));
 }
 
 #[test]
@@ -296,6 +339,8 @@ fn strict_plan_rejects_nested_extras_and_duplicate_map_keys() {
         "\"input_preimages\":{",
         "\"input_preimages\":{\"LICENSE\":null,",
     );
+    // Pin the injection: a fixture drift must not turn this into a parse/unknown-field test.
+    assert!(raw.contains("\"LICENSE\":null,\"LICENSE\":"));
     fs::write(&output, raw).unwrap();
     assert!(load_plan(&output, &plan.plan_sha256).is_err());
 }

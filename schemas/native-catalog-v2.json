@@ -106,6 +106,8 @@
           "items": {
             "$ref": "#/$defs/NativePin"
           },
+          "maxItems": 128,
+          "minItems": 1,
           "type": "array"
         },
         "review": {
@@ -236,6 +238,7 @@
           "type": "string"
         },
         "rationale": {
+          "description": "Runtime bound is 1-4096 UTF-8 bytes (not code points) and must contain non-whitespace text",
           "maxLength": 4096,
           "minLength": 1,
           "type": "string"
@@ -351,6 +354,7 @@
           "type": "string"
         },
         "git_ref": {
+          "pattern": "^refs/(heads/[A-Za-z0-9][A-Za-z0-9_./-]{0,254}|tags/v(0|[1-9][0-9]{0,19})\\.(0|[1-9][0-9]{0,19})\\.(0|[1-9][0-9]{0,19})|pull/[1-9][0-9]{0,19}/merge)$(?![\\s\\S])",
           "type": "string"
         },
         "repository": {
@@ -374,7 +378,7 @@
         },
         "path": {
           "maxLength": 273,
-          "pattern": "^\\.github/workflows/[A-Za-z0-9][A-Za-z0-9_.-]*\\.yml$(?![\\s\\S])",
+          "pattern": "^\\.github/workflows/[A-Za-z0-9][A-Za-z0-9_.-]*\\.ya?ml$(?![\\s\\S])",
           "type": "string"
         },
         "repository": {
@@ -398,16 +402,32 @@
       "items": {
         "$ref": "#/$defs/NativeAdapter"
       },
+      "maxItems": 32,
+      "minItems": 1,
       "type": "array"
     },
     "previous_catalog": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/ByteIdentity"
+      "additionalProperties": false,
+      "description": "An exact byte identity, independent of a filename or producer claim.",
+      "properties": {
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$(?![\\s\\S])",
+          "type": "string"
         },
-        {
-          "type": "null"
+        "size": {
+          "format": "uint64",
+          "maximum": 1073741824,
+          "minimum": 1,
+          "type": "integer"
         }
+      },
+      "required": [
+        "sha256",
+        "size"
+      ],
+      "type": [
+        "object",
+        "null"
       ]
     },
     "runtime": {
@@ -422,6 +442,7 @@
   },
   "required": [
     "schema_version",
+    "previous_catalog",
     "runtime",
     "adapters"
   ],

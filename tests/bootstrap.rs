@@ -374,6 +374,7 @@ fn symlink_parents_targets_and_control_files_do_not_redirect_writes() {
     }
 }
 /// Verify that independently applied complete diffs reconstruct every target.
+#[cfg(unix)]
 #[test]
 fn independently_applied_complete_diffs_reconstruct_every_target() {
     let (root, policy) = fixture("library");

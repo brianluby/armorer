@@ -171,7 +171,9 @@ fn genuine_pinned_gh_verifies_and_every_offered_tamper_or_identity_error_fails()
     let sig = signature["dsseEnvelope"]["signatures"][0]["sig"]
         .as_str()
         .unwrap();
-    signature["dsseEnvelope"]["signatures"][0]["sig"] = format!("A{}", &sig[1..]).into();
+    // Guarantee a real mutation even if the fixture signature already starts with 'A'.
+    let flip = if sig.starts_with('A') { 'B' } else { 'A' };
+    signature["dsseEnvelope"]["signatures"][0]["sig"] = format!("{flip}{}", &sig[1..]).into();
     let mut payload = original.clone();
     let encoded = payload["dsseEnvelope"]["payload"].as_str().unwrap();
     let mut statement: Value = serde_json::from_slice(&STANDARD.decode(encoded).unwrap()).unwrap();
@@ -193,31 +195,36 @@ fn genuine_pinned_gh_verifies_and_every_offered_tamper_or_identity_error_fails()
     ] {
         let file = tempfile::NamedTempFile::new().unwrap();
         fs::write(file.path(), serde_json::to_vec(&value).unwrap()).unwrap();
+        let err = verifier
+            .verify(&artifact, &expected_bytes, file.path(), &expected)
+            .expect_err(case);
         assert!(
-            verifier
-                .verify(&artifact, &expected_bytes, file.path(), &expected)
-                .is_err(),
-            "{case}"
+            matches!(err, armorer::Error::Invalid(_)),
+            "{case}: unexpected error class: {err:?}"
         );
     }
     let file = tempfile::NamedTempFile::new().unwrap();
     let mut changed = artifact_bytes.clone();
     changed[0] ^= 1;
     fs::write(file.path(), &changed).unwrap();
+    let err = verifier
+        .verify(file.path(), &expected_bytes, &bundle, &expected)
+        .expect_err("flipped artifact against reviewed identity");
     assert!(
-        verifier
-            .verify(file.path(), &expected_bytes, &bundle, &expected)
-            .is_err()
+        matches!(err, armorer::Error::Invalid(_)),
+        "flipped artifact: unexpected error class: {err:?}"
     );
+    let err = verifier
+        .verify(
+            file.path(),
+            &ByteIdentity::from_bytes(&changed),
+            &bundle,
+            &expected,
+        )
+        .expect_err("flipped artifact with recomputed identity");
     assert!(
-        verifier
-            .verify(
-                file.path(),
-                &ByteIdentity::from_bytes(&changed),
-                &bundle,
-                &expected,
-            )
-            .is_err()
+        matches!(err, armorer::Error::Invalid(_)),
+        "flipped artifact recomputed: unexpected error class: {err:?}"
     );
     // The same real signature is offered with independently reviewed alternate
     // expectations. Exact cryptographic CLI flags or post-crypto identities reject.
@@ -260,11 +267,12 @@ fn genuine_pinned_gh_verifies_and_every_offered_tamper_or_identity_error_fails()
         }
         let wrong_policy = self::policy(&wrong, policy.roots.verifier.clone());
         let wrong_verifier = open(&wrong_policy, &executable);
+        let err = wrong_verifier
+            .verify(&artifact, &expected_bytes, &bundle, &wrong)
+            .expect_err(case);
         assert!(
-            wrong_verifier
-                .verify(&artifact, &expected_bytes, &bundle, &wrong)
-                .is_err(),
-            "{case}"
+            matches!(err, armorer::Error::Invalid(_)),
+            "{case}: unexpected error class: {err:?}"
         );
     }
     let download = tempfile::NamedTempFile::new().unwrap();
@@ -286,69 +294,72 @@ fn genuine_pinned_gh_verifies_and_every_offered_tamper_or_identity_error_fails()
         ),
     )
     .unwrap();
+    let err = verifier
+        .verify_download(&artifact, &expected_bytes, download.path(), &expected)
+        .expect_err("Mixed valid/invalid download must not return a verified subset");
     assert!(
-        verifier
-            .verify_download(&artifact, &expected_bytes, download.path(), &expected,)
-            .is_err(),
-        "Mixed valid/invalid download must not return a verified subset"
+        matches!(err, armorer::Error::Invalid(_)),
+        "mixed download: unexpected error class: {err:?}"
     );
     let mut private_policy = policy.clone();
     private_policy.roots.backend = TrustBackend::GithubPrivate;
+    let err = open(&private_policy, &executable)
+        .verify(&artifact, &expected_bytes, &bundle, &expected)
+        .expect_err("private-good backend must reject the public-good fixture");
     assert!(
-        open(&private_policy, &executable)
-            .verify(&artifact, &expected_bytes, &bundle, &expected)
-            .is_err()
+        matches!(err, armorer::Error::Invalid(_)),
+        "private backend: unexpected error class: {err:?}"
     );
     let policy_file = tempfile::NamedTempFile::new().unwrap();
     let bytes = serde_json::to_vec(&policy).unwrap();
     fs::write(policy_file.path(), &bytes).unwrap();
-    assert!(
+    assert!(matches!(
         OfflineVerifier::open(
             policy_file.path(),
             &"0".repeat(64),
             &executable,
             &fixture("trusted_root.json"),
-        )
-        .is_err()
-    );
+        ),
+        Err(armorer::Error::Invalid(code)) if code == "unapproved-verification-policy"
+    ));
     let wrong_root = tempfile::NamedTempFile::new().unwrap();
     fs::write(wrong_root.path(), b"unapproved root").unwrap();
-    assert!(
+    assert!(matches!(
         OfflineVerifier::open(
             policy_file.path(),
             &ByteIdentity::from_bytes(&bytes).sha256,
             &executable,
             wrong_root.path(),
-        )
-        .is_err()
-    );
+        ),
+        Err(armorer::Error::Invalid(code)) if code == "unapproved-trusted-root-bytes"
+    ));
     let mut expired = policy.clone();
     expired.review.expires_at = now() - 1;
     let expired_bytes = serde_json::to_vec(&expired).unwrap();
     fs::write(policy_file.path(), &expired_bytes).unwrap();
-    assert!(
+    assert!(matches!(
         OfflineVerifier::open(
             policy_file.path(),
             &ByteIdentity::from_bytes(&expired_bytes).sha256,
             &executable,
             &fixture("trusted_root.json")
-        )
-        .is_err()
-    );
+        ),
+        Err(armorer::Error::Invalid(code)) if code == "invalid-or-expired-review"
+    ));
     // Even a separately approved policy cannot substitute arbitrary native code
     // for the compiled independently qualified verifier distribution.
     let mut changed_verifier = policy.clone();
     changed_verifier.roots.verifier.sha256 = "a".repeat(64);
     let changed_bytes = serde_json::to_vec(&changed_verifier).unwrap();
     fs::write(policy_file.path(), &changed_bytes).unwrap();
-    assert!(
+    assert!(matches!(
         OfflineVerifier::open(
             policy_file.path(),
             &ByteIdentity::from_bytes(&changed_bytes).sha256,
             &executable,
             &fixture("trusted_root.json")
-        )
-        .is_err()
-    );
+        ),
+        Err(armorer::Error::Invalid(code)) if code == "unqualified-native-verifier-policy"
+    ));
     assert_eq!(fs::read(&artifact).unwrap(), artifact_bytes);
 }

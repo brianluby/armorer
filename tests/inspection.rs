@@ -165,6 +165,7 @@ fn preserves_existing_toolchain_and_lock_bytes() {
     );
 }
 
+#[cfg(unix)]
 #[test]
 fn excludes_repository_credential_providers_and_overrides() {
     let root = fixture();
@@ -313,11 +314,7 @@ sha256 = "{}"
         &lock.replace(&"b".repeat(40), "v1"),
     );
     assert!(load_lock(root.path(), &digest).is_err());
-    assert_eq!(
-        bytes,
-        lock.as_bytes(),
-        "loaded bytes remain bound to the validated lock after the file changes"
-    );
+    assert_eq!(bytes, lock.as_bytes());
 }
 
 #[test]
@@ -391,14 +388,12 @@ fn rejects_oversized_inputs_before_metadata() {
 fn handles_recursive_feature_cycles_and_transitive_required_features() {
     let root = fixture();
     let manifest = fs::read_to_string(root.path().join("crates/tool/Cargo.toml")).unwrap();
-    write(
-        root.path(),
-        "crates/tool/Cargo.toml",
-        &manifest.replace(
-            "default = [\"service\"]\nservice = []",
-            "default = [\"bundle\"]\nbundle = [\"service\"]\nservice = [\"bundle\"]",
-        ),
+    let mutated = manifest.replace(
+        "default = [\"service\"]\nservice = []",
+        "default = [\"bundle\"]\nbundle = [\"service\"]\nservice = [\"bundle\"]",
     );
+    assert_ne!(manifest, mutated);
+    write(root.path(), "crates/tool/Cargo.toml", &mutated);
     assert!(inspect(root.path(), "plan").is_ok());
 }
 
@@ -422,10 +417,14 @@ fn missing_installed_toolchain_is_an_error_without_installation() {
 fn preserves_rustup_multicall_executable_name() {
     let root = fixture();
     let tools = tempfile::tempdir().unwrap();
-    let installed = std::env::split_paths(&std::env::var_os("PATH").unwrap())
-        .map(|directory| directory.join("rustup"))
-        .find(|path| path.is_absolute() && path.is_file())
-        .unwrap();
+    let Some(installed) = std::env::var_os("PATH").and_then(|path| {
+        std::env::split_paths(&path)
+            .map(|directory| directory.join("rustup"))
+            .find(|path| path.is_absolute() && path.is_file())
+    }) else {
+        eprintln!("rustup not on PATH; skipping multicall-name test");
+        return;
+    };
     fs::copy(installed, tools.path().join("rustup-init")).unwrap();
     std::os::unix::fs::symlink("rustup-init", tools.path().join("rustup")).unwrap();
     let result = Command::new(env!("CARGO_BIN_EXE_armorer"))
@@ -487,11 +486,9 @@ fn rejects_repository_local_executable_on_path() {
 fn accepts_anchored_package_patterns_and_opaque_metadata() {
     let root = fixture();
     let manifest = fs::read_to_string(root.path().join("crates/tool/Cargo.toml")).unwrap();
-    write(
-        root.path(),
-        "crates/tool/Cargo.toml",
-        &manifest.replace("[package]", "[package]\nexclude = [\"/ci\", \"/.github\"]"),
-    );
+    let mutated = manifest.replace("[package]", "[package]\nexclude = [\"/ci\", \"/.github\"]");
+    assert_ne!(manifest, mutated);
+    write(root.path(), "crates/tool/Cargo.toml", &mutated);
     assert!(inspect(root.path(), "plan").is_ok());
     write(
         root.path(),
@@ -576,7 +573,7 @@ fn rejects_fifo_inputs_without_blocking() {
             fs::remove_file(&input).unwrap();
         }
         assert!(
-            Command::new("/usr/bin/mkfifo")
+            Command::new("mkfifo")
                 .arg(&input)
                 .status()
                 .unwrap()
@@ -584,23 +581,25 @@ fn rejects_fifo_inputs_without_blocking() {
         );
         let mut child = Command::new(env!("CARGO_BIN_EXE_armorer"))
             .args(["--repository", root.path().to_str().unwrap(), "plan"])
-            .stdout(Stdio::null())
+            .stdout(Stdio::piped())
             .stderr(Stdio::null())
             .spawn()
             .unwrap();
         let started = Instant::now();
-        let status = loop {
-            if let Some(status) = child.try_wait().unwrap() {
-                break status;
+        let output = loop {
+            if child.try_wait().unwrap().is_some() {
+                break child.wait_with_output().unwrap();
             }
-            if started.elapsed() > Duration::from_secs(2) {
+            if started.elapsed() > Duration::from_secs(10) {
                 child.kill().unwrap();
                 child.wait().unwrap();
                 panic!("inspection blocked on {file}");
             }
             std::thread::sleep(Duration::from_millis(10));
         };
-        assert_eq!(status.code(), Some(1));
+        assert_eq!(output.status.code(), Some(1));
+        let diagnostic: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(diagnostic["error"]["code"], "unsafe-path", "{file}");
     }
 }
 
@@ -647,4 +646,65 @@ fn rejects_inherited_temporary_ancestor_cargo_configuration() {
     assert!(!String::from_utf8_lossy(&result.stdout).contains("DO-NOT-ECHO"));
     assert_eq!(fs::metadata(&scratch).unwrap().modified().unwrap(), before);
     assert_eq!(fs::read_dir(&scratch).unwrap().count(), 0);
+}
+
+#[cfg(unix)]
+#[test]
+/// A descendant inheriting rustup's stdout must not block discovery after the child exits.
+fn inherited_stdout_descendant_does_not_block_toolchain_lookup() {
+    use std::{
+        os::unix::fs::PermissionsExt,
+        process::Stdio,
+        time::{Duration, Instant},
+    };
+    let root = fixture();
+    let tools = tempfile::tempdir().unwrap();
+    // The direct child exits at once; the backgrounded descendant keeps the inherited
+    // stdout open far beyond the test timeout below, so the old pipe-based drain would
+    // hang and fail this test. stdout is a file, so it cannot block.
+    write(root.path(), "cargo", "");
+    write(
+        tools.path(),
+        "rustup",
+        &format!(
+            "#!/bin/sh\nsleep 30 &\nprintf '{}/cargo\\n'\nexit 0\n",
+            root.path().display()
+        ),
+    );
+    fs::set_permissions(
+        tools.path().join("rustup"),
+        fs::Permissions::from_mode(0o700),
+    )
+    .unwrap();
+    let mut child = Command::new(env!("CARGO_BIN_EXE_armorer"))
+        .env("PATH", tools.path())
+        .args(["--repository", root.path().to_str().unwrap(), "plan"])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+    let started = Instant::now();
+    let output = loop {
+        if child.try_wait().unwrap().is_some() {
+            break child.wait_with_output().unwrap();
+        }
+        if started.elapsed() > Duration::from_secs(5) {
+            child.kill().unwrap();
+            child.wait().unwrap();
+            panic!("toolchain lookup blocked on inherited stdout");
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    };
+    // Prompt termination with the expected failure: the reported cargo path is inside
+    // the repository, which discovery must reject.
+    assert_eq!(output.status.code(), Some(1));
+    let value: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(value["error"]["code"], "cargo-discovery");
+    assert!(
+        value["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("toolchain-path"),
+        "{value}"
+    );
 }

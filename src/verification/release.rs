@@ -283,6 +283,7 @@ impl AuthenticatedReleaseFiles {
         context.validate_at(sigstore::wall_time()?)?;
         compare_directory(directory, &names)?;
         for (name, identity) in &identities {
+            deadline(started)?;
             require(
                 io::identity(
                     &workspace.path().join(name),
@@ -324,6 +325,10 @@ impl AuthenticatedReleaseFiles {
     /// Borrow the actual cryptographic proof that authenticated the inventory before it was parsed.
     pub fn inventory_proof(&self) -> &VerifiedAttestation {
         &self.inventory_proof
+    }
+    /// Total verified bundles: every asset attestation plus the inventory proof.
+    pub fn verified_bundle_count(&self) -> usize {
+        self.attestations.len() + 1
     }
     /// Borrow every verified bundle proof; no verified subset can construct this result.
     pub fn attestations(&self) -> &BTreeMap<String, VerifiedAttestation> {

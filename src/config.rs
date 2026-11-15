@@ -34,7 +34,7 @@ pub struct Config {
     pub manifest: String,
     #[schemars(length(min = 1, max = 128))]
     pub deliverables: Vec<Deliverable>,
-    #[schemars(extend("minProperties" = 1, "maxProperties" = 128, "propertyNames" = serde_json::json!({"pattern":"^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"})))]
+    #[schemars(extend("minProperties" = 1, "maxProperties" = 128, "propertyNames" = serde_json::json!({"pattern":"^(?!.*--)[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"})))]
     pub feature_sets: BTreeMap<String, FeatureSet>,
     pub policy: Policy,
 }
@@ -47,17 +47,16 @@ fn manifest_default() -> String {
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Deliverable {
-    #[schemars(regex(pattern = "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"))]
+    #[schemars(regex(pattern = "^(?!.*--)[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"))]
     pub id: String,
     pub profile: Profile,
     #[schemars(regex(pattern = "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"))]
     pub package: String,
     #[schemars(regex(pattern = "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"))]
     pub binary: Option<String>,
-    #[schemars(length(min = 1, max = 3))]
-    #[schemars(extend("uniqueItems" = true, "items" = serde_json::json!({"enum": crate::config::TARGETS})))]
+    #[schemars(extend("minItems" = 1, "maxItems" = TARGETS.len(), "uniqueItems" = true, "items" = serde_json::json!({"enum": crate::config::TARGETS})))]
     pub targets: Vec<String>,
-    #[schemars(regex(pattern = "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"))]
+    #[schemars(regex(pattern = "^(?!.*--)[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"))]
     pub feature_set: String,
 }
 
@@ -76,12 +75,14 @@ pub struct FeatureSet {
     #[serde(default)]
     #[schemars(length(max = 128))]
     #[schemars(extend("uniqueItems" = true))]
+    #[schemars(inner(regex(pattern = "^[A-Za-z0-9][A-Za-z0-9_+.-]{0,99}$(?![\\s\\S])")))]
     pub features: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Policy {
+    #[schemars(length(min = 1))]
     pub license_file: String,
     pub attestations: Attestations,
 }
@@ -207,9 +208,17 @@ fn require(condition: bool, message: &str) -> Result<()> {
 pub fn load_config(root: &Path) -> Result<(Config, Vec<u8>)> {
     let bytes = read_small(&safe_path(root, "armorer.toml")?)?;
     let text = std::str::from_utf8(&bytes).map_err(|_| Error::Toml)?;
-    let config: Config = toml::from_str(text).map_err(|_| Error::Toml)?;
+    let config: Config = toml::from_str(text).map_err(toml_error)?;
     config.validate(root)?;
     Ok((config, bytes))
+}
+
+/// Preserve the failure offset without echoing any untrusted config value.
+fn toml_error(error: toml::de::Error) -> Error {
+    match error.span() {
+        Some(span) => Error::TomlAt { offset: span.start },
+        None => Error::Toml,
+    }
 }
 
 impl Config {
@@ -254,6 +263,8 @@ impl Config {
         )?;
         for (name, case) in &self.feature_sets {
             require(identifier(name), "invalid feature-set name")?;
+            // Composite asset keys join with `--`; an embedded `--` makes distinct selections collide.
+            require(!name.contains("--"), "feature-set name cannot contain --")?;
             require(
                 case.features.len() <= 128,
                 "feature set exceeds 128 entries",
@@ -271,6 +282,7 @@ impl Config {
         let mut selections = BTreeSet::new();
         for d in &self.deliverables {
             require(identifier(&d.id), "invalid deliverable id")?;
+            require(!d.id.contains("--"), "deliverable id cannot contain --")?;
             require(ids.insert(&d.id), "duplicate deliverable id")?;
             require(identifier(&d.package), "invalid package name")?;
             match (d.profile, &d.binary) {
@@ -322,12 +334,14 @@ impl Config {
 /// contents. Propagates path and I/O errors.
 pub fn load_lock(root: &Path, config_digest: &str) -> Result<Option<(Lock, Vec<u8>)>> {
     let path = safe_path(root, "armorer.lock")?;
-    if !path.try_exists()? {
-        return Ok(None);
-    }
-    let bytes = read_small(&path)?;
+    // One metadata step: a dangling symlink is an error, never a silent "no lock".
+    let bytes = match std::fs::symlink_metadata(&path) {
+        Ok(_) => read_small(&path)?,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error.into()),
+    };
     let lock: Lock = toml::from_str(std::str::from_utf8(&bytes).map_err(|_| Error::Toml)?)
-        .map_err(|_| Error::Toml)?;
+        .map_err(toml_error)?;
     require(
         lock.schema_version == VERSION,
         "unsupported lock schema_version",
@@ -352,4 +366,13 @@ pub fn load_lock(root: &Path, config_digest: &str) -> Result<Option<(Lock, Vec<u
         )?;
     }
     Ok(Some((lock, bytes)))
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    /// A prerelease crate version would make the x.y.z lock schema unsatisfiable for every input.
+    fn crate_version_matches_lock_schema_pattern() {
+        assert!(super::exact_version(env!("CARGO_PKG_VERSION")));
+    }
 }

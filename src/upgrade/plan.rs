@@ -181,7 +181,7 @@ fn known_bases(
                         .is_ok_and(|v| v.pre.is_empty() && v.build.is_empty())
                         && catalog
                             .bootstrap_files(&"0".repeat(64), &channel, "")
-                            .is_ok_and(|files| files["rust-toolchain.toml"] == *base)
+                            .is_ok_and(|files| files.get("rust-toolchain.toml") == Some(base))
                 }),
             ".armorer/ci-policy.toml" => true, // owner-selected policy, not publisher/catalog authority
             _ => false,
@@ -400,6 +400,33 @@ pub fn inspect(
 }
 
 /// Derive review images, ownership decisions and pin changes from the measured input bytes.
+/// The license preimage must never alias a control or generated file; shared by inspect and validate.
+pub(super) fn license_overlap(license_file: &str) -> Result<()> {
+    let license_path: std::path::PathBuf =
+        std::path::Path::new(license_file).components().collect();
+    let controls = [
+        bootstrap::STATE,
+        bootstrap::V1_STATE,
+        bootstrap::JOURNAL,
+        bootstrap::V1_JOURNAL,
+        super::STATE,
+        super::JOURNAL,
+        ".armorer/apply.lock",
+        "armorer.toml",
+        "rust-toolchain",
+    ];
+    if bootstrap::TARGETS
+        .iter()
+        .chain(controls.iter())
+        .any(|target| license_path == std::path::Path::new(target))
+    {
+        return Err(Error::Transaction(
+            "license input overlaps migration control or generated targets",
+        ));
+    }
+    Ok(())
+}
+
 pub(super) fn inspect_bytes(
     root: &Path,
     policy: &[u8],
@@ -410,24 +437,7 @@ pub(super) fn inspect_bytes(
     let policy_review_day = ci_policy::today()?;
     ci_policy::parse_at(policy, policy_review_day)?;
     let (intent, config) = load_config(root)?;
-    if bootstrap::TARGETS.contains(&intent.policy.license_file.as_str())
-        || [
-            bootstrap::STATE,
-            bootstrap::V1_STATE,
-            bootstrap::JOURNAL,
-            bootstrap::V1_JOURNAL,
-            super::STATE,
-            super::JOURNAL,
-            ".armorer/apply.lock",
-            "armorer.toml",
-            "rust-toolchain",
-        ]
-        .contains(&intent.policy.license_file.as_str())
-    {
-        return Err(Error::Transaction(
-            "license input overlaps migration control or generated targets",
-        ));
-    }
+    license_overlap(&intent.policy.license_file)?;
     let Ownership {
         format: source_format,
         catalog: source_catalog,
@@ -678,7 +688,12 @@ pub(super) fn validate(plan: &Plan, expected: &str) -> Result<()> {
         ));
     }
     imports(&plan.import_files)?;
+    // Stored packets are canonical (inspect sorts); unsorted duplicates the approval digest.
+    if !plan.import_files.is_sorted() {
+        return Err(Error::Transaction("import files must be sorted"));
+    }
     plan.intent.validate_shape()?;
+    license_overlap(&plan.intent.policy.license_file)?;
     let origin = source_bytes(plan.state_preimages.clone())?;
     if plan.source_format != origin.format
         || plan.source_catalog != origin.catalog
@@ -709,6 +724,11 @@ pub(super) fn validate(plan: &Plan, expected: &str) -> Result<()> {
         &plan.intent.toolchain,
         &plan.policy_content,
     )?;
+    if generated.len() != plan.changes.len() {
+        return Err(Error::Transaction(
+            "generated target set differs from fixed contract",
+        ));
+    }
     for (c, (path, candidate)) in plan.changes.iter().zip(generated) {
         let requested = plan.import_files.contains(&path);
         if requested && origin.bases.contains_key(&path) {
@@ -802,7 +822,7 @@ pub fn validate_fresh(root: &Path, plan: &Plan) -> Result<()> {
     )?;
     if plan.digest()? != fresh.digest()? || plan.plan_sha256 != fresh.plan_sha256 {
         return Err(Error::Transaction(
-            "saved upgrade inputs, generated bases or preimages changed; review a new plan",
+            "saved upgrade inputs, generated bases or preimages changed, or the policy review day expired; review a new plan",
         ));
     }
     Ok(())

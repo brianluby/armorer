@@ -56,7 +56,7 @@
           "maxProperties": 128,
           "minProperties": 1,
           "propertyNames": {
-            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"
+            "pattern": "^(?!.*--)[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"
           },
           "type": "object"
         },
@@ -104,11 +104,11 @@
           ]
         },
         "feature_set": {
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])",
+          "pattern": "^(?!.*--)[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])",
           "type": "string"
         },
         "id": {
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])",
+          "pattern": "^(?!.*--)[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])",
           "type": "string"
         },
         "package": {
@@ -150,6 +150,7 @@
         "features": {
           "default": [],
           "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_+.-]{0,99}$(?![\\s\\S])",
             "type": "string"
           },
           "maxItems": 128,
@@ -236,6 +237,7 @@
           "$ref": "#/$defs/Attestations"
         },
         "license_file": {
+          "minLength": 1,
           "type": "string"
         }
       },

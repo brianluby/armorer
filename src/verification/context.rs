@@ -95,6 +95,8 @@ pub struct ReleaseExpectationsV3 {
     pub runtime_source: crate::trust::Source,
     pub release: ReleaseExpectations,
     /// Selection keys map to sorted unique features resolved from separately reviewed source and flags.
+    /// Sortedness and key linkage are enforced at runtime (resolved_root_features), not by schema.
+    #[schemars(extend("propertyNames" = serde_json::json!({"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}--[a-z0-9_]+(-[a-z0-9_]+)*--[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"}), "additionalProperties" = serde_json::json!({"type": "array", "items": {"type": "string"}, "uniqueItems": true})))]
     pub root_features: BTreeMap<String, Vec<String>>,
 }
 
@@ -156,14 +158,15 @@ impl CatalogAuthority {
                     .iter()
                     .filter(|a| baseline(a.id))
                     .all(|adapter| {
-                        adapter.pins.iter().all(|pin| {
-                            requirements.tools.iter().any(|tool| {
-                                tool.name == pin.name
-                                    && tool.version == pin.version
-                                    && tool.bytes == pin.distribution
-                                    && tool.authentication_record == pin.authentication_record
+                        !adapter.pins.is_empty()
+                            && adapter.pins.iter().all(|pin| {
+                                requirements.tools.iter().any(|tool| {
+                                    tool.name == pin.name
+                                        && tool.version == pin.version
+                                        && tool.bytes == pin.distribution
+                                        && tool.authentication_record == pin.authentication_record
+                                })
                             })
-                        })
                     })
             }
             Self::NativeV2 { catalog, .. } => catalog
@@ -438,8 +441,8 @@ impl TrustedReleaseContext {
                     && requirements.catalog == self.expectations.catalog,
                 "release-context-evidence-requirements-mismatch",
             )?;
-            let mac =
-                selection.profile != Profile::Library && selection.target == "aarch64-apple-darwin";
+            let mac = selection.profile != Profile::Library
+                && selection.target.ends_with("-apple-darwin");
             if mac {
                 require(
                     self.policy.apple_team.is_some()

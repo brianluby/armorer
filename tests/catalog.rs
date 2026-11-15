@@ -102,26 +102,33 @@ fn render_preserves_existing_lock_and_bespoke_workflows() {
 
 #[test]
 fn caller_workflows_have_only_reviewed_full_pins_and_read_permissions() {
-    let callers = reviewed().unwrap().caller_workflows();
-    for value in callers.values() {
-        assert!(value.contains(&format!("@{WORKFLOW_COMMIT}\n")));
-        assert!(value.contains("permissions:\n  contents: read\n"));
-        for forbidden in [
-            "secrets:",
-            "with:",
-            "run:",
-            "id-token:",
-            "contents: write",
-            "pull_request_target:",
-            "workflow_run:",
-            "environment:",
-        ] {
-            assert!(!value.contains(forbidden), "{forbidden}");
+    for (catalog, commit) in [
+        (reviewed().unwrap(), WORKFLOW_COMMIT),
+        (reviewed_v2().unwrap(), WORKFLOW_COMMIT_V2),
+    ] {
+        let callers = catalog.caller_workflows();
+        for value in callers.values() {
+            assert!(value.contains(&format!("@{commit}\n")));
+            assert_eq!(value.matches("uses:").count(), 1);
+            assert!(value.contains("permissions:\n  contents: read\n"));
+            for forbidden in [
+                "secrets:",
+                "with:",
+                "run:",
+                "id-token:",
+                "contents: write",
+                "pull_request_target:",
+                "workflow_run:",
+                "environment:",
+                "write-all",
+            ] {
+                assert!(!value.contains(forbidden), "{commit}: {forbidden}");
+            }
         }
+        let build = &callers[".github/workflows/armorer-build.yml"];
+        assert!(build.contains("on:\n  workflow_dispatch:\n"));
+        assert!(!build.contains("push:") && !build.contains("release:"));
     }
-    let build = &callers[".github/workflows/armorer-build.yml"];
-    assert!(build.contains("on:\n  workflow_dispatch:\n"));
-    assert!(!build.contains("push:") && !build.contains("release:"));
 }
 
 #[test]
