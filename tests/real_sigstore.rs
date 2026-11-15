@@ -171,7 +171,9 @@ fn genuine_pinned_gh_verifies_and_every_offered_tamper_or_identity_error_fails()
     let sig = signature["dsseEnvelope"]["signatures"][0]["sig"]
         .as_str()
         .unwrap();
-    signature["dsseEnvelope"]["signatures"][0]["sig"] = format!("A{}", &sig[1..]).into();
+    // Guarantee a real mutation even if the fixture signature already starts with 'A'.
+    let flip = if sig.starts_with('A') { 'B' } else { 'A' };
+    signature["dsseEnvelope"]["signatures"][0]["sig"] = format!("{flip}{}", &sig[1..]).into();
     let mut payload = original.clone();
     let encoded = payload["dsseEnvelope"]["payload"].as_str().unwrap();
     let mut statement: Value = serde_json::from_slice(&STANDARD.decode(encoded).unwrap()).unwrap();

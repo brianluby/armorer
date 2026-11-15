@@ -1,4 +1,6 @@
 //! Standard unsigned numeric constraints; JSON Schema formats are annotations.
+//! Consumers MUST parse integers losslessly (big-integer aware): u64 maxima exceed
+//! IEEE-754's safe-integer range, and double-based parsers lose identity precision.
 use schemars::Schema;
 use serde_json::Value;
 
