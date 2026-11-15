@@ -109,3 +109,11 @@ Source refactors (no live bug, blast radius warrants own change):
   is interpolated into generated TOML; loose strings were the injection surface being closed.
 - scripts/qualify-test-verifier.py:78 (compatibility) — refusing group/world-accessible output
   directories is the fail-closed security contract for a pinned executable; CI caller unaffected.
+
+### Followup round (commit 0c47086)
+- CodeRabbit pushbacks accepted (2): inherited-stdout pipe hang — fixed at the root by
+  redirecting lookup stdout to a file (same pattern as cargo metadata); rollback-phase
+  journal-sync message — now phase-neutral, outer error checks journal presence.
+- New momus findings (2): rollback.rs:64 empty-deletion diff pinned via extracted
+  `reverse_diff` + test; trust/mod.rs:330 duplicate-key compatibility ruled invalid by
+  design (deliberate tamper signal, reply posted).
