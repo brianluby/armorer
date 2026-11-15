@@ -700,4 +700,11 @@ fn inherited_stdout_descendant_does_not_block_toolchain_lookup() {
     assert_eq!(output.status.code(), Some(1));
     let value: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(value["error"]["code"], "cargo-discovery");
+    assert!(
+        value["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("toolchain-path"),
+        "{value}"
+    );
 }
