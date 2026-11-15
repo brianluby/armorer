@@ -142,7 +142,7 @@ jobs:
           path: |
             ${{ runner.temp }}/armorer-runtime-candidate/armorer
             ${{ runner.temp }}/armorer-runtime-candidate/runtime-build.json
-          archive: true
+          compression-level: 6
           if-no-files-found: error
           overwrite: false
           retention-days: 14
