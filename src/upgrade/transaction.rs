@@ -18,6 +18,11 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use std::{fs, path::Path};
 
+/// Marker for the confirmed post-deletion directory-sync failure; the outer rollback
+/// error keys off it to prove restoration completed before the journal was deleted.
+const JOURNAL_SYNC_FAILED: &str =
+    "journal deleted but directory sync failed; no recovery journal remains";
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct Write {
@@ -349,7 +354,7 @@ fn remove_journal(root: &Path, expected: &[u8]) -> Result<()> {
     // failure must not instruct the operator to run it. Phase-neutral: this runs on
     // commit, recovery and rollback paths alike.
     sync_directory(&safe_path(root, ".armorer")?).map_err(|cause| Error::TransactionCause {
-        message: "journal deleted but directory sync failed; no recovery journal remains",
+        message: JOURNAL_SYNC_FAILED,
         cause: Box::new(cause),
     })
 }
@@ -483,12 +488,20 @@ fn transaction(
     })();
     if let Err(error) = result {
         if let Err(rollback) = rollback(&root, &j, &initial) {
-            // Rollback may have deleted the journal before a later sync failure; only
-            // claim it is preserved when it is observably still there.
-            let message = if matches!(optional_bytes(&root, JOURNAL), Ok(None)) {
-                "upgrade failed; rollback restored prior images but journal cleanup did not complete; no recovery journal remains"
+            // Only the confirmed post-deletion sync failure proves restoration completed.
+            // An absent journal may mean an external deletion before rollback ran, and an
+            // unreadable one proves nothing; never claim restoration or preservation then.
+            let message = if matches!(&rollback, Error::TransactionCause { message, .. } if *message == JOURNAL_SYNC_FAILED)
+            {
+                "upgrade failed; rollback restored prior images but directory sync did not complete; no recovery journal remains"
             } else {
-                "upgrade failed; explicit recovery required; journal preserved"
+                match optional_bytes(&root, JOURNAL) {
+                    Ok(Some(_)) => "upgrade failed; explicit recovery required; journal preserved",
+                    Ok(None) => {
+                        "upgrade failed; journal absent; rollback may not have restored prior images; inspect before retrying"
+                    }
+                    Err(_) => "upgrade failed; journal state unknown; inspect before retrying",
+                }
             };
             return Err(Error::TransactionRollback {
                 message,
@@ -847,6 +860,27 @@ mod tests {
                 assert_eq!(snapshot(root.path()), partial, "{reverse} {path}");
             }
         }
+    }
+    #[test]
+    /// An externally deleted journal must not be reported as restored-or-preserved.
+    fn externally_deleted_journal_reports_absence_not_restoration() {
+        let (root, plan) = fixture("legacy");
+        let approved = approval(root.path(), plan, false);
+        let error = transaction(
+            root.path(),
+            &approved,
+            approved.digest(),
+            |_| {
+                fs::remove_file(root.path().join(JOURNAL)).unwrap();
+                Err(Error::Transaction("injected failure"))
+            },
+            |root, bytes| replace(root, JOURNAL, bytes, false),
+        )
+        .expect_err("injected failure");
+        let text = error.to_string();
+        assert!(text.contains("journal absent"), "{text}");
+        assert!(!text.contains("journal preserved"), "{text}");
+        assert!(!text.contains("rollback restored prior images"), "{text}");
     }
     /// Verify that forged missing reordered redirected or reverse journals never restore unapproved paths.
     #[test]

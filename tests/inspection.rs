@@ -660,11 +660,16 @@ fn inherited_stdout_descendant_does_not_block_toolchain_lookup() {
     let root = fixture();
     let tools = tempfile::tempdir().unwrap();
     // The direct child exits at once; the backgrounded descendant keeps the inherited
-    // stdout open. With a pipe this hung the drain; stdout is a file, so it cannot.
+    // stdout open far beyond the test timeout below, so the old pipe-based drain would
+    // hang and fail this test. stdout is a file, so it cannot block.
+    write(root.path(), "cargo", "");
     write(
         tools.path(),
         "rustup",
-        "#!/bin/sh\nsleep 5 &\nprintf '/nonexistent-cargo\\n'\nexit 0\n",
+        &format!(
+            "#!/bin/sh\nsleep 30 &\nprintf '{}/cargo\\n'\nexit 0\n",
+            root.path().display()
+        ),
     );
     fs::set_permissions(
         tools.path().join("rustup"),
@@ -683,13 +688,16 @@ fn inherited_stdout_descendant_does_not_block_toolchain_lookup() {
         if child.try_wait().unwrap().is_some() {
             break child.wait_with_output().unwrap();
         }
-        if started.elapsed() > Duration::from_secs(10) {
+        if started.elapsed() > Duration::from_secs(5) {
             child.kill().unwrap();
             child.wait().unwrap();
             panic!("toolchain lookup blocked on inherited stdout");
         }
         std::thread::sleep(Duration::from_millis(10));
     };
-    // The fake cargo path fails canonically; the point is prompt termination, not success.
+    // Prompt termination with the expected failure: the reported cargo path is inside
+    // the repository, which discovery must reject.
     assert_eq!(output.status.code(), Some(1));
+    let value: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(value["error"]["code"], "cargo-discovery");
 }
