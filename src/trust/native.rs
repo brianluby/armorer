@@ -173,7 +173,10 @@ impl NativePin {
     /// Reject ambiguous material kinds, unsafe member names and oversized native executable claims.
     fn validate(&self) -> Result<()> {
         require(
-            identifier(&self.name) && !self.version.trim().is_empty() && self.version.len() <= 100,
+            identifier(&self.name)
+                && !self.version.is_empty()
+                && self.version.len() <= 100
+                && self.version.trim() == self.version,
             "invalid-native-catalog-pin",
         )?;
         self.distribution.validate()?;
@@ -248,7 +251,7 @@ impl NativeCatalogV2 {
         let mut ids = BTreeSet::new();
         let mut pins = BTreeSet::new();
         for adapter in &self.adapters {
-            require(ids.insert(format!("{:?}", adapter.id)), "duplicate-adapter")?;
+            require(ids.insert(adapter.id), "duplicate-adapter")?;
             adapter.workflow.validate()?;
             adapter.review.validate_at(now)?;
             require(

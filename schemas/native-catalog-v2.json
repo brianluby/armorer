@@ -238,6 +238,7 @@
           "type": "string"
         },
         "rationale": {
+          "description": "Runtime bound is 1-4096 UTF-8 bytes (not code points) and must contain non-whitespace text",
           "maxLength": 4096,
           "minLength": 1,
           "type": "string"

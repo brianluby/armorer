@@ -155,7 +155,7 @@ pub struct InputIdentity {
     pub cargo_lock_sha256: String,
     pub runtime: ByteIdentity,
     #[schemars(regex(
-        pattern = "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$(?![\\s\\S])"
+        pattern = "^(0|[1-9][0-9]{0,19})\\.(0|[1-9][0-9]{0,19})\\.(0|[1-9][0-9]{0,19})$(?![\\s\\S])"
     ))]
     pub runtime_version: String,
     pub run: RunIdentity,
@@ -203,6 +203,9 @@ pub struct Review {
     #[schemars(regex(pattern = "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"))]
     pub owner: String,
     #[schemars(length(min = 1, max = 4096))]
+    #[schemars(
+        description = "Runtime bound is 1-4096 UTF-8 bytes (not code points) and must contain non-whitespace text"
+    )]
     pub rationale: String,
     #[schemars(transform = crate::schema_bounds::unsigned)]
     #[schemars(range(min = 1))]

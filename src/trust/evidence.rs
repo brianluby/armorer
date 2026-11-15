@@ -358,7 +358,8 @@ impl ArtifactEvidence {
             }
             if let Some(p) = previous {
                 require(
-                    s.inputs == [p.output.clone()] && p.finished_at <= s.started_at,
+                    s.inputs.as_slice() == std::slice::from_ref(&p.output)
+                        && p.finished_at <= s.started_at,
                     "transformation-byte-chain-mismatch",
                 )?;
                 if s.kind == StepKind::Sign {
@@ -369,22 +370,19 @@ impl ArtifactEvidence {
             }
             previous = Some(s);
         }
+        let expected_name = format!(
+            "{}{}",
+            self.selection.key(),
+            if self.selection.profile == Profile::Library {
+                ".crate"
+            } else {
+                ".tar.gz"
+            }
+        );
         let final_asset = inventory
             .assets
             .iter()
-            .find(|a| {
-                a.role == AssetRole::Distributable
-                    && a.name
-                        == format!(
-                            "{}{}",
-                            self.selection.key(),
-                            if self.selection.profile == Profile::Library {
-                                ".crate"
-                            } else {
-                                ".tar.gz"
-                            }
-                        )
-            })
+            .find(|a| a.role == AssetRole::Distributable && a.name == expected_name)
             .ok_or_else(|| crate::Error::Invalid("final-artifact-missing".into()))?;
         require(
             previous.is_some_and(|s| s.output == final_asset.bytes),
@@ -478,6 +476,15 @@ impl ArtifactEvidence {
             self.tools.len() == required.tools.len(),
             "evidence-tool-set-mismatch",
         )?;
+        // Reject ambiguous requirement lists before first-match lookup absorbs duplicates.
+        let mut required_names = BTreeSet::new();
+        for t in &required.tools {
+            require(required_names.insert(&t.name), "duplicate-required-tool")?;
+        }
+        let mut allowed_ids = BTreeSet::new();
+        for e in &required.allowed_exceptions {
+            require(allowed_ids.insert(&e.id), "duplicate-allowed-exception")?;
+        }
         for t in &self.tools {
             let expected = required
                 .tools

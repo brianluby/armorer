@@ -177,7 +177,9 @@ impl CapabilityConfig {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize, JsonSchema,
+)]
 #[serde(rename_all = "kebab-case")]
 pub enum AdapterId {
     RustNative,
@@ -244,7 +246,7 @@ impl Catalog {
         // Pin names are unique catalog-wide: a lock tool must map to exactly one pinned distribution.
         let mut pins = std::collections::BTreeSet::new();
         for a in &self.adapters {
-            require(ids.insert(format!("{:?}", a.id)), "duplicate-adapter")?;
+            require(ids.insert(a.id), "duplicate-adapter")?;
             a.workflow.validate()?;
             a.review.validate_at(now)?;
             require(

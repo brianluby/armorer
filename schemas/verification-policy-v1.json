@@ -83,6 +83,7 @@
           "type": "string"
         },
         "rationale": {
+          "description": "Runtime bound is 1-4096 UTF-8 bytes (not code points) and must contain non-whitespace text",
           "maxLength": 4096,
           "minLength": 1,
           "type": "string"
@@ -117,7 +118,8 @@
           "description": "Includes inventory authentication; never an arbitrary custom predicate."
         },
         "workflow": {
-          "$ref": "#/$defs/WorkflowIdentity"
+          "$ref": "#/$defs/WorkflowIdentity",
+          "description": "May name a reusable workflow in another repository; authorized by exact\nrepository, path and commit, not by the policy repository. The caller\nworkflow is pinned to the source repository separately."
         }
       },
       "required": [

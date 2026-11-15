@@ -37,6 +37,9 @@ pub struct TrustRoots {
 #[serde(deny_unknown_fields)]
 pub struct SignerRule {
     pub predicate: Predicate,
+    /// May name a reusable workflow in another repository; authorized by exact
+    /// repository, path and commit, not by the policy repository. The caller
+    /// workflow is pinned to the source repository separately.
     pub workflow: WorkflowIdentity,
     /// Includes inventory authentication; never an arbitrary custom predicate.
     pub scope: EvidenceScope,

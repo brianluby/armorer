@@ -384,6 +384,7 @@
           "$ref": "#/$defs/Attestations"
         },
         "license_file": {
+          "minLength": 1,
           "type": "string"
         }
       },

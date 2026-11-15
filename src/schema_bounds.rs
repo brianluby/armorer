@@ -35,6 +35,9 @@ pub(crate) fn unsigned(schema: &mut Schema) {
     if let Some(object) = schema.as_object_mut() {
         let mut value = Value::Object(std::mem::take(object));
         visit(&mut value);
-        *object = value.as_object().unwrap().clone();
+        // visit never replaces the top-level value; move it back without cloning.
+        if let Value::Object(updated) = value {
+            *object = updated;
+        }
     }
 }

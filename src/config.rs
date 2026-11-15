@@ -54,8 +54,7 @@ pub struct Deliverable {
     pub package: String,
     #[schemars(regex(pattern = "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"))]
     pub binary: Option<String>,
-    #[schemars(length(min = 1, max = 3))]
-    #[schemars(extend("uniqueItems" = true, "items" = serde_json::json!({"enum": crate::config::TARGETS})))]
+    #[schemars(extend("minItems" = 1, "maxItems" = TARGETS.len(), "uniqueItems" = true, "items" = serde_json::json!({"enum": crate::config::TARGETS})))]
     pub targets: Vec<String>,
     #[schemars(regex(pattern = "^(?!.*--)[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"))]
     pub feature_set: String,
@@ -83,6 +82,7 @@ pub struct FeatureSet {
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Policy {
+    #[schemars(length(min = 1))]
     pub license_file: String,
     pub attestations: Attestations,
 }
@@ -366,4 +366,13 @@ pub fn load_lock(root: &Path, config_digest: &str) -> Result<Option<(Lock, Vec<u
         )?;
     }
     Ok(Some((lock, bytes)))
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    /// A prerelease crate version would make the x.y.z lock schema unsatisfiable for every input.
+    fn crate_version_matches_lock_schema_pattern() {
+        assert!(super::exact_version(env!("CARGO_PKG_VERSION")));
+    }
 }
