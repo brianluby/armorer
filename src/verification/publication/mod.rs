@@ -456,7 +456,7 @@ impl StateStore {
         file.write_all(&serde_json::to_vec(journal).map_err(|_| Error::Json)?)?;
         file.as_file().sync_all()?;
         file.persist(&self.journal)
-            .map_err(|_| Error::Invalid("publication-journal-persist-failed".into()))?;
+            .map_err(|e| Error::Invalid(format!("publication-journal-persist-failed: {e}")))?;
         File::open(&self.root)?.sync_all()?;
         Ok(())
     }

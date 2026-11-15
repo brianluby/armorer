@@ -142,13 +142,13 @@ fn operations(p: &Plan) -> Result<Vec<Write>> {
         }
         let after = c
             .proposed_content
-            .clone()
+            .as_deref()
             .ok_or(Error::Transaction("upgrade after image missing"))?;
-        if c.before_content.as_deref() != Some(&after) {
+        if c.before_content.as_deref() != Some(after) {
             writes.push(Write {
                 path: c.path.clone(),
                 before: c.before_content.clone(),
-                after: Some(after),
+                after: Some(after.to_owned()),
             });
         }
     }
@@ -556,6 +556,7 @@ pub fn recover(root: &Path, expected: &str) -> Result<Receipt> {
         Ok(receipt(
             &j.approval,
             "commit-recovered",
+            // Conservative audit flag: any context/config failure reports unconfigured, not proof of drift.
             matches!(j.approval, Approval::Upgrade { .. })
                 && context(&root, j.approval.original(), true).is_ok(),
         ))

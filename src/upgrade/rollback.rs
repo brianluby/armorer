@@ -61,7 +61,12 @@ fn changes(original: &Plan) -> Result<Vec<Restore>> {
                         w.after.as_deref().unwrap_or(""),
                     );
                     if w.after.is_none() {
-                        diff.replacen(&format!("+++ b/{}\n", w.path), "+++ /dev/null\n", 1)
+                        if diff.is_empty() {
+                            // Deletion of an empty file: diff short-circuits, keep the header.
+                            format!("--- a/{}\n+++ /dev/null\n", w.path)
+                        } else {
+                            diff.replacen(&format!("+++ b/{}\n", w.path), "+++ /dev/null\n", 1)
+                        }
                     } else {
                         diff
                     }
