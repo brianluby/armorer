@@ -419,5 +419,8 @@ fn non_utf8_download_name_is_rejected_on_linux() {
         b"invalid name",
     )
     .unwrap();
-    assert!(verify(directory.path(), &policy, &source).is_err());
+    expect_code(
+        verify(directory.path(), &policy, &source),
+        "historical-download-name-invalid",
+    );
 }

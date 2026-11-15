@@ -581,14 +581,14 @@ fn rejects_fifo_inputs_without_blocking() {
         );
         let mut child = Command::new(env!("CARGO_BIN_EXE_armorer"))
             .args(["--repository", root.path().to_str().unwrap(), "plan"])
-            .stdout(Stdio::null())
+            .stdout(Stdio::piped())
             .stderr(Stdio::null())
             .spawn()
             .unwrap();
         let started = Instant::now();
-        let status = loop {
-            if let Some(status) = child.try_wait().unwrap() {
-                break status;
+        let output = loop {
+            if child.try_wait().unwrap().is_some() {
+                break child.wait_with_output().unwrap();
             }
             if started.elapsed() > Duration::from_secs(10) {
                 child.kill().unwrap();
@@ -597,7 +597,9 @@ fn rejects_fifo_inputs_without_blocking() {
             }
             std::thread::sleep(Duration::from_millis(10));
         };
-        assert_eq!(status.code(), Some(1));
+        assert_eq!(output.status.code(), Some(1));
+        let diagnostic: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(diagnostic["error"]["code"], "unsafe-path", "{file}");
     }
 }
 
