@@ -724,6 +724,11 @@ pub(super) fn validate(plan: &Plan, expected: &str) -> Result<()> {
         &plan.intent.toolchain,
         &plan.policy_content,
     )?;
+    if generated.len() != plan.changes.len() {
+        return Err(Error::Transaction(
+            "generated target set differs from fixed contract",
+        ));
+    }
     for (c, (path, candidate)) in plan.changes.iter().zip(generated) {
         let requested = plan.import_files.contains(&path);
         if requested && origin.bases.contains_key(&path) {
@@ -817,7 +822,7 @@ pub fn validate_fresh(root: &Path, plan: &Plan) -> Result<()> {
     )?;
     if plan.digest()? != fresh.digest()? || plan.plan_sha256 != fresh.plan_sha256 {
         return Err(Error::Transaction(
-            "saved upgrade inputs, generated bases or preimages changed; review a new plan",
+            "saved upgrade inputs, generated bases or preimages changed, or the policy review day expired; review a new plan",
         ));
     }
     Ok(())

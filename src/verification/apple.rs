@@ -101,6 +101,8 @@ impl VerifiedAppleRelease {
                 .as_deref()
                 .ok_or_else(|| invalid("apple-binary-required"))?;
             let binary = unpack(&archive, binary_name)?;
+            // Release the ~1 GiB archive before the native stage's own re-reads.
+            drop(archive);
             let binary_identity = ByteIdentity::from_bytes(&binary);
             let sign = evidence
                 .steps

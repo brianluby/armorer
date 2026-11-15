@@ -158,14 +158,15 @@ impl CatalogAuthority {
                     .iter()
                     .filter(|a| baseline(a.id))
                     .all(|adapter| {
-                        adapter.pins.iter().all(|pin| {
-                            requirements.tools.iter().any(|tool| {
-                                tool.name == pin.name
-                                    && tool.version == pin.version
-                                    && tool.bytes == pin.distribution
-                                    && tool.authentication_record == pin.authentication_record
+                        !adapter.pins.is_empty()
+                            && adapter.pins.iter().all(|pin| {
+                                requirements.tools.iter().any(|tool| {
+                                    tool.name == pin.name
+                                        && tool.version == pin.version
+                                        && tool.bytes == pin.distribution
+                                        && tool.authentication_record == pin.authentication_record
+                                })
                             })
-                        })
                     })
             }
             Self::NativeV2 { catalog, .. } => catalog

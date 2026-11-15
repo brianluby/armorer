@@ -303,6 +303,11 @@ pub(super) fn validate(plan: &Plan, expected: &str) -> Result<()> {
     // Structural config rules are independent of existing project files.
     plan.intent.validate_shape()?;
     let generated = generated(plan)?;
+    if generated.len() != plan.changes.len() {
+        return Err(Error::Transaction(
+            "generated target set differs from fixed contract",
+        ));
+    }
     for (change, (path, after)) in plan.changes.iter().zip(generated) {
         if change.path != path
             || change.proposed_content != after
