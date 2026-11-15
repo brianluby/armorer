@@ -79,6 +79,8 @@ impl Backend for Fake {
     /// Simulate server acceptance followed by an ambiguous client failure to test non-retry ownership.
     fn create(&mut self, release: &FrozenRelease, body: &str) -> Result<RemoteRelease> {
         self.creates += 1;
+        // The real provider rejects a duplicate tag (422); never replace an existing release.
+        require(self.remote.is_none(), "test-duplicate-tag")?;
         let value = RemoteRelease {
             id: 42,
             tag: release.plan.tag.clone(),
@@ -330,16 +332,19 @@ fn approval_scope_identity_and_expiry_block_every_write() {
 /// An existing foreign draft or published release is never adopted, replaced or deleted.
 fn foreign_existing_draft_and_published_release_block_creation() {
     for draft in [true, false] {
-        let (mut c, approval, _dir) = fixture();
-        let mut foreign = c.backend.create(&c.release, "foreign").unwrap();
-        foreign.draft = draft;
-        c.backend.remote = Some(foreign);
-        c.backend.creates = 0;
-        assert!(c.stage(&approval).is_err());
-        assert_eq!(
-            (c.backend.creates, c.backend.uploads, c.backend.publishes),
-            (0, 0, 0)
-        );
+        for author in [2, 99] {
+            let (mut c, approval, _dir) = fixture();
+            let mut foreign = c.backend.create(&c.release, "foreign").unwrap();
+            foreign.draft = draft;
+            foreign.author = author;
+            c.backend.remote = Some(foreign);
+            c.backend.creates = 0;
+            assert!(c.stage(&approval).is_err());
+            assert_eq!(
+                (c.backend.creates, c.backend.uploads, c.backend.publishes),
+                (0, 0, 0)
+            );
+        }
     }
 }
 #[test]

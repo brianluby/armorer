@@ -50,7 +50,8 @@ fn cli(root: &Path, arguments: &[&str], status: i32) -> Value {
     assert_eq!(
         output.status.code(),
         Some(status),
-        "{}",
+        "stdout: {} stderr: {}",
+        String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     serde_json::from_slice(&output.stdout).unwrap()
@@ -214,10 +215,12 @@ fn all_profiles_share_the_integrated_cli_without_building_or_losing_customizatio
         );
         assert!(!root.path().join("BUILD_EXECUTED").exists());
         assert!(!root.path().join("target").exists());
-        assert_eq!(
-            fs::read(root.path().join("Cargo.lock")).ok(),
-            before.get("Cargo.lock").cloned()
-        );
+        let lock = match fs::read(root.path().join("Cargo.lock")) {
+            Ok(bytes) => Some(bytes),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+            Err(e) => panic!("Cargo.lock unreadable: {e}"),
+        };
+        assert_eq!(lock, before.get("Cargo.lock").cloned());
     }
 }
 

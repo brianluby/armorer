@@ -126,6 +126,8 @@ fn producer_graph_cannot_select_its_own_consumer_context() {
         ("/selection/binary", json!("other")),
         ("/selection/package_version", json!("0.2.0")),
         ("/selection/toolchain", json!("1.94.0")),
+        ("/selection/package", json!("other")),
+        ("/selection/feature_set", json!("minimal")),
         ("/root_component_name", json!("other")),
         ("/coverage_gaps", json!([])),
         ("/nodes/0/features", json!([])),

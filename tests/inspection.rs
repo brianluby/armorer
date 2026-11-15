@@ -486,11 +486,9 @@ fn rejects_repository_local_executable_on_path() {
 fn accepts_anchored_package_patterns_and_opaque_metadata() {
     let root = fixture();
     let manifest = fs::read_to_string(root.path().join("crates/tool/Cargo.toml")).unwrap();
-    write(
-        root.path(),
-        "crates/tool/Cargo.toml",
-        &manifest.replace("[package]", "[package]\nexclude = [\"/ci\", \"/.github\"]"),
-    );
+    let mutated = manifest.replace("[package]", "[package]\nexclude = [\"/ci\", \"/.github\"]");
+    assert_ne!(manifest, mutated);
+    write(root.path(), "crates/tool/Cargo.toml", &mutated);
     assert!(inspect(root.path(), "plan").is_ok());
     write(
         root.path(),

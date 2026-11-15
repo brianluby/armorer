@@ -14,11 +14,7 @@ fn unapproved_context_precedes_tools_credentials_and_state_for_all_actions() {
         fs::write(inputs.join("armorer-verification-context.json"), b"{}").unwrap();
         let marker = root.path().join("unexpected-execution");
         let tool = root.path().join("offered-tool");
-        fs::write(
-            &tool,
-            format!("#!/bin/sh\n/usr/bin/touch '{}'\n", marker.display()),
-        )
-        .unwrap();
+        fs::write(&tool, format!("#!/bin/sh\ntouch '{}'\n", marker.display())).unwrap();
         fs::set_permissions(&tool, fs::Permissions::from_mode(0o700)).unwrap();
         let state = root.path().join("state");
         fs::create_dir(&state).unwrap();
@@ -59,7 +55,12 @@ fn unapproved_context_precedes_tools_credentials_and_state_for_all_actions() {
                 .args(["--expect-approval-sha256", &zero]);
         }
         let output = command.output().unwrap();
-        assert!(!output.status.success());
+        assert!(
+            !output.status.success(),
+            "stdout: {} stderr: {}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
         let diagnostic: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
         assert!(
             diagnostic["error"]["message"]

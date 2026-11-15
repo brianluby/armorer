@@ -109,6 +109,7 @@ fn caller_workflows_have_only_reviewed_full_pins_and_read_permissions() {
         let callers = catalog.caller_workflows();
         for value in callers.values() {
             assert!(value.contains(&format!("@{commit}\n")));
+            assert_eq!(value.matches("uses:").count(), 1);
             assert!(value.contains("permissions:\n  contents: read\n"));
             for forbidden in [
                 "secrets:",
@@ -119,6 +120,7 @@ fn caller_workflows_have_only_reviewed_full_pins_and_read_permissions() {
                 "pull_request_target:",
                 "workflow_run:",
                 "environment:",
+                "write-all",
             ] {
                 assert!(!value.contains(forbidden), "{commit}: {forbidden}");
             }

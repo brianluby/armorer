@@ -587,7 +587,11 @@ fn generated_schemas_match_all_committed_version_one_schemas() {
             .args(["schema", kind])
             .output()
             .unwrap();
-        assert!(output.status.success(), "schema {kind}");
+        assert!(
+            output.status.success(),
+            "schema {kind}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
         let committed = std::fs::read(
             Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("schemas/{kind}-v1.json")),
         )

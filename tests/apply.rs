@@ -339,6 +339,8 @@ fn strict_plan_rejects_nested_extras_and_duplicate_map_keys() {
         "\"input_preimages\":{",
         "\"input_preimages\":{\"LICENSE\":null,",
     );
+    // Pin the injection: a fixture drift must not turn this into a parse/unknown-field test.
+    assert!(raw.contains("\"LICENSE\":null,\"LICENSE\":"));
     fs::write(&output, raw).unwrap();
     assert!(load_plan(&output, &plan.plan_sha256).is_err());
 }
