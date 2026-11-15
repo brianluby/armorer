@@ -71,7 +71,8 @@ mod tests {
             io::ErrorKind::AlreadyExists
         );
         let linked = directory.path().join("link");
-        std::os::unix::fs::symlink(&path, &linked).unwrap();
+        // Dangling target: O_NOFOLLOW must reject the link itself, not report target-exists.
+        std::os::unix::fs::symlink(directory.path().join("missing-target"), &linked).unwrap();
         assert_eq!(
             private_file(&linked).unwrap_err().kind(),
             io::ErrorKind::AlreadyExists

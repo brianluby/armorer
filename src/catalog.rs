@@ -148,7 +148,16 @@ impl AuthenticatedCatalog {
                     )
                 })
             })
-            .collect();
+            .collect::<BTreeMap<_, _>>();
+        if tools.len()
+            != self
+                .tools
+                .values()
+                .map(|t| t.platforms.len())
+                .sum::<usize>()
+        {
+            return Err(Error::Invalid("duplicate tool pin id in catalog".into()));
+        }
         let lock = Lock {
             schema_version: 1,
             config_sha256: config_sha256.into(),
@@ -167,6 +176,13 @@ impl AuthenticatedCatalog {
         policy: &str,
     ) -> Result<BTreeMap<String, String>> {
         let mut files = self.caller_workflows();
+        // Shared boundary: enforce the exact-stable contract here, not only at call sites.
+        if !semver::Version::parse(toolchain).is_ok_and(|v| v.pre.is_empty() && v.build.is_empty())
+        {
+            return Err(Error::Invalid(
+                "toolchain must be an exact stable x.y.z version".into(),
+            ));
+        }
         files.insert(".armorer/ci-policy.toml".into(), policy.into());
         files.insert(
             "armorer.lock".into(),

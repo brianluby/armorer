@@ -297,8 +297,12 @@ pub(crate) struct TransactionLock(File);
 impl Drop for TransactionLock {
     /// End the transaction's lock even while a duplicate descriptor remains open.
     fn drop(&mut self) {
-        // File closure remains a fallback if the explicit unlock fails.
-        let _ = self.0.unlock();
+        // Close is NOT a fallback while a child holds a duplicate descriptor; retry EINTR.
+        while let Err(error) = self.0.unlock() {
+            if error.kind() != std::io::ErrorKind::Interrupted {
+                break;
+            }
+        }
     }
 }
 
@@ -601,7 +605,10 @@ fn apply_transaction(
             cause: Box::new(cause),
         });
     }
-    remove_journal(&root)?;
+    remove_journal(&root).map_err(|cause| Error::TransactionCause {
+        message: "transaction committed but journal cleanup failed; recovery is required",
+        cause: Box::new(cause),
+    })?;
     Ok(receipt(plan, "applied", true))
 }
 

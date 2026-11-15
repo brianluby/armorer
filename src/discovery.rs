@@ -128,7 +128,9 @@ fn trusted_rustup(root: &Path) -> Result<PathBuf> {
         if !candidate.is_file() {
             continue;
         }
-        let resolved = candidate.canonicalize()?;
+        let Ok(resolved) = candidate.canonicalize() else {
+            continue;
+        };
         if candidate.starts_with(root) || resolved.starts_with(root) {
             continue;
         }
@@ -145,7 +147,13 @@ fn relative(root: &Path, path: &Path) -> Result<String> {
     path.strip_prefix(root)
         .ok()
         .and_then(Path::to_str)
-        .map(|s| s.replace('\\', "/"))
+        .map(|s| {
+            if cfg!(windows) {
+                s.replace('\\', "/")
+            } else {
+                s.to_owned()
+            }
+        })
         .ok_or(Error::Metadata)
 }
 
