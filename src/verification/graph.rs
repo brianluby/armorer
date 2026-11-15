@@ -141,10 +141,12 @@ fn text(value: &str, max: usize) -> bool {
 
 /// Read a required JSON string without retaining or displaying untrusted error contents.
 fn string<'a>(value: &'a Value, key: &str) -> Result<&'a str> {
-    value
-        .get(key)
-        .and_then(Value::as_str)
-        .ok_or_else(|| crate::Error::Invalid("sbom-string-field-missing".into()))
+    match value.get(key) {
+        None => Err(crate::Error::Invalid("sbom-string-field-missing".into())),
+        Some(v) => v
+            .as_str()
+            .ok_or_else(|| crate::Error::Invalid("sbom-string-field-invalid".into())),
+    }
 }
 
 /// Require a flat component whose scope matches independently derived dependency paths.

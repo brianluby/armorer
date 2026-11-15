@@ -72,7 +72,8 @@ impl HistoricalByteMatch {
             .find(|item| item.source == *source)
             .ok_or_else(|| Error::Invalid("historical-release-not-allowed".into()))?;
         require(
-            historical.assets.len() <= MAX_FILES
+            !historical.assets.is_empty()
+                && historical.assets.len() <= MAX_FILES
                 && historical.limitations.len() <= 128
                 && historical.limitations.iter().all(|item| {
                     !item.trim().is_empty()

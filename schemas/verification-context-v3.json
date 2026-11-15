@@ -651,12 +651,12 @@
     },
     "root_features": {
       "additionalProperties": {
-        "items": {
-          "type": "string"
-        },
-        "type": "array"
+        "uniqueItems": true
       },
-      "description": "Selection keys map to sorted unique features resolved from separately reviewed source and flags.",
+      "description": "Selection keys map to sorted unique features resolved from separately reviewed source and flags.\nSortedness and key linkage are enforced at runtime (resolved_root_features), not by schema.",
+      "propertyNames": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}--[a-z0-9_]+(-[a-z0-9_]+)*--[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"
+      },
       "type": "object"
     },
     "runtime_source": {

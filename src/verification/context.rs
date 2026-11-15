@@ -95,6 +95,8 @@ pub struct ReleaseExpectationsV3 {
     pub runtime_source: crate::trust::Source,
     pub release: ReleaseExpectations,
     /// Selection keys map to sorted unique features resolved from separately reviewed source and flags.
+    /// Sortedness and key linkage are enforced at runtime (resolved_root_features), not by schema.
+    #[schemars(extend("propertyNames" = serde_json::json!({"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,99}--[a-z0-9_]+(-[a-z0-9_]+)*--[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"}), "additionalProperties" = serde_json::json!({"uniqueItems": true})))]
     pub root_features: BTreeMap<String, Vec<String>>,
 }
 

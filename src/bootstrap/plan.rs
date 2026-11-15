@@ -79,8 +79,13 @@ pub(crate) fn diff(path: &str, before: Option<&str>, after: &str) -> String {
     let old_lines = old.split_inclusive('\n').count();
     let new_lines = after.split_inclusive('\n').count();
     let old_name = before.map_or_else(|| "/dev/null".into(), |_| format!("a/{path}"));
+    let new_name = if after.is_empty() {
+        "/dev/null".into()
+    } else {
+        format!("b/{path}")
+    };
     let mut output = format!(
-        "--- {old_name}\n+++ b/{path}\n@@ -{},{old_lines} +{},{new_lines} @@\n",
+        "--- {old_name}\n+++ {new_name}\n@@ -{},{old_lines} +{},{new_lines} @@\n",
         usize::from(old_lines != 0),
         usize::from(new_lines != 0),
     );

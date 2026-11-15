@@ -181,7 +181,7 @@ fn known_bases(
                         .is_ok_and(|v| v.pre.is_empty() && v.build.is_empty())
                         && catalog
                             .bootstrap_files(&"0".repeat(64), &channel, "")
-                            .is_ok_and(|files| files["rust-toolchain.toml"] == *base)
+                            .is_ok_and(|files| files.get("rust-toolchain.toml") == Some(base))
                 }),
             ".armorer/ci-policy.toml" => true, // owner-selected policy, not publisher/catalog authority
             _ => false,
@@ -688,6 +688,10 @@ pub(super) fn validate(plan: &Plan, expected: &str) -> Result<()> {
         ));
     }
     imports(&plan.import_files)?;
+    // Stored packets are canonical (inspect sorts); unsorted duplicates the approval digest.
+    if !plan.import_files.is_sorted() {
+        return Err(Error::Transaction("import files must be sorted"));
+    }
     plan.intent.validate_shape()?;
     license_overlap(&plan.intent.policy.license_file)?;
     let origin = source_bytes(plan.state_preimages.clone())?;

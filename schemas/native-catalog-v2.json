@@ -402,6 +402,8 @@
       "items": {
         "$ref": "#/$defs/NativeAdapter"
       },
+      "maxItems": 32,
+      "minItems": 1,
       "type": "array"
     },
     "previous_catalog": {

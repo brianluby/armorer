@@ -226,6 +226,7 @@ pub struct NativeCatalogV2 {
     #[schemars(required, extend("type" = ["object", "null"]))]
     pub previous_catalog: Option<ByteIdentity>,
     pub runtime: RuntimeDistributionV1,
+    #[schemars(length(min = 1, max = 32))]
     pub adapters: Vec<NativeAdapter>,
 }
 impl NativeCatalogV2 {
