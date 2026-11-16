@@ -188,10 +188,13 @@ enum BootstrapOperation {
         #[arg(long)]
         policy: PathBuf,
     },
-    /// Inspect the same configuration without writing (exit 2; release gates remain open).
+    /// Report provisioning drift without writing (exit 0 in sync, exit 2 on drift).
     Check {
         #[arg(long)]
         policy: PathBuf,
+        /// Also require secure release readiness; exits 2 while any release gate is open.
+        #[arg(long)]
+        release_ready: bool,
     },
     /// Apply a reviewed version-two plan and independently supplied digest.
     Apply {
@@ -523,10 +526,27 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
                     serde_json::to_value(armorer::bootstrap::inspect(&cli.repository, &policy)?),
                     0,
                 ),
-                BootstrapOperation::Check { policy } => (
-                    serde_json::to_value(armorer::bootstrap::inspect(&cli.repository, &policy)?),
-                    2,
-                ),
+                BootstrapOperation::Check {
+                    policy,
+                    release_ready,
+                } => {
+                    let plan = armorer::bootstrap::inspect(&cli.repository, &policy)?;
+                    // Reasons go to stderr; stdout stays the unchanged plan document.
+                    let drift = plan.drift();
+                    let status = if !drift.is_empty() {
+                        eprintln!("armorer: provisioning drift: {}", drift.join(", "));
+                        2
+                    } else if release_ready {
+                        eprintln!(
+                            "armorer: release readiness not established: {}",
+                            plan.release_blockers().join(", ")
+                        );
+                        2
+                    } else {
+                        0
+                    };
+                    (serde_json::to_value(plan), status)
+                }
                 BootstrapOperation::Apply {
                     plan,
                     expect_plan_sha256,

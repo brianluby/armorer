@@ -104,7 +104,10 @@ There are 27 schema names on main. JSON examples under
 | --- | --- | --- |
 | Valid plan/preview/catalog, successful apply/recovery, schema or help | 0 | JSON for operations; text for help |
 | Operational failure | 1 | JSON error on stdout |
-| Valid `check` inspection in this version | 2 | JSON plan on stdout |
+| Valid top-level `check` inspection in this version | 2 | JSON plan on stdout |
+| `bootstrap check`, provisioning in sync | 0 | JSON plan on stdout |
+| `bootstrap check`, drift or open setup finding | 2 | JSON plan on stdout; reasons on stderr |
+| `bootstrap check --release-ready`, any release gate open | 2 | JSON plan on stdout; reasons on stderr |
 | Invalid CLI arguments | 2 | Clap diagnostics on stderr |
 
 Serialization and stdout write failures also exit 1; a failed output write cannot
