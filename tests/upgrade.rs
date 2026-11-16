@@ -1141,3 +1141,66 @@ fn cross_revision_upgrade_v1_to_v2_succeeds_and_unknown_or_downgrade_ids_are_rej
     let down = upgrade::inspect(root.path(), &policy, "bootstrap-v1", &[], true).unwrap();
     assert_eq!(down.direction, "downgrade");
 }
+
+/// Every persisted ownership format follows the patch-line rule: the running
+/// version is accepted, while a newer patch, another minor or major line and
+/// prerelease or build-metadata stamps are rejected without any mutation.
+#[test]
+fn ownership_states_reject_runtime_versions_outside_the_running_patch_line() {
+    let running = semver::Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
+    let rejected = [
+        format!("{}.{}.{}", running.major, running.minor, running.patch + 1),
+        format!("{}.{}.0", running.major, running.minor + 1),
+        format!("{}.{}.{}", running.major + 1, running.minor, running.patch),
+        format!("{running}-rc.1"),
+        format!("{running}+local"),
+    ];
+    type Reader = fn(&Path) -> bool;
+    let upgrade_reads: Reader =
+        |root| upgrade::inspect(root, &root.join(POLICY), "bootstrap-v2", &[], false).is_ok();
+    type Case = (&'static str, fn(&Path), Reader);
+    let cases: [Case; 3] = [
+        (
+            ".armorer/state.json",
+            |root| {
+                let p = armorer::plan::inspect(root, "plan").unwrap();
+                armorer::apply::apply(root, &p, &p.plan_sha256).unwrap();
+            },
+            |root| armorer::plan::inspect(root, "plan").is_ok(),
+        ),
+        (".armorer/bootstrap-state-v2.json", bootstrap, |root| {
+            bootstrap::inspect(root, &root.join(POLICY)).is_ok()
+        }),
+        (
+            ".armorer/upgrade-state-v1.json",
+            |root| {
+                bootstrap(root);
+                let p = preview(root, &[]);
+                upgrade::apply(root, &p, &p.plan_sha256).unwrap();
+            },
+            upgrade_reads,
+        ),
+    ];
+    for (state, provision, reads) in cases {
+        let root = fixture("library");
+        provision(root.path());
+        let path = root.path().join(state);
+        let original = fs::read(&path).unwrap();
+        let mut value: serde_json::Value = serde_json::from_slice(&original).unwrap();
+        assert_eq!(
+            value["runtime_version"],
+            env!("CARGO_PKG_VERSION"),
+            "{state}"
+        );
+        assert!(reads(root.path()), "{state} at the running version");
+        for runtime in &rejected {
+            value["runtime_version"] = runtime.as_str().into();
+            fs::write(&path, serde_json::to_vec(&value).unwrap()).unwrap();
+            let before = snapshot(root.path());
+            assert!(!reads(root.path()), "{state} accepted {runtime}");
+            assert_eq!(snapshot(root.path()), before, "{state} {runtime}");
+        }
+        fs::write(&path, &original).unwrap();
+        assert!(reads(root.path()), "{state} restored");
+    }
+}
