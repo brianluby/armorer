@@ -338,10 +338,17 @@ cross-compilation, checksummed modules.
   check, and gitleaks / actionlint / zizmor as today.
 - **SBOM.** cyclonedx-gomod. Check it against the selected build list, not
   `go.sum`: `go.sum` keeps stale versions, has no dependency edges and omits
-  local replacements. Use the module set the build actually selected (for
-  example `go list -m -json all` and `go mod graph` under the offline settings
-  above, or `go version -m` on the built binary) and account for every
-  `replace` directive.
+  local replacements. Under the offline settings above:
+  - **Components:** compare with `go list -m -json all`, which gives each
+    selected module version and any `replace` target.
+  - **Edges:** derive them from the import graph of the built targets,
+    `go list -deps -json` for the same packages, tags, `GOOS` and `GOARCH` as
+    the build, mapping each package to its module. `go mod graph` lists
+    requirement edges for every version considered, so use it only after
+    filtering both ends to the selected versions.
+  - **Cross-check:** `go version -m` on the built binary must list a subset of
+    the SBOM components with the same versions and replacements. It carries no
+    edges, so it cannot validate the graph by itself.
 
 ### Python (second, and scope it narrowly)
 
