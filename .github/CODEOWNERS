@@ -1,0 +1,19 @@
+# Review ownership. The last matching pattern wins.
+# Enforced only when a ruleset or branch protection requires code-owner review.
+
+* @brianluby
+
+# Trust anchors and anything that changes what CI or a release may do.
+/.github/ @brianluby
+/.armorer/ @brianluby
+/armorer.toml @brianluby
+/armorer.lock @brianluby
+/catalogs/ @brianluby
+/schemas/ @brianluby
+/src/catalog.rs @brianluby
+/src/upgrade/authority.rs @brianluby
+/Cargo.toml @brianluby
+/Cargo.lock @brianluby
+/rust-toolchain.toml @brianluby
+/requirements-schema.txt @brianluby
+/SECURITY.md @brianluby
