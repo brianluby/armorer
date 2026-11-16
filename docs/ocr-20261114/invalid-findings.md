@@ -74,24 +74,30 @@ regenerated, library fixture regenerated via CLI after the MSRV addition.
   own text notes `timeout-minutes` on a reusable-workflow `uses:` job makes the
   workflow invalid. Upstream (momus-review) fix only; no local action.
 
-### Deferred — valid, not implemented (~22)
+### Deferred — closed in branch ocr-low-deferrals (commit 47f17c6) except as noted
 
-Test hardening needing fixture redesign or environment probes:
-- tests/bootstrap.rs:159 (positional changes[i] → select by path), :135 (inode/mtime idempotence)
-- tests/apply.rs:202 (cross-process flock contention), :236 (intermediate-symlink cases)
-- tests/preview.rs:294 + tests/upgrade.rs:965 (GNU patch probe/skip gate)
-- tests/upgrade.rs:592 (timestamp-tick before replay)
-- tests/release_context.rs:47 (single clock sample in fixture), :598 (tar layout builder),
-  remaining pointer/error-code pinning
-- tests/cargo_graph_v2.rs:252 (edge lookup by package), :313 (independent source_commit pin)
-- tests/inspection.rs:411 (missing-toolchain vs rustup-path message distinction)
-- tests/integrated_cli.rs:247 (blocked-write ordering decoupling)
-- tests/historical.rs:334 (omit --policy/--expect-policy-sha256 negative)
+Closed:
+- tests/bootstrap.rs:159 (select by path), :135 (inode+mtime idempotence)
+- tests/apply.rs:202 (cross-process flock via self-spawned holder), :236 (symlinked plan
+  file via load_plan + CLI; recovery through symlinked .armorer)
+- tests/preview.rs:294 + tests/upgrade.rs:965 (GNU patch probe/visible skip)
+- tests/upgrade.rs:592 (clock tick before no-op replay)
+- tests/release_context.rs:47 (single clock sample); :598 tar layout guard shipped in PR #37
+- tests/cargo_graph_v2.rs:252 (edge selected by package)
+- tests/inspection.rs:411 (toolchain-lookup stage pinned)
+- tests/integrated_cli.rs:247 (blocked workflow located dynamically)
+- tests/historical.rs:334 (shipped in PR #37)
+- src/verification/io.rs:184 (shared stream_hash helper)
+- src/upgrade/state.rs:42 (per-invariant gate messages), :91 (borrowed source_bytes,
+  dead Ownership.preimages field removed)
+- src/verification/release.rs:161 (by_name index for both scan loops)
 
-Source refactors (no live bug, blast radius warrants own change):
-- src/verification/io.rs:184 (shared streaming hash helper for snapshot/identity)
-- src/upgrade/state.rs:42 (split six-way gate message), :91 (borrowed source_bytes)
-- src/verification/release.rs:161 (name index for O(n²) lookups at max scale)
+Still open:
+- tests/cargo_graph_v2.rs:313 — independent source_commit cross-check needs a second
+  retained commit artifact from the producer workflow (workflows repo change); the
+  fixture set today has only the receipt's own claim. The ARMORER_TEST_GRAPH_RECEIPTS
+  pipeline wiring is likewise a workflows-repo concern.
+- remaining release_context pointer/error-code pinning beyond the tar-layout guard
 
 ## PR #36 automated review (momus / codex / Copilot / CodeRabbit)
 
