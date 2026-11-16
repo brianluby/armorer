@@ -3,6 +3,11 @@
 Bring evidence of a broken boundary. Protect the people who depend on it.
 **This is the way.**
 
+**Superseded 2026-11-16 by the root [security policy](../SECURITY.md)**, which
+selects GitHub private vulnerability reporting. That setting still returned
+`enabled: false` on 2026-11-16 and must be enabled by the owner. The text below
+is retained as the original draft.
+
 **Draft for maintainer review.** Private reporting for `brianluby/armorer` returned
 `enabled: false` on 2026-10-02 America/Los_Angeles. A working private reporting
 channel must be selected before this becomes the repository's published security
