@@ -3,6 +3,7 @@ use armorer::{
     plan::Disposition,
     upgrade::{self, merge::Decision},
 };
+mod support;
 use std::{collections::BTreeMap, fs, path::Path, process::Command};
 /// Load the fixture lock against the current configuration byte identity.
 fn load_lock(root: &Path) -> armorer::Result<Option<(config::Lock, Vec<u8>)>> {
@@ -579,22 +580,23 @@ fn all_profiles_apply_repeat_migrate_ownership_and_restore_exact_reviewed_previo
             );
             assert!(root.path().join(".armorer/upgrade-state-v1.json").exists());
             let after = snapshot(root.path());
+            // Backdate every recorded file to a known past mtime: any rewrite during
+            // the no-op replay sets the current time, which differs on every filesystem
+            // regardless of timestamp granularity. A sleep could stay inside one bucket.
+            let past = std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(86400);
             let stamps: BTreeMap<_, _> = after
                 .keys()
                 .filter(|p| p.as_str() != ".armorer/apply.lock")
                 .map(|p| {
-                    (
-                        p.clone(),
-                        fs::metadata(root.path().join(p))
-                            .unwrap()
-                            .modified()
-                            .unwrap(),
-                    )
+                    let file = fs::OpenOptions::new()
+                        .write(true)
+                        .open(root.path().join(p))
+                        .unwrap();
+                    file.set_times(fs::FileTimes::new().set_modified(past))
+                        .unwrap();
+                    (p.clone(), past)
                 })
                 .collect();
-            // Advance the clock past filesystem mtime granularity so an unintended
-            // rewrite during the no-op replay cannot hide behind identical timestamps.
-            std::thread::sleep(std::time::Duration::from_millis(50));
             assert_eq!(
                 upgrade::apply(root.path(), &p, &p.plan_sha256)
                     .unwrap()
@@ -927,21 +929,12 @@ fn committed_schemas_and_all_profile_review_packets_match_strict_runtime_contrac
         .unwrap();
     }
 }
-/// The independent reconstruction oracle requires GNU patch; BSD patch handles
-/// CRLF and no-newline hunks differently, so skip visibly instead of failing.
-fn gnu_patch_available() -> bool {
-    match Command::new("patch").arg("--version").output() {
-        Ok(output) => String::from_utf8_lossy(&output.stdout).contains("GNU"),
-        Err(_) => false,
-    }
-}
-
 /// Verify that independent patch reconstructs upgrade and reverse images including deleted ownership.
 #[test]
 fn independent_patch_reconstructs_upgrade_and_reverse_images_including_deleted_ownership() {
     use std::io::Write;
     use std::process::Stdio;
-    if !gnu_patch_available() {
+    if !support::gnu_patch_available() {
         eprintln!("skipping independent patch reconstruction: GNU patch not on PATH");
         return;
     }

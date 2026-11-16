@@ -397,19 +397,40 @@ fn handles_recursive_feature_cycles_and_transitive_required_features() {
     assert!(inspect(root.path(), "plan").is_ok());
 }
 
+#[cfg(unix)]
 #[test]
 fn missing_installed_toolchain_is_an_error_without_installation() {
+    use std::os::unix::fs::PermissionsExt;
     let root = fixture();
     write(
         root.path(),
         "armorer.toml",
         &CONFIG.replace("1.95.0", "99.99.99"),
     );
-    // Pin the toolchain-lookup stage, not the shared cargo-discovery code: a
-    // regression to rustup-path resolution must not pass this test.
-    let error = inspect(root.path(), "plan").unwrap_err();
-    assert_eq!(error.code(), "cargo-discovery");
-    assert!(error.to_string().contains("toolchain-lookup"), "{error}");
+    // Controlled rustup on PATH: `which` fails for a missing toolchain, so the test
+    // exercises toolchain-lookup on any host instead of depending on installed rustup.
+    let tools = tempfile::tempdir().unwrap();
+    write(tools.path(), "rustup", "#!/bin/sh\nexit 1\n");
+    fs::set_permissions(
+        tools.path().join("rustup"),
+        fs::Permissions::from_mode(0o700),
+    )
+    .unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_armorer"))
+        .env("PATH", tools.path())
+        .args(["--repository", root.path().to_str().unwrap(), "plan"])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1));
+    let value: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(value["error"]["code"], "cargo-discovery");
+    assert!(
+        value["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("toolchain-lookup"),
+        "{value}"
+    );
     assert!(!root.path().join("Cargo.lock").exists());
 }
 
