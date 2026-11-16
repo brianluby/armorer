@@ -3,6 +3,7 @@ use armorer::{
     plan::{Disposition, inspect},
     preview::{preview, preview_plan},
 };
+mod support;
 use std::{fs, path::Path, process::Command};
 
 /// Create an isolated consumer whose source and build script must never execute during preview.
@@ -298,20 +299,11 @@ fn cli_saved_preview_requires_both_digest_and_plan_and_rejects_forgery() {
     assert!(!root.path().join(".armorer").exists());
 }
 
-/// The independent reconstruction oracle requires GNU patch; BSD patch handles
-/// CRLF and no-newline hunks differently, so skip visibly instead of failing.
-fn gnu_patch_available() -> bool {
-    match Command::new("patch").arg("--version").output() {
-        Ok(output) => String::from_utf8_lossy(&output.stdout).contains("GNU"),
-        Err(_) => false,
-    }
-}
-
 #[cfg(unix)]
 #[test]
 /// Use the independent patch program to reconstruct exact proposed bytes across text edge cases.
 fn independent_patch_reconstructs_exact_proposed_bytes() {
-    if !gnu_patch_available() {
+    if !support::gnu_patch_available() {
         eprintln!("skipping independent patch reconstruction: GNU patch not on PATH");
         return;
     }

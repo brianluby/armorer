@@ -212,7 +212,9 @@ fn lock_holder_helper() {
         .open(path)
         .unwrap();
     file.lock().unwrap();
-    println!("locked");
+    use std::io::Write;
+    writeln!(std::io::stdout(), "locked").unwrap();
+    std::io::stdout().flush().unwrap();
     let mut sink = Vec::new();
     let _ = std::io::stdin().read_to_end(&mut sink);
 }
@@ -243,7 +245,9 @@ fn concurrent_kernel_lock_blocks_apply_and_releases_on_close() {
             reader.read_line(&mut line).unwrap() > 0,
             "lock holder exited early"
         );
-        if line.trim() == "locked" {
+        // Serial libtest prints "test lock_holder_helper ... " without a newline
+        // before the helper runs, so the marker can share a line with that prefix.
+        if line.trim_end().ends_with("locked") {
             break;
         }
     }
