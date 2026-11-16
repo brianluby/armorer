@@ -9,7 +9,14 @@ fn copy(from: &Path, to: &Path) {
     for entry in fs::read_dir(from).unwrap() {
         let entry = entry.unwrap();
         let destination = to.join(entry.file_name());
-        if entry.path().is_dir() {
+        // Non-following dispatch keeps fixture copies inside the isolated tree.
+        let kind = entry.file_type().unwrap();
+        if kind.is_symlink() {
+            #[cfg(unix)]
+            std::os::unix::fs::symlink(fs::read_link(entry.path()).unwrap(), destination).unwrap();
+            #[cfg(not(unix))]
+            panic!("symlink fixtures require unix");
+        } else if kind.is_dir() {
             copy(&entry.path(), &destination);
         } else {
             fs::copy(entry.path(), destination).unwrap();
@@ -28,7 +35,15 @@ fn snapshot(root: &Path) -> BTreeMap<String, Vec<u8>> {
             .to_str()
             .unwrap()
             .to_owned();
-        if path.is_dir() {
+        // Non-following dispatch: a stray symlink is recorded, never traversed.
+        let kind = fs::symlink_metadata(&path).unwrap().file_type();
+        if kind.is_symlink() {
+            files.insert(
+                relative,
+                format!("symlink:{}", fs::read_link(&path).unwrap().display()).into_bytes(),
+            );
+        } else if kind.is_dir() {
+            files.insert(format!("{relative}/"), b"directory".to_vec());
             for (name, bytes) in snapshot(&path) {
                 files.insert(format!("{relative}/{name}"), bytes);
             }
@@ -261,7 +276,22 @@ fn bootstrap_cli_write_failure_rolls_back_and_retry_succeeds_without_building() 
         permissions: original_permissions,
     };
     fs::set_permissions(&workflows, fs::Permissions::from_mode(0o500)).unwrap();
+    // Probe that the mode actually blocks writes: root/ACL-bypassing accounts would
+    // make the rejection assertion below vacuous, so skip visibly instead.
+    let probe = workflows.join("permission-probe");
+    match fs::write(&probe, b"probe") {
+        Ok(()) => {
+            fs::remove_file(&probe).unwrap();
+            drop(restore);
+            eprintln!("skipping permission-rejection test: account bypasses directory modes");
+            return;
+        }
+        Err(error) if matches!(error.kind(), std::io::ErrorKind::PermissionDenied) => {}
+        Err(error) => panic!("unexpected probe error: {error}"),
+    }
     let output = Command::new(env!("CARGO_BIN_EXE_armorer"))
+        // Pin strerror language so the message assertion is locale-independent.
+        .env("LC_ALL", "C")
         .arg("--repository")
         .arg(root.path())
         .args(["bootstrap", "apply", "--plan"])
@@ -284,24 +314,14 @@ fn bootstrap_cli_write_failure_rolls_back_and_retry_succeeds_without_building() 
         "{failure}"
     );
     drop(restore);
-    for path in [
-        ".armorer/ci-policy.toml",
-        ".armorer/bootstrap-state-v2.json",
-        ".armorer/bootstrap-journal-v2.json",
-        ".github/workflows/armorer-build.yml",
-        ".github/workflows/armorer-ci.yml",
-        "armorer.lock",
-        "rust-toolchain.toml",
-    ] {
-        assert!(!root.path().join(path).exists(), "{path}");
-    }
-    assert_eq!(
-        fs::read(workflows.join("bespoke.yml")).unwrap(),
-        b"bespoke bytes\r\n"
-    );
-    assert_eq!(fs::read(&sentinel).unwrap(), b"unrelated bytes\r\n");
-    assert!(!root.path().join("BUILD_EXECUTED").exists());
-    assert!(!root.path().join("target").exists());
+    // Full-tree equality proves rollback completeness: no managed file, journal,
+    // stray directory or build marker may survive the failed apply.
+    let mut after = snapshot(root.path());
+    // The advisory lock file and its directory are durable infrastructure, not
+    // transaction output; every other byte must match the pre-apply tree.
+    after.remove(".armorer/apply.lock");
+    after.remove(".armorer/");
+    assert_eq!(after, before);
     let receipt = cli(
         root.path(),
         &[

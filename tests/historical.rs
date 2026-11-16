@@ -95,6 +95,33 @@ fn explicit_exact_allowlist_is_read_only_and_never_executes_or_extracts_payloads
         fs::read(directory.path().join("download/legacy.tar.gz")).unwrap(),
         payload
     );
+    // Re-run through the CLI with the fixture as CWD so any execution marker
+    // (`touch executed`, cargo `target/`) lands where the assertions below look.
+    let (path, digest) = approve(directory.path(), &policy);
+    let output = Command::new(env!("CARGO_BIN_EXE_armorer"))
+        .current_dir(directory.path())
+        .args([
+            "--repository",
+            "/nonexistent-not-inspected",
+            "verify-historical-bytes",
+            "--directory",
+        ])
+        .arg(directory.path().join("download"))
+        .arg("--policy")
+        .arg(&path)
+        .args([
+            "--expect-policy-sha256",
+            &digest,
+            "--source-repository",
+            &source.repository,
+            "--source-commit",
+            &source.commit,
+            "--source-tag",
+            "v0.1.0",
+        ])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
     assert!(!directory.path().join("executed").exists());
     assert!(!directory.path().join("download/executed").exists());
     assert!(!directory.path().join("target").exists());
@@ -388,7 +415,13 @@ fn cli_requires_independent_selection_and_reports_no_authenticity_or_slsa_level(
             .output()
             .unwrap();
         assert_eq!(output.status.success(), success);
-        let result: Value = serde_json::from_slice(&output.stdout).unwrap();
+        let result: Value = serde_json::from_slice(&output.stdout).unwrap_or_else(|error| {
+            panic!(
+                "stdout was not JSON ({error}); status {:?}, stderr: {}",
+                output.status,
+                String::from_utf8_lossy(&output.stderr)
+            )
+        });
         if success {
             assert_eq!(result["status"], "historical-byte-match");
             assert_eq!(result["authenticity"], "not-established");
@@ -410,6 +443,18 @@ fn cli_requires_independent_selection_and_reports_no_authenticity_or_slsa_level(
     }
     let parsed: VerificationPolicy = serde_json::from_value(policy).unwrap();
     assert_eq!(parsed.historical[0].source, source);
+    // Omitting the required policy selection must fail; it is never auto-selected.
+    let output = Command::new(env!("CARGO_BIN_EXE_armorer"))
+        .args([
+            "--repository",
+            "/nonexistent-not-inspected",
+            "verify-historical-bytes",
+            "--directory",
+        ])
+        .arg(directory.path().join("download"))
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
 }
 
 #[cfg(target_os = "linux")]

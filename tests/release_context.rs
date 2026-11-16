@@ -377,13 +377,18 @@ fn approved_duplicate_or_trailing_context_json_is_rejected() {
 /// Approved-looking sidecars and the context directory must be regular, non-symlink inputs.
 fn context_rejects_symlinked_authorities_and_directory() {
     use std::os::unix::fs::symlink;
-    for name in [
-        CONTEXT_NAME,
-        "armorer.toml",
-        "armorer.lock",
-        "Cargo.lock",
-        "catalog.json",
-        "verification-policy.json",
+    // Pin the symlink/type rejection per case so unsupported hosts cannot pass
+    // vacuously on the native-validator gate instead of the intended guard.
+    for (name, expected) in [
+        (CONTEXT_NAME, "verification-input-type-or-size"),
+        ("armorer.toml", "symlink input or parent"),
+        ("armorer.lock", "symlink input or parent"),
+        ("Cargo.lock", "verification-input-type-or-size"),
+        ("catalog.json", "verification-input-type-or-size"),
+        (
+            "verification-policy.json",
+            "verification-input-type-or-size",
+        ),
     ] {
         let (directory, context) = fixture();
         let context_identity: ByteIdentity =
@@ -392,14 +397,23 @@ fn context_rejects_symlinked_authorities_and_directory() {
         fs::copy(directory.path().join(name), outside.path()).unwrap();
         fs::remove_file(directory.path().join(name)).unwrap();
         symlink(outside.path(), directory.path().join(name)).unwrap();
-        assert!(TrustedReleaseContext::open(directory.path(), &context_identity.sha256).is_err());
+        let error = TrustedReleaseContext::open(directory.path(), &context_identity.sha256)
+            .err()
+            .unwrap();
+        assert!(error.to_string().contains(expected), "{name}: {error}");
     }
     let (directory, context) = fixture();
     let id: ByteIdentity =
         serde_json::from_value(write(&directory.path().join(CONTEXT_NAME), &context)).unwrap();
     let parent = tempfile::tempdir().unwrap();
     symlink(directory.path(), parent.path().join("linked")).unwrap();
-    assert!(TrustedReleaseContext::open(&parent.path().join("linked"), &id.sha256).is_err());
+    let error = TrustedReleaseContext::open(&parent.path().join("linked"), &id.sha256)
+        .err()
+        .unwrap();
+    assert!(
+        matches!(&error, armorer::Error::Invalid(code) if code == "release-context-directory-type"),
+        "{error}"
+    );
 }
 
 #[test]
@@ -559,11 +573,37 @@ fn inventory_rejects_cross_target_sbom_subject_swap_before_bundle_processing() {
     assert!(error.to_string().contains("asset-relationship-mismatch"));
 }
 
+/// Pin the synthetic tar layout the fixed offsets below depend on: three 128-byte
+/// regular members at a 1024-byte stride, ustar headers, then end-of-archive blocks.
+/// Fixture drift fails here with a clear diagnostic instead of mutating wrong bytes.
+fn assert_synthetic_tar_layout(archive: &[u8]) {
+    assert_eq!(
+        archive.len(),
+        10240,
+        "synthetic-runtime.tar total size drifted"
+    );
+    for index in 0..3 {
+        let header = &archive[index * 1024..index * 1024 + 512];
+        assert_eq!(
+            &header[257..263],
+            b"ustar\0",
+            "member {index} magic drifted"
+        );
+        assert_eq!(header[156], b'0', "member {index} typeflag drifted");
+        assert_eq!(
+            &header[124..135],
+            b"00000000200",
+            "member {index} size drifted from 128 bytes"
+        );
+    }
+}
+
 /// Build an explicit three-target synthetic context with different archive and executable identities.
 fn native_fixture() -> (tempfile::TempDir, Value, Value) {
     use armorer::config::{Config, Lock, Profile, ToolPin};
     let (directory, mut release) = fixture();
     let archive = include_bytes!("fixtures/runtime/synthetic-runtime.tar");
+    assert_synthetic_tar_layout(archive);
     let targets = [
         "x86_64-unknown-linux-gnu",
         "aarch64-unknown-linux-gnu",
@@ -855,6 +895,7 @@ fn native_runtime_rejects_unsafe_containers_and_retained_executable_mutation() {
     for case in 0..12 {
         let (directory, mut outer, mut catalog) = native_fixture();
         let mut archive = fs::read(directory.path().join("runtime.tar")).unwrap();
+        assert_synthetic_tar_layout(&archive);
         match case {
             0 => archive[0] = b'/',
             1 => archive[156] = b'2',
