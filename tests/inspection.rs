@@ -318,6 +318,44 @@ sha256 = "{}"
 }
 
 #[test]
+/// A lock is readable by the running binary's own patch line only: never from a
+/// newer patch, another minor or major line, or a prerelease.
+fn lock_runtime_version_follows_the_patch_line_compatibility_rule() {
+    let root = fixture();
+    let digest = "a".repeat(64);
+    let lock = |runtime: &str| {
+        format!(
+            "schema_version = 1\nconfig_sha256 = \"{digest}\"\nruntime_version = \"{runtime}\"\n[workflows]\nrepository = \"brianluby/armorer-workflows\"\ncommit = \"{}\"\n[tools.cargo-cyclonedx]\nversion = \"0.5.9\"\nsha256 = \"{}\"\n",
+            "b".repeat(40),
+            "c".repeat(64)
+        )
+    };
+    let running = semver::Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
+    let version = |major, minor, patch| format!("{major}.{minor}.{patch}");
+    let mut accepted = vec![version(running.major, running.minor, running.patch)];
+    if running.patch > 0 {
+        accepted.push(version(running.major, running.minor, 0));
+    }
+    for runtime in accepted {
+        write(root.path(), "armorer.lock", &lock(&runtime));
+        assert!(
+            load_lock(root.path(), &digest).unwrap().is_some(),
+            "{runtime}"
+        );
+    }
+    for runtime in [
+        version(running.major, running.minor, running.patch + 1),
+        version(running.major, running.minor + 1, 0),
+        version(running.major + 1, running.minor, running.patch),
+        format!("{running}-rc.1"),
+        format!("{running}+local"),
+    ] {
+        write(root.path(), "armorer.lock", &lock(&runtime));
+        assert!(load_lock(root.path(), &digest).is_err(), "{runtime}");
+    }
+}
+
+#[test]
 fn plan_hashes_exact_validated_lock_bytes() {
     use sha2::{Digest, Sha256};
     let root = fixture();

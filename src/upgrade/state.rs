@@ -45,7 +45,7 @@ pub(super) fn decode_state(bytes: &[u8]) -> Result<State> {
             "invalid upgrade ownership schema version; no fallback",
         ));
     }
-    if state.runtime_version != env!("CARGO_PKG_VERSION") {
+    if !crate::runtime::compatible(&state.runtime_version) {
         return Err(Error::Transaction(
             "invalid upgrade ownership runtime version; no fallback",
         ));

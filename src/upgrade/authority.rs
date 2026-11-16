@@ -28,11 +28,12 @@ pub struct Authority {
 }
 
 /// Runtime identity frozen by the reviewed bootstrap catalogs.
-pub(super) const BOOTSTRAP_RUNTIME_VERSION: &str = "0.1.0";
+pub(super) const BOOTSTRAP_RUNTIME_VERSION: &str = catalog::RUNTIME_VERSION;
 
-/// Reject a crate bump until a separate catalog successor has been reviewed.
+/// Accept patch releases of the frozen runtime line. A minor or major bump is
+/// rejected until a separate catalog successor has been reviewed.
 fn require_bootstrap_runtime(runtime_version: &str) -> Result<()> {
-    if runtime_version != BOOTSTRAP_RUNTIME_VERSION {
+    if !crate::runtime::compatible_with(BOOTSTRAP_RUNTIME_VERSION, runtime_version) {
         return Err(Error::Transaction(
             "compiled runtime requires a separately reviewed upgrade catalog successor",
         ));
@@ -42,6 +43,8 @@ fn require_bootstrap_runtime(runtime_version: &str) -> Result<()> {
 
 /// Stable IDs have immutable meanings. A future source update must retain these
 /// entries and add a separately reviewed successor, rather than moving an ID.
+/// ADR 0012 applies this rule from the first tagged release; before that tag a
+/// superseded entry with no adopter is removed, never reinterpreted.
 pub fn select(id: &str) -> Result<Authority> {
     let revision = match id {
         "bootstrap-v1" => 1,
@@ -90,13 +93,24 @@ mod tests {
     /// A future crate version must not silently redefine the immutable bootstrap-v1 authority.
     #[test]
     fn runtime_bump_requires_a_reviewed_catalog_successor() {
-        require_bootstrap_runtime("0.1.0").unwrap();
-        for runtime in ["0.1.1", "0.2.0", "0.1.0-rc.1", "0.1.0+unreviewed"] {
-            assert!(require_bootstrap_runtime(runtime).is_err());
+        // Patch releases keep the frozen contract and therefore the same authority.
+        for runtime in ["0.1.0", "0.1.1", "0.1.42"] {
+            require_bootstrap_runtime(runtime).unwrap();
+        }
+        for runtime in [
+            "0.0.9",
+            "0.2.0",
+            "1.1.0",
+            "0.1.0-rc.1",
+            "0.1.1-rc.1",
+            "0.1.0+unreviewed",
+        ] {
+            assert!(require_bootstrap_runtime(runtime).is_err(), "{runtime}");
         }
         let authority = select("bootstrap-v1").unwrap();
+        // The recorded identity is the frozen contract, never the running patch.
         assert_eq!(authority.runtime_version, "0.1.0");
-        assert_eq!(authority.runtime_version, env!("CARGO_PKG_VERSION"));
+        assert!(crate::runtime::compatible(&authority.runtime_version));
     }
     /// Verify that registry identity is independent of claims and unknown downgrades stay blocked.
     #[test]
