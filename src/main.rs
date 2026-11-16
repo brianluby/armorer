@@ -533,13 +533,19 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
                     let plan = armorer::bootstrap::inspect(&cli.repository, &policy)?;
                     // Reasons go to stderr; stdout stays the unchanged plan document.
                     let drift = plan.drift();
+                    // The strict gate fails only while a blocker exists.
+                    let blockers = if release_ready {
+                        plan.release_blockers()
+                    } else {
+                        Vec::new()
+                    };
                     let status = if !drift.is_empty() {
                         eprintln!("armorer: provisioning drift: {}", drift.join(", "));
                         2
-                    } else if release_ready {
+                    } else if !blockers.is_empty() {
                         eprintln!(
                             "armorer: release readiness not established: {}",
-                            plan.release_blockers().join(", ")
+                            blockers.join(", ")
                         );
                         2
                     } else {
