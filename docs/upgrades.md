@@ -173,6 +173,11 @@ state from its own major and minor line whose patch is not newer than its own:
 `0.1.1` reads records written for `0.1.0`, and `0.1.0` rejects records written
 for `0.1.1`. Prerelease and build-metadata versions are never compatible.
 
+Release verification follows the same rule. The independently approved release
+context names the exact runtime version and distribution bytes that built the
+release; the lock's contract must be on that runtime's patch line and no newer.
+The runtime distribution's own version must still equal the approved version.
+
 A minor or major bump still fails with an explicit catalog-successor error; it
 does not reinterpret these IDs or widen historical lock acceptance. A new runtime
 line requires a separately reviewed catalog ID and explicit migration tests for

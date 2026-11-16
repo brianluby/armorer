@@ -14,9 +14,10 @@ release, platform qualification or SLSA achievement.
 | Input | Accepted boundary |
 | --- | --- |
 | `armorer.toml` | `schema_version = 1`; unknown fields rejected; workspace-root `Cargo.toml` |
-| `armorer.lock` | Version 1, exact config-byte SHA-256, exact runtime-version equality, full workflow SHA and exact tool versions/digests |
+| `armorer.lock` | Version 1, exact config-byte SHA-256, a runtime version on the running binary's major and minor line with a patch no newer than its own, full workflow SHA and exact tool versions/digests |
 | Saved plan | Version 1 and exact runtime; canonical typed digest and all current preimages must match |
-| Ownership state/journal | Current schema/runtime and approved plan bindings; incompatible or malformed state blocks mutation |
+| Ownership state | Current schema, the same patch-line runtime rule as the lock, and approved plan bindings; incompatible or malformed state blocks mutation |
+| Journal | Current schema, exact runtime and approved plan bindings; incompatible or malformed state blocks mutation |
 | Trust documents | Version 1 structural and semantic validation; unknown fields/versions fail; independent expected context required |
 
 Editing a TOML comment changes the config digest. The lock must bind the reviewed

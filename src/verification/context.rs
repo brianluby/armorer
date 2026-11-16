@@ -289,7 +289,12 @@ impl TrustedReleaseContext {
             crate::digest(&lock_bytes) == expectations.inputs.lock_sha256
                 && crate::digest(&io::read_bounded(&directory.join("Cargo.lock"), 1_048_576)?)
                     == expectations.inputs.cargo_lock_sha256
-                && lock.runtime_version == expectations.inputs.runtime_version
+                // The lock records the runtime contract; the approved runtime may be a
+                // later patch of that line.
+                && crate::runtime::compatible_with(
+                    &lock.runtime_version,
+                    &expectations.inputs.runtime_version,
+                )
                 && lock.workflows.repository == expectations.inputs.run.workflow.repository
                 && lock.workflows.commit == expectations.inputs.run.workflow.commit,
             "approved-release-input-mismatch",

@@ -732,6 +732,43 @@ fn open_native(directory: &Path, outer: &Value) -> armorer::Result<TrustedReleas
     ignore = "native SBOM identity is unsupported on this host"
 )]
 #[test]
+/// The lock records the frozen runtime contract. An approved runtime distribution may be
+/// a later patch of that line, never an earlier patch or another minor or major line,
+/// and the distribution version must still equal the approved runtime version exactly.
+fn native_context_accepts_a_patch_runtime_for_the_locked_contract_only() {
+    qualified_native_validator().expect("required native identity on a supported host");
+    let approve = |runtime: &str, distribution: &str| {
+        let (directory, mut outer, mut catalog) = native_fixture();
+        catalog["runtime"]["version"] = distribution.into();
+        outer["release"]["inputs"]["runtime_version"] = runtime.into();
+        for selected in outer["release"]["selections"].as_array_mut().unwrap() {
+            selected["evidence_requirements"]["inputs"]["runtime_version"] = runtime.into();
+        }
+        bind_native_catalog(directory.path(), &mut outer, &catalog);
+        open_native(directory.path(), &outer).is_ok()
+    };
+    // The fixture lock records 0.1.0.
+    assert!(approve("0.1.0", "0.1.0"));
+    assert!(approve("0.1.1", "0.1.1"));
+    for runtime in ["0.0.9", "0.2.0", "1.1.0", "0.1.1-rc.1"] {
+        assert!(!approve(runtime, runtime), "{runtime}");
+    }
+    // Patch compatibility never loosens the exact distribution binding.
+    assert!(!approve("0.1.1", "0.1.0"));
+    assert!(!approve("0.1.0", "0.1.1"));
+}
+
+#[cfg_attr(
+    not(any(
+        all(
+            target_os = "linux",
+            any(target_arch = "x86_64", target_arch = "aarch64")
+        ),
+        all(target_os = "macos", target_arch = "aarch64")
+    )),
+    ignore = "native SBOM identity is unsupported on this host"
+)]
+#[test]
 /// Every target uses its executed members while retaining compressed archive digests in the lock.
 fn native_context_selects_target_members_and_never_reinterprets_v1_catalogs() {
     qualified_native_validator().expect("required native identity on a supported host");
