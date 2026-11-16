@@ -38,11 +38,22 @@ pub struct Plan {
     pub findings: Vec<Finding>,
 }
 
+/// Typed file outcome. The lowercase wire strings are identity-bearing: plan
+/// digests and stored packets depend on them, so variants must never be renamed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum Disposition {
+    Create,
+    Unchanged,
+    Update,
+    Conflict,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Change {
     pub path: String,
-    pub disposition: String,
+    pub disposition: Disposition,
     #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub before_sha256: Option<String>,
     #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
@@ -69,7 +80,7 @@ fn finding(code: &str, detail: &str) -> Finding {
 /// A missing file is `create`, identical bytes are `unchanged`, and differing
 /// bytes are `conflict`. A legacy `rust-toolchain` file always causes a conflict.
 /// Returns proposed content and digests, propagating path, I/O, and size errors.
-fn toolchain_change(root: &Path, config: &Config) -> Result<Change> {
+fn toolchain_change(root: &Path, config: &Config) -> Result<(Change, bool)> {
     let path = safe_path(root, "rust-toolchain.toml")?;
     let proposed_content = format!(
         "[toolchain]\nchannel = \"{}\"\nprofile = \"minimal\"\ncomponents = [\"clippy\", \"rustfmt\"]\n",
@@ -82,18 +93,21 @@ fn toolchain_change(root: &Path, config: &Config) -> Result<Change> {
     };
     let legacy = safe_path(root, "rust-toolchain")?.try_exists()?;
     let disposition = match &current {
-        _ if legacy => "conflict",
-        None => "create",
-        Some(bytes) if *bytes == proposed_content.as_bytes() => "unchanged",
-        Some(_) => "conflict",
+        _ if legacy => Disposition::Conflict,
+        None => Disposition::Create,
+        Some(bytes) if *bytes == proposed_content.as_bytes() => Disposition::Unchanged,
+        Some(_) => Disposition::Conflict,
     };
-    Ok(Change {
-        path: "rust-toolchain.toml".into(),
-        disposition: disposition.into(),
-        before_sha256: current.as_deref().map(digest),
-        after_sha256: digest(proposed_content.as_bytes()),
-        proposed_content,
-    })
+    Ok((
+        Change {
+            path: "rust-toolchain.toml".into(),
+            disposition,
+            before_sha256: current.as_deref().map(digest),
+            after_sha256: digest(proposed_content.as_bytes()),
+            proposed_content,
+        },
+        legacy,
+    ))
 }
 
 /// Inspect configuration and preview the first managed file. Missing capabilities fail closed.
@@ -115,15 +129,17 @@ pub fn inspect(root: &Path, mode: &str) -> Result<Plan> {
     let workspace = discover(root, &config)?;
     let ownership = crate::apply::load_state(root)?;
     let state_sha256 = ownership.as_ref().map(|(_, bytes)| digest(bytes));
-    let mut change = toolchain_change(root, &config)?;
-    if change.disposition == "conflict"
-        && !safe_path(root, "rust-toolchain")?.try_exists()?
+    // Reuse the probed legacy flag: a second existence check could disagree under
+    // concurrent mutation and promote a legacy-caused conflict to "update".
+    let (mut change, legacy_toolchain) = toolchain_change(root, &config)?;
+    if change.disposition == Disposition::Conflict
+        && !legacy_toolchain
         && ownership
             .as_ref()
             .and_then(|(state, _)| state.managed.get(&change.path))
             .is_some_and(|base| Some(base.sha256.clone()) == change.before_sha256)
     {
-        change.disposition = "update".into();
+        change.disposition = Disposition::Update;
     }
     let mut input_preimages = BTreeMap::new();
     for relative in [&config.policy.license_file, &"rust-toolchain".to_owned()] {
@@ -182,7 +198,7 @@ pub fn inspect(root: &Path, mode: &str) -> Result<Plan> {
     }) {
         findings.push(finding("native-build-review", "Declared native links/build scripts require target-specific tool and system dependency review."));
     }
-    if change.disposition == "conflict" {
+    if change.disposition == Disposition::Conflict {
         findings.push(finding(
             "toolchain-conflict",
             "Existing toolchain customization is preserved; resolve the conflict before apply.",

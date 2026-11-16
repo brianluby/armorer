@@ -92,7 +92,7 @@ fn bootstrap_all_profiles_is_read_only_then_provisions_all_five_files_with_no_bu
         assert!(
             plan.changes
                 .iter()
-                .all(|change| change.disposition == "create")
+                .all(|change| change.disposition == plan::Disposition::Create)
         );
         assert_eq!(plan.capability_state, "unknown");
         let receipt = apply(root.path(), &plan, &plan.plan_sha256).unwrap();
@@ -159,7 +159,7 @@ fn bootstrap_all_profiles_is_read_only_then_provisions_all_five_files_with_no_bu
                 .unwrap()
                 .changes
                 .iter()
-                .all(|c| c.disposition == "unchanged")
+                .all(|c| c.disposition == plan::Disposition::Unchanged)
         );
     }
 }
@@ -175,7 +175,10 @@ fn every_unowned_conflict_is_preserved_and_every_identical_file_remains_unowned(
         fs::write(&path, "bespoke λ\r\nno final newline").unwrap();
         let before = snapshot(root.path());
         let conflict = inspect(root.path(), policy.path()).unwrap();
-        assert_eq!(conflict.changes[index].disposition, "conflict");
+        assert_eq!(
+            conflict.changes[index].disposition,
+            plan::Disposition::Conflict
+        );
         assert_eq!(
             conflict.changes[index].before_content.as_deref(),
             Some("bespoke λ\r\nno final newline")
@@ -184,7 +187,10 @@ fn every_unowned_conflict_is_preserved_and_every_identical_file_remains_unowned(
         assert_eq!(snapshot(root.path()), before);
         fs::write(&path, &change.proposed_content).unwrap();
         let plan = inspect(root.path(), policy.path()).unwrap();
-        assert_eq!(plan.changes[index].disposition, "unchanged");
+        assert_eq!(
+            plan.changes[index].disposition,
+            plan::Disposition::Unchanged
+        );
         assert!(!plan.changes[index].owned);
         apply(root.path(), &plan, &plan.plan_sha256).unwrap();
         let state: serde_json::Value =
@@ -214,7 +220,8 @@ fn edits_and_deletions_of_each_owned_file_are_conflicts_without_readoption() {
             let before = snapshot(root.path());
             let fresh = inspect(root.path(), policy.path()).unwrap();
             assert_eq!(
-                fresh.changes[index].disposition, "conflict",
+                fresh.changes[index].disposition,
+                plan::Disposition::Conflict,
                 "{} {delete}",
                 plan.changes[index].path
             );

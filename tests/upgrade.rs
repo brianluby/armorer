@@ -1,5 +1,6 @@
 use armorer::{
     bootstrap, config,
+    plan::Disposition,
     upgrade::{self, merge::Decision},
 };
 use std::{collections::BTreeMap, fs, path::Path, process::Command};
@@ -1069,7 +1070,11 @@ fn existing_v1_bootstrap_state_still_validates_and_is_honored_by_both_consumers(
     // Bootstrap re-inspection honors the stored v1 authority instead of defaulting to v2.
     let plan = bootstrap::inspect(root.path(), &policy).unwrap();
     assert_eq!(plan.catalog_id, "bootstrap-v1");
-    assert!(plan.changes.iter().all(|c| c.disposition == "unchanged"));
+    assert!(
+        plan.changes
+            .iter()
+            .all(|c| c.disposition == Disposition::Unchanged)
+    );
     // Upgrade recognizes the same state as a bootstrap-v1 source and refreshes it.
     let p = upgrade::inspect(root.path(), &policy, "bootstrap-v1", &[], false).unwrap();
     assert_eq!(p.source_format, upgrade::SourceFormat::BootstrapV2);

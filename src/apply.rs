@@ -4,7 +4,7 @@ use crate::{
     Error, Result,
     config::{VERSION, hex_digest},
     digest,
-    plan::{Plan, inspect},
+    plan::{Disposition, Plan, inspect},
     read_small, safe_path,
 };
 use serde::{Deserialize, Serialize};
@@ -277,10 +277,6 @@ fn validate_plan(plan: &Plan, expected: &str) -> Result<()> {
     if change.path != TOOLCHAIN
         || change.proposed_content != expected_content
         || change.after_sha256 != digest(expected_content.as_bytes())
-        || !matches!(
-            change.disposition.as_str(),
-            "create" | "unchanged" | "update" | "conflict"
-        )
     {
         return Err(Error::Transaction(
             "unsupported generated content or target",
@@ -424,7 +420,8 @@ fn same_inputs(original: &Plan, fresh: &Plan) -> Result<bool> {
         let mut plan = plan.clone();
         plan.state_sha256 = None;
         for change in &mut plan.changes {
-            change.disposition.clear();
+            // Fixed neutral value; both sides are normalized identically for equality.
+            change.disposition = Disposition::Unchanged;
             change.before_sha256 = None;
         }
         plan.digest()
@@ -468,7 +465,7 @@ fn apply_transaction(
     if plan
         .changes
         .iter()
-        .any(|change| change.disposition == "conflict")
+        .any(|change| change.disposition == Disposition::Conflict)
     {
         return Err(Error::Transaction(
             "unowned customization conflicts with generated content",
@@ -502,7 +499,7 @@ fn apply_transaction(
         let bases_match = state.as_ref().is_some_and(|(state, _)| {
             let change = &plan.changes[0];
             let base = state.managed.get(TOOLCHAIN);
-            (change.disposition == "unchanged" || base.is_some())
+            (change.disposition == Disposition::Unchanged || base.is_some())
                 && base.is_none_or(|base| {
                     base.sha256 == change.after_sha256 && base.content == change.proposed_content
                 })
@@ -533,7 +530,7 @@ fn apply_transaction(
         .unwrap_or_default();
     let mut operations = Vec::new();
     for change in &plan.changes {
-        if change.disposition == "unchanged" {
+        if change.disposition == Disposition::Unchanged {
             continue;
         }
         let before = optional_bytes(&root, &change.path)?
@@ -616,7 +613,7 @@ fn apply_transaction(
 fn validate_journal(journal: &Journal, expected: &str) -> Result<()> {
     validate_plan(&journal.plan, expected)?;
     if journal.schema_version != VERSION
-        || journal.plan.changes[0].disposition == "conflict"
+        || journal.plan.changes[0].disposition == Disposition::Conflict
         || journal.operations.is_empty()
         || journal.operations.len() > 2
     {
@@ -670,7 +667,7 @@ fn validate_journal(journal: &Journal, expected: &str) -> Result<()> {
                     .transpose()?
                     .unwrap_or_default();
                 let change = &journal.plan.changes[0];
-                if change.disposition != "unchanged" {
+                if change.disposition != Disposition::Unchanged {
                     managed.insert(
                         TOOLCHAIN.into(),
                         Base {
@@ -690,7 +687,7 @@ fn validate_journal(journal: &Journal, expected: &str) -> Result<()> {
     }
     if !seen.contains(&STATE.to_owned())
         || seen.contains(&TOOLCHAIN.to_owned())
-            != (journal.plan.changes[0].disposition != "unchanged")
+            != (journal.plan.changes[0].disposition != Disposition::Unchanged)
     {
         return Err(Error::Transaction("incomplete recovery inventory"));
     }
@@ -1008,7 +1005,7 @@ mod tests {
         fs::write(root.path().join(STATE), json(&state).unwrap()).unwrap();
         fs::write(root.path().join(TOOLCHAIN), old).unwrap();
         let next = inspect(root.path(), "plan").unwrap();
-        assert_eq!(next.changes[0].disposition, "update");
+        assert_eq!(next.changes[0].disposition, Disposition::Update);
         assert!(
             apply_inner(root.path(), &next, &next.plan_sha256, |_| Err(
                 Error::Transaction("write failure")
@@ -1017,7 +1014,7 @@ mod tests {
         );
         assert_eq!(
             inspect(root.path(), "plan").unwrap().changes[0].disposition,
-            "update"
+            Disposition::Update
         );
         apply(root.path(), &next, &next.plan_sha256).unwrap();
         assert_eq!(

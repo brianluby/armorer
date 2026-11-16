@@ -149,13 +149,13 @@ fn operations(plan: &Plan, state_bytes: Option<&str>) -> Result<Vec<Write>> {
                     base.map(|b| b.content.as_str()),
                     legacy,
                 )
-            || change.disposition == "conflict"
+            || change.disposition == crate::plan::Disposition::Conflict
         {
             return Err(Error::Transaction(
                 "bootstrap ownership or customization conflicts with approved change",
             ));
         }
-        if change.disposition == "unchanged" {
+        if change.disposition == crate::plan::Disposition::Unchanged {
             continue;
         }
         writes.push(Write {
@@ -277,7 +277,7 @@ fn rollback(root: &Path, journal: &Journal) -> Result<()> {
 fn replay_matches(root: &Path, plan: &Plan, state: &State) -> Result<bool> {
     for change in &plan.changes {
         let base = state.managed.get(&change.path);
-        let required = change.owned || change.disposition != "unchanged";
+        let required = change.owned || change.disposition != crate::plan::Disposition::Unchanged;
         if base.is_some() != required
             || base.is_some_and(|base| {
                 base.sha256 != change.after_sha256 || base.content != change.proposed_content
@@ -319,7 +319,12 @@ fn transaction(
         ));
     }
     plan::validate(plan, expected)?;
-    if plan.recovery_required || plan.changes.iter().any(|c| c.disposition == "conflict") {
+    if plan.recovery_required
+        || plan
+            .changes
+            .iter()
+            .any(|c| c.disposition == crate::plan::Disposition::Conflict)
+    {
         return Err(Error::Transaction(
             "bootstrap conflict or unfinished transaction requires explicit resolution",
         ));
@@ -790,7 +795,10 @@ mod tests {
         }
         let policy = POLICY.replace("[\"MIT\"]", "[\"MIT\", \"Apache-2.0\"]");
         let next = plan::inspect_bytes(root.path(), policy.as_bytes()).unwrap();
-        assert_eq!(next.changes[0].disposition, "update");
+        assert_eq!(
+            next.changes[0].disposition,
+            crate::plan::Disposition::Update
+        );
         for index in 0..2 {
             assert!(
                 transaction(

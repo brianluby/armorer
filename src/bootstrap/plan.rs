@@ -7,7 +7,7 @@ use crate::{
     config::{Config, hex_digest, load_config},
     digest,
     discovery::{Workspace, discover},
-    plan::Finding,
+    plan::{Disposition, Finding},
     read_small,
 };
 use schemars::JsonSchema;
@@ -47,7 +47,7 @@ pub struct Plan {
 #[serde(deny_unknown_fields)]
 pub struct Change {
     pub path: String,
-    pub disposition: String,
+    pub disposition: Disposition,
     pub owned: bool,
     #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub before_sha256: Option<String>,
@@ -110,17 +110,17 @@ pub(super) fn disposition(
     after: &str,
     base: Option<&str>,
     legacy: bool,
-) -> &'static str {
+) -> Disposition {
     if legacy || base.is_some_and(|base| before != Some(base)) {
-        "conflict"
+        Disposition::Conflict
     } else if before == Some(after) {
-        "unchanged"
+        Disposition::Unchanged
     } else if base.is_some() {
-        "update"
+        Disposition::Update
     } else if before.is_none() {
-        "create"
+        Disposition::Create
     } else {
-        "conflict"
+        Disposition::Conflict
     }
 }
 
@@ -259,7 +259,7 @@ pub(super) fn inspect_bytes(root: &Path, policy: &[u8]) -> Result<Plan> {
                 .map(|content| digest(content.as_bytes())),
             after_sha256: digest(proposed_content.as_bytes()),
             path,
-            disposition: disposition.into(),
+            disposition,
             owned: base.is_some(),
             before_content,
             proposed_content,
@@ -318,10 +318,6 @@ pub(super) fn validate(plan: &Plan, expected: &str) -> Result<()> {
                     .as_deref()
                     .map(|s| digest(s.as_bytes()))
             || change.unified_diff != diff(&path, change.before_content.as_deref(), &after)
-            || !matches!(
-                change.disposition.as_str(),
-                "create" | "update" | "conflict" | "unchanged"
-            )
         {
             return Err(Error::Transaction(
                 "unsupported bootstrap content, preimage or target",
@@ -342,7 +338,8 @@ pub(super) fn same_intent(original: &Plan, fresh: &Plan) -> Result<bool> {
         for change in &mut value.changes {
             change.before_content = None;
             change.before_sha256 = None;
-            change.disposition.clear();
+            // Fixed neutral value; both sides are normalized identically for equality.
+            change.disposition = Disposition::Unchanged;
             change.unified_diff.clear();
             change.owned = false;
         }
