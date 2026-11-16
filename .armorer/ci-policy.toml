@@ -1,0 +1,16 @@
+# Armorer's own dependency policy. Proposed 2026-11-16 from the licenses in
+# Cargo.lock; requires owner review before it is treated as a decision.
+schema_version = 1
+
+[licenses]
+allow = ["MIT", "Apache-2.0", "Unicode-3.0"]
+
+[advisories]
+exceptions = []
+
+[sources]
+allow_git = []
+
+[bans]
+multiple_versions = "warn"
+deny = []

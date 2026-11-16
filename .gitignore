@@ -4,3 +4,4 @@ target/
 /.opencode/
 /.veans.yml
 .DS_Store
+/.armorer/apply.lock
