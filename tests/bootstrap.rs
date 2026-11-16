@@ -109,14 +109,11 @@ fn bootstrap_all_profiles_is_read_only_then_provisions_all_five_files_with_no_bu
                 change.proposed_content.as_bytes()
             );
         }
+        // Every pre-existing entry must survive unchanged, including type changes
+        // (file replaced by a directory) and deletions; new generated files are fine.
+        let after_first = snapshot(root.path());
         for (path, bytes) in &before {
-            // Directory markers and symlink records are compared by the snapshot itself.
-            if fs::symlink_metadata(root.path().join(path))
-                .unwrap()
-                .is_file()
-            {
-                assert_eq!(fs::read(root.path().join(path)).unwrap(), *bytes);
-            }
+            assert_eq!(after_first.get(path), Some(bytes), "{path}");
         }
         let lock = load_lock(root.path(), &plan.config_sha256)
             .unwrap()

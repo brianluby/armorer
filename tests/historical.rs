@@ -454,7 +454,12 @@ fn cli_requires_independent_selection_and_reports_no_authenticity_or_slsa_level(
         .arg(directory.path().join("download"))
         .output()
         .unwrap();
-    assert!(!output.status.success());
+    // Pin the required-argument contract: clap usage error, no JSON, names the flag.
+    assert_eq!(output.status.code(), Some(2));
+    assert!(output.stdout.is_empty());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--policy"), "{stderr}");
+    assert!(stderr.contains("required"), "{stderr}");
 }
 
 #[cfg(target_os = "linux")]

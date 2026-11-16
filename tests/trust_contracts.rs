@@ -148,10 +148,11 @@ fn rejects_tampered_artifact_and_sbom_bytes_and_wrong_sizes() {
 fn rejects_missing_extra_duplicate_assets_and_cycles() {
     let original = inventory();
     let invalid_code = |i: &ReleaseInventory, code: &str| {
+        // Validate once so the matched and reported error are the same observation.
+        let result = validate(i, &original.inputs);
         assert!(
-            matches!(validate(i, &original.inputs), Err(armorer::Error::Invalid(c)) if c == code),
-            "expected {code}, got {:?}",
-            validate(i, &original.inputs)
+            matches!(&result, Err(armorer::Error::Invalid(c)) if c == code),
+            "expected {code}, got {result:?}"
         );
     };
     for index in 0..original.assets.len() {
