@@ -200,13 +200,53 @@ fn rejects_preimage_changes_and_edited_owned_files() {
     );
 }
 
+/// Helper: hold the apply lock in a separate process until stdin closes.
+#[test]
+#[ignore = "helper for cross-process lock contention; spawned by the contention test"]
+fn lock_holder_helper() {
+    use std::io::Read;
+    let path = std::env::var("ARMORER_TEST_LOCK_PATH").unwrap();
+    let file = fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(path)
+        .unwrap();
+    file.lock().unwrap();
+    println!("locked");
+    let mut sink = Vec::new();
+    let _ = std::io::stdin().read_to_end(&mut sink);
+}
+
 #[test]
 fn concurrent_kernel_lock_blocks_apply_and_releases_on_close() {
+    use std::io::{BufRead, BufReader};
+    use std::process::Stdio;
     let root = fixture();
     let plan = inspect(root.path(), "plan").unwrap();
     fs::create_dir(root.path().join(".armorer")).unwrap();
-    let guard = fs::File::create(root.path().join(".armorer/apply.lock")).unwrap();
-    guard.try_lock().unwrap();
+    let lock_path = root.path().join(".armorer/apply.lock");
+    fs::File::create(&lock_path).unwrap();
+    // Hold the lock from a real second process: same-process fds would not exercise
+    // cross-process exclusion on filesystems that emulate flock per-process.
+    let mut holder = Command::new(std::env::current_exe().unwrap())
+        .args(["--exact", "lock_holder_helper", "--ignored", "--nocapture"])
+        .env("ARMORER_TEST_LOCK_PATH", &lock_path)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut reader = BufReader::new(holder.stdout.take().unwrap());
+    let mut line = String::new();
+    loop {
+        line.clear();
+        assert!(
+            reader.read_line(&mut line).unwrap() > 0,
+            "lock holder exited early"
+        );
+        if line.trim() == "locked" {
+            break;
+        }
+    }
     assert!(
         apply(root.path(), &plan, &plan.plan_sha256)
             .unwrap_err()
@@ -214,7 +254,8 @@ fn concurrent_kernel_lock_blocks_apply_and_releases_on_close() {
             .contains("another Armorer")
     );
     assert!(!root.path().join("rust-toolchain.toml").exists());
-    drop(guard);
+    drop(holder.stdin.take());
+    assert!(holder.wait().unwrap().success());
     assert_eq!(
         apply(root.path(), &plan, &plan.plan_sha256)
             .unwrap()
@@ -231,6 +272,8 @@ fn rejects_symlink_control_directory_and_targets_without_following() {
     let plan = inspect(root.path(), "plan").unwrap();
     std::os::unix::fs::symlink(outside.path(), root.path().join(".armorer")).unwrap();
     assert!(apply(root.path(), &plan, &plan.plan_sha256).is_err());
+    // The symlinked directory is also an intermediate component for journal reads.
+    assert!(armorer::apply::recover(root.path(), &plan.plan_sha256).is_err());
     assert_eq!(fs::read_dir(outside.path()).unwrap().count(), 0);
     fs::remove_file(root.path().join(".armorer")).unwrap();
     fs::write(outside.path().join("toolchain"), "outside customization").unwrap();
@@ -241,6 +284,31 @@ fn rejects_symlink_control_directory_and_targets_without_following() {
     .unwrap();
     assert!(apply(root.path(), &plan, &plan.plan_sha256).is_err());
     assert_eq!(bytes(outside.path(), "toolchain"), b"outside customization");
+}
+
+#[cfg(unix)]
+#[test]
+fn symlinked_approved_plan_file_is_rejected_without_touching_the_destination() {
+    let root = fixture();
+    let plan = inspect(root.path(), "plan").unwrap();
+    let outside = tempfile::tempdir().unwrap();
+    let real = outside.path().join("plan.json");
+    let original = serde_json::to_vec(&plan).unwrap();
+    fs::write(&real, &original).unwrap();
+    let link = root.path().join("approved-link.json");
+    std::os::unix::fs::symlink(&real, &link).unwrap();
+    assert!(load_plan(&link, &plan.plan_sha256).is_err());
+    let output = Command::new(env!("CARGO_BIN_EXE_armorer"))
+        .arg("--repository")
+        .arg(root.path())
+        .args(["apply", "--plan"])
+        .arg(&link)
+        .args(["--expect-plan-sha256", &plan.plan_sha256])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1));
+    assert!(!root.path().join("rust-toolchain.toml").exists());
+    assert_eq!(fs::read(&real).unwrap(), original);
 }
 
 #[test]

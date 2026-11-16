@@ -39,17 +39,37 @@ pub(super) struct State {
 /// Prior policy expiry cannot block restoring exact recorded local bytes.
 pub(super) fn decode_state(bytes: &[u8]) -> Result<State> {
     let state: State = decode(bytes)?;
-    if state.schema_version != 1
-        || state.runtime_version != env!("CARGO_PKG_VERSION")
-        || state.authority != authority::select(&state.authority.id)?
-        || !hex_digest(&state.last_plan_sha256, 64)
-        || !hex_digest(&state.config_sha256, 64)
-        || state.managed.len() > bootstrap::TARGETS.len()
-        || !semver::Version::parse(&state.toolchain)
-            .is_ok_and(|v| v.pre.is_empty() && v.build.is_empty())
+    // Each invariant reports its own violated check; all remain hard failures with no fallback.
+    if state.schema_version != 1 {
+        return Err(Error::Transaction(
+            "invalid upgrade ownership schema version; no fallback",
+        ));
+    }
+    if state.runtime_version != env!("CARGO_PKG_VERSION") {
+        return Err(Error::Transaction(
+            "invalid upgrade ownership runtime version; no fallback",
+        ));
+    }
+    if state.authority != authority::select(&state.authority.id)? {
+        return Err(Error::Transaction(
+            "invalid upgrade ownership authority identity; no fallback",
+        ));
+    }
+    if !hex_digest(&state.last_plan_sha256, 64) || !hex_digest(&state.config_sha256, 64) {
+        return Err(Error::Transaction(
+            "invalid upgrade ownership plan or config digest; no fallback",
+        ));
+    }
+    if state.managed.len() > bootstrap::TARGETS.len() {
+        return Err(Error::Transaction(
+            "invalid upgrade ownership managed-count bound; no fallback",
+        ));
+    }
+    if !semver::Version::parse(&state.toolchain)
+        .is_ok_and(|v| v.pre.is_empty() && v.build.is_empty())
     {
         return Err(Error::Transaction(
-            "invalid upgrade ownership identity or version; no fallback",
+            "invalid upgrade ownership toolchain; no fallback",
         ));
     }
     let generated = catalog::reviewed_for(&state.authority.id)?.bootstrap_files(
@@ -88,7 +108,7 @@ pub(super) fn decode_state(bytes: &[u8]) -> Result<State> {
 
 /// Reconstruct the next receipt solely from the approved source/base/merge packet.
 pub(super) fn next(plan: &Plan) -> Result<State> {
-    let source = super::plan::source_bytes(plan.state_preimages.clone())?;
+    let source = super::plan::source_bytes(&plan.state_preimages)?;
     let mut managed = BTreeMap::new();
     for c in &plan.changes {
         if c.decision == Decision::Conflict {

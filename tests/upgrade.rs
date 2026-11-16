@@ -592,6 +592,9 @@ fn all_profiles_apply_repeat_migrate_ownership_and_restore_exact_reviewed_previo
                     )
                 })
                 .collect();
+            // Advance the clock past filesystem mtime granularity so an unintended
+            // rewrite during the no-op replay cannot hide behind identical timestamps.
+            std::thread::sleep(std::time::Duration::from_millis(50));
             assert_eq!(
                 upgrade::apply(root.path(), &p, &p.plan_sha256)
                     .unwrap()
@@ -924,11 +927,24 @@ fn committed_schemas_and_all_profile_review_packets_match_strict_runtime_contrac
         .unwrap();
     }
 }
+/// The independent reconstruction oracle requires GNU patch; BSD patch handles
+/// CRLF and no-newline hunks differently, so skip visibly instead of failing.
+fn gnu_patch_available() -> bool {
+    match Command::new("patch").arg("--version").output() {
+        Ok(output) => String::from_utf8_lossy(&output.stdout).contains("GNU"),
+        Err(_) => false,
+    }
+}
+
 /// Verify that independent patch reconstructs upgrade and reverse images including deleted ownership.
 #[test]
 fn independent_patch_reconstructs_upgrade_and_reverse_images_including_deleted_ownership() {
     use std::io::Write;
     use std::process::Stdio;
+    if !gnu_patch_available() {
+        eprintln!("skipping independent patch reconstruction: GNU patch not on PATH");
+        return;
+    }
     let root = fixture("library");
     let p = preview(root.path(), &[]);
     upgrade::apply(root.path(), &p, &p.plan_sha256).unwrap();

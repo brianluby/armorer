@@ -148,7 +148,6 @@ pub(super) struct Ownership {
     pub format: SourceFormat,
     pub catalog: Option<Authority>,
     pub bases: BTreeMap<String, String>,
-    pub preimages: BTreeMap<String, Option<String>>,
 }
 
 /// Qualify generated v2 lock/workflow bases against the independent source,
@@ -197,7 +196,7 @@ fn known_bases(
 
 /// Exact state preimages are decoded before inspecting Cargo; import flags do
 /// not override unknown versions, ambiguous ownership or failed authenticity.
-pub(super) fn source_bytes(preimages: BTreeMap<String, Option<String>>) -> Result<Ownership> {
+pub(super) fn source_bytes(preimages: &BTreeMap<String, Option<String>>) -> Result<Ownership> {
     if preimages.len() != 3
         || !preimages.contains_key(bootstrap::V1_STATE)
         || !preimages.contains_key(bootstrap::STATE)
@@ -270,13 +269,12 @@ pub(super) fn source_bytes(preimages: BTreeMap<String, Option<String>>) -> Resul
         format,
         catalog,
         bases,
-        preimages,
     })
 }
 
 /// Read exact ownership independently of upgrade/import flags. Authentication or
 /// version failure never falls back to unowned import.
-fn source(root: &Path) -> Result<Ownership> {
+fn source(root: &Path) -> Result<(Ownership, BTreeMap<String, Option<String>>)> {
     let mut preimages = BTreeMap::new();
     for path in [bootstrap::V1_STATE, bootstrap::STATE, super::STATE] {
         preimages.insert(
@@ -284,7 +282,8 @@ fn source(root: &Path) -> Result<Ownership> {
             optional_bytes(root, path)?.map(|b| text(&b)).transpose()?,
         );
     }
-    source_bytes(preimages)
+    let ownership = source_bytes(&preimages)?;
+    Ok((ownership, preimages))
 }
 
 /// Classify one explicit import while preserving supported customizations and rejecting untrusted bases.
@@ -438,12 +437,14 @@ pub(super) fn inspect_bytes(
     ci_policy::parse_at(policy, policy_review_day)?;
     let (intent, config) = load_config(root)?;
     license_overlap(&intent.policy.license_file)?;
-    let Ownership {
-        format: source_format,
-        catalog: source_catalog,
-        bases,
-        preimages: state_preimages,
-    } = source(root)?;
+    let (
+        Ownership {
+            format: source_format,
+            catalog: source_catalog,
+            bases,
+        },
+        state_preimages,
+    ) = source(root)?;
     let workspace = discover(root, &intent)?;
     let current_revision = source_catalog.as_ref().map_or(0, |source| source.revision);
     let direction =
@@ -694,7 +695,7 @@ pub(super) fn validate(plan: &Plan, expected: &str) -> Result<()> {
     }
     plan.intent.validate_shape()?;
     license_overlap(&plan.intent.policy.license_file)?;
-    let origin = source_bytes(plan.state_preimages.clone())?;
+    let origin = source_bytes(&plan.state_preimages)?;
     if plan.source_format != origin.format
         || plan.source_catalog != origin.catalog
         || plan.direction
