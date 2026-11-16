@@ -15,6 +15,7 @@ for their separate error/recovery contracts; native publication remains gated.
 | --- | --- | --- |
 | `plan`/`preview` exits 0 with findings | Inspection succeeded; setup requirements remain | Review findings, exact changes and missing evidence |
 | `check` exits 2 with plan JSON | Expected current readiness result | Track prerequisites; main always retains a release-runtime gap |
+| `bootstrap check` exits 2 with plan JSON | Provisioning drift, or with `--release-ready` an open release gate | Read the reasons on stderr; review a new `bootstrap plan` for drift |
 | Exit 1 with JSON `error` | Operation could not complete | Match the category below and correct its input |
 | Exit 2 with stderr usage text | Invalid CLI arguments | Read that command's `--help`; saved preview needs both plan and digest |
 | Incomplete stdout | Output failed | Obtain a fresh complete result before review or mutation |
