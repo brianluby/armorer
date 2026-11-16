@@ -198,12 +198,14 @@ impl AuthenticatedCatalog {
 
     /// Fixed unprivileged callers. Existing custom workflows remain separate.
     /// The build caller is manual and unsigned; it has no publication capability.
+    /// CI cancels superseded runs only for pull requests, so every pushed commit
+    /// keeps a completed run.
     pub fn caller_workflows(&self) -> BTreeMap<String, String> {
         let repository = &self.workflow.repository;
         let commit = &self.workflow.commit;
         let mut callers = BTreeMap::new();
         callers.insert(".github/workflows/armorer-ci.yml".into(), format!(
-            "name: Armorer CI\n\non:\n  pull_request:\n  push:\n  workflow_dispatch:\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: armorer-ci-${{{{ github.workflow }}}}-${{{{ github.ref }}}}\n  cancel-in-progress: true\n\njobs:\n  verify:\n    uses: {repository}/.github/workflows/rust-ci.yml@{commit}\n"
+            "name: Armorer CI\n\non:\n  pull_request:\n  push:\n  workflow_dispatch:\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: armorer-ci-${{{{ github.workflow }}}}-${{{{ github.ref }}}}\n  cancel-in-progress: ${{{{ github.event_name == 'pull_request' }}}}\n\njobs:\n  verify:\n    uses: {repository}/.github/workflows/rust-ci.yml@{commit}\n"
         ));
         callers.insert(".github/workflows/armorer-build.yml".into(), format!(
             "name: Armorer unsigned build\n\non:\n  workflow_dispatch:\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: armorer-build-${{{{ github.workflow }}}}-${{{{ github.ref }}}}\n  cancel-in-progress: false\n\njobs:\n  build:\n    uses: {repository}/.github/workflows/rust-build.yml@{commit}\n"

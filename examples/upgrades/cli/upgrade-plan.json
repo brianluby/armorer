@@ -32,19 +32,19 @@
       "proposed_diff": "--- /dev/null\n+++ b/.github/workflows/armorer-build.yml\n@@ -0,0 +1,15 @@\n+name: Armorer unsigned build\n+\n+on:\n+  workflow_dispatch:\n+\n+permissions:\n+  contents: read\n+\n+concurrency:\n+  group: armorer-build-${{ github.workflow }}-${{ github.ref }}\n+  cancel-in-progress: false\n+\n+jobs:\n+  build:\n+    uses: brianluby/armorer-workflows/.github/workflows/rust-build.yml@772ca83e386c883c88cc3b936d69f8cb3216c91e\n"
     },
     {
-      "after_sha256": "a21d50bad4351d48e7dfb251cd78cc217deff02a513938e70653805bf3a7de47",
+      "after_sha256": "2478570952c760df003bd956521b126d936bfc28098797082b2ad30767c005e8",
       "base_content": null,
       "base_sha256": null,
       "before_content": null,
       "before_sha256": null,
-      "candidate_content": "name: Armorer CI\n\non:\n  pull_request:\n  push:\n  workflow_dispatch:\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: armorer-ci-${{ github.workflow }}-${{ github.ref }}\n  cancel-in-progress: true\n\njobs:\n  verify:\n    uses: brianluby/armorer-workflows/.github/workflows/rust-ci.yml@772ca83e386c883c88cc3b936d69f8cb3216c91e\n",
-      "candidate_diff": "--- /dev/null\n+++ b/.github/workflows/armorer-ci.yml\n@@ -0,0 +1,17 @@\n+name: Armorer CI\n+\n+on:\n+  pull_request:\n+  push:\n+  workflow_dispatch:\n+\n+permissions:\n+  contents: read\n+\n+concurrency:\n+  group: armorer-ci-${{ github.workflow }}-${{ github.ref }}\n+  cancel-in-progress: true\n+\n+jobs:\n+  verify:\n+    uses: brianluby/armorer-workflows/.github/workflows/rust-ci.yml@772ca83e386c883c88cc3b936d69f8cb3216c91e\n",
-      "candidate_sha256": "a21d50bad4351d48e7dfb251cd78cc217deff02a513938e70653805bf3a7de47",
+      "candidate_content": "name: Armorer CI\n\non:\n  pull_request:\n  push:\n  workflow_dispatch:\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: armorer-ci-${{ github.workflow }}-${{ github.ref }}\n  cancel-in-progress: ${{ github.event_name == 'pull_request' }}\n\njobs:\n  verify:\n    uses: brianluby/armorer-workflows/.github/workflows/rust-ci.yml@772ca83e386c883c88cc3b936d69f8cb3216c91e\n",
+      "candidate_diff": "--- /dev/null\n+++ b/.github/workflows/armorer-ci.yml\n@@ -0,0 +1,17 @@\n+name: Armorer CI\n+\n+on:\n+  pull_request:\n+  push:\n+  workflow_dispatch:\n+\n+permissions:\n+  contents: read\n+\n+concurrency:\n+  group: armorer-ci-${{ github.workflow }}-${{ github.ref }}\n+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}\n+\n+jobs:\n+  verify:\n+    uses: brianluby/armorer-workflows/.github/workflows/rust-ci.yml@772ca83e386c883c88cc3b936d69f8cb3216c91e\n",
+      "candidate_sha256": "2478570952c760df003bd956521b126d936bfc28098797082b2ad30767c005e8",
       "decision": "create",
       "imported": false,
       "path": ".github/workflows/armorer-ci.yml",
-      "proposed_content": "name: Armorer CI\n\non:\n  pull_request:\n  push:\n  workflow_dispatch:\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: armorer-ci-${{ github.workflow }}-${{ github.ref }}\n  cancel-in-progress: true\n\njobs:\n  verify:\n    uses: brianluby/armorer-workflows/.github/workflows/rust-ci.yml@772ca83e386c883c88cc3b936d69f8cb3216c91e\n",
-      "proposed_diff": "--- /dev/null\n+++ b/.github/workflows/armorer-ci.yml\n@@ -0,0 +1,17 @@\n+name: Armorer CI\n+\n+on:\n+  pull_request:\n+  push:\n+  workflow_dispatch:\n+\n+permissions:\n+  contents: read\n+\n+concurrency:\n+  group: armorer-ci-${{ github.workflow }}-${{ github.ref }}\n+  cancel-in-progress: true\n+\n+jobs:\n+  verify:\n+    uses: brianluby/armorer-workflows/.github/workflows/rust-ci.yml@772ca83e386c883c88cc3b936d69f8cb3216c91e\n"
+      "proposed_content": "name: Armorer CI\n\non:\n  pull_request:\n  push:\n  workflow_dispatch:\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: armorer-ci-${{ github.workflow }}-${{ github.ref }}\n  cancel-in-progress: ${{ github.event_name == 'pull_request' }}\n\njobs:\n  verify:\n    uses: brianluby/armorer-workflows/.github/workflows/rust-ci.yml@772ca83e386c883c88cc3b936d69f8cb3216c91e\n",
+      "proposed_diff": "--- /dev/null\n+++ b/.github/workflows/armorer-ci.yml\n@@ -0,0 +1,17 @@\n+name: Armorer CI\n+\n+on:\n+  pull_request:\n+  push:\n+  workflow_dispatch:\n+\n+permissions:\n+  contents: read\n+\n+concurrency:\n+  group: armorer-ci-${{ github.workflow }}-${{ github.ref }}\n+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}\n+\n+jobs:\n+  verify:\n+    uses: brianluby/armorer-workflows/.github/workflows/rust-ci.yml@772ca83e386c883c88cc3b936d69f8cb3216c91e\n"
     },
     {
       "after_sha256": "59536894189860b1ae8115ef604b578e1ac09c7bdd9576878d4c99d0748820ac",
@@ -282,9 +282,9 @@
       "name": "zizmor--x86_64-unknown-linux-gnu"
     }
   ],
-  "plan_sha256": "9f4f249eebf559e7b9fc3f4b0f2d8b3d635bdb890fb8460ff6f7054b52b462d9",
+  "plan_sha256": "e7c3eba5a9bdebf99ca9662f4114a2a5c662014c7ee35fa5ea2af7600af733ff",
   "policy_content": "# Fixture-only decision for this dependency-free MIT example.\n# Replace with the consuming owner's reviewed dependency policy.\nschema_version = 1\n\n[licenses]\nallow = [\"MIT\"]\n\n[advisories]\nexceptions = []\n\n[sources]\nallow_git = []\n\n[bans]\nmultiple_versions = \"warn\"\ndeny = []\n",
-  "policy_review_day": 20728,
+  "policy_review_day": 20773,
   "recovery_required": false,
   "runtime_version": "0.1.0",
   "schema_version": 1,
@@ -315,7 +315,7 @@
     "cargo_lock_present": true,
     "inputs": {
       "Cargo.lock": "458ec9b098d621083ffee30ed1078d2b083ec8ca5a6528320b930433fc65723a",
-      "Cargo.toml": "5f44f797bb33f4d0d8a402bb5bd743c5223df3b076831b35ee12464b07207c25",
+      "Cargo.toml": "15770cd1081700206c7375a2e8648f40627560f6df4bde46a47ba477580919f6",
       "build.rs": "target-path-present",
       "src/main.rs": "target-path-present"
     },
