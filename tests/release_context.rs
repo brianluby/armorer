@@ -38,13 +38,16 @@ fn write(path: &Path, value: &Value) -> Value {
 }
 /// Construct independent synthetic authorities, never a context learned from downloaded release JSON.
 fn fixture() -> (tempfile::TempDir, Value) {
+    // One clock sample per fixture: repeated now() calls can straddle a second tick
+    // and make review windows inconsistent with each other.
+    let now = now();
     let directory = tempfile::tempdir().unwrap();
     for name in ["armorer.toml", "armorer.lock"] {
         fs::copy(example(name), directory.path().join(name)).unwrap();
     }
     let cargo = b"# Inert context hashing fixture; no Cargo invocation or dependency resolution\nversion = 4\n";
     fs::write(directory.path().join("Cargo.lock"), cargo).unwrap();
-    let review = json!({"owner":"fixture-reviewer", "rationale":"Synthetic context checks only; not upstream approval or release acceptance", "reviewed_at":now()-60, "expires_at":now()+3600, "record":ByteIdentity::from_bytes(b"synthetic approval receipt")});
+    let review = json!({"owner":"fixture-reviewer", "rationale":"Synthetic context checks only; not upstream approval or release acceptance", "reviewed_at":now - 60, "expires_at":now + 3600, "record":ByteIdentity::from_bytes(b"synthetic approval receipt")});
     let mut catalog = read("catalog.json");
     catalog["adapters"][0]["review"] = review.clone();
     for (id, capability, name) in [
@@ -85,7 +88,7 @@ fn fixture() -> (tempfile::TempDir, Value) {
                 item["version"] = pin["version"].clone();
                 item["bytes"] = pin["distribution"].clone();
                 item["authentication_record"] = pin["authentication_record"].clone();
-                item["observed_at"] = (now() - 30).into();
+                item["observed_at"] = (now - 30).into();
                 item
             })
             .collect(),

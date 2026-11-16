@@ -262,10 +262,18 @@ fn bootstrap_cli_write_failure_rolls_back_and_retry_succeeds_without_building() 
         0,
     );
     assert_eq!(snapshot(root.path()), before);
+    // The scenario needs a writable first change and the blocked workflow strictly
+    // after it; the exact position is incidental ordering, not the contract.
     assert_eq!(plan["changes"][0]["path"], ".armorer/ci-policy.toml");
-    assert_eq!(
-        plan["changes"][1]["path"],
-        ".github/workflows/armorer-build.yml"
+    let blocked = plan["changes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .position(|c| c["path"] == ".github/workflows/armorer-build.yml")
+        .unwrap();
+    assert!(
+        blocked > 0,
+        "blocked workflow must follow a successful write"
     );
     let saved = tempfile::NamedTempFile::new().unwrap();
     fs::write(saved.path(), serde_json::to_vec(&plan).unwrap()).unwrap();

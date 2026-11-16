@@ -42,6 +42,20 @@ fn fixture(profile: &str) -> (tempfile::TempDir, tempfile::NamedTempFile) {
     policy.write_all(POLICY.as_bytes()).unwrap();
     (root, policy)
 }
+/// The fixed managed inventory, mirrored from src/bootstrap/mod.rs TARGETS.
+const MANAGED: [&str; 5] = [
+    ".armorer/ci-policy.toml",
+    ".github/workflows/armorer-build.yml",
+    ".github/workflows/armorer-ci.yml",
+    "armorer.lock",
+    "rust-toolchain.toml",
+];
+
+/// Select a change by its stable path, never by inventory position.
+fn change<'a>(plan: &'a armorer::bootstrap::Plan, path: &str) -> &'a armorer::bootstrap::Change {
+    plan.changes.iter().find(|c| c.path == path).unwrap()
+}
+
 /// Capture every regular fixture file as exact bytes for mutation and recovery comparisons.
 fn snapshot(root: &Path) -> std::collections::BTreeMap<String, Vec<u8>> {
     /// Recursively record relative fixture paths and bytes without running repository code.
@@ -125,14 +139,21 @@ fn bootstrap_all_profiles_is_read_only_then_provisions_all_five_files_with_no_bu
         assert!(!root.path().join("target").exists());
         assert!(!root.path().join("Cargo.lock").exists());
         let after = snapshot(root.path());
+        // Capture inode and mtime: an atomic replace can preserve mtime, so bytes and
+        // timestamps alone would not prove the no-op replay left the files untouched.
         let modified: Vec<_> = plan
             .changes
             .iter()
             .map(|change| {
-                fs::metadata(root.path().join(&change.path))
-                    .unwrap()
-                    .modified()
-                    .unwrap()
+                let metadata = fs::metadata(root.path().join(&change.path)).unwrap();
+                #[cfg(unix)]
+                let inode = {
+                    use std::os::unix::fs::MetadataExt;
+                    (metadata.dev(), metadata.ino())
+                };
+                #[cfg(not(unix))]
+                let inode = ();
+                (inode, metadata.modified().unwrap())
             })
             .collect();
         assert_eq!(
@@ -142,14 +163,16 @@ fn bootstrap_all_profiles_is_read_only_then_provisions_all_five_files_with_no_bu
             "unchanged"
         );
         assert_eq!(snapshot(root.path()), after);
-        for (change, timestamp) in plan.changes.iter().zip(modified) {
-            assert_eq!(
-                fs::metadata(root.path().join(&change.path))
-                    .unwrap()
-                    .modified()
-                    .unwrap(),
-                timestamp
-            );
+        for (change, (inode, timestamp)) in plan.changes.iter().zip(modified) {
+            let metadata = fs::metadata(root.path().join(&change.path)).unwrap();
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::MetadataExt;
+                assert_eq!((metadata.dev(), metadata.ino()), inode, "{}", change.path);
+            }
+            #[cfg(not(unix))]
+            let _ = inode;
+            assert_eq!(metadata.modified().unwrap(), timestamp, "{}", change.path);
         }
         assert!(
             inspect(root.path(), policy.path())
@@ -163,52 +186,47 @@ fn bootstrap_all_profiles_is_read_only_then_provisions_all_five_files_with_no_bu
 /// Verify that every unowned conflict is preserved and every identical file remains unowned.
 #[test]
 fn every_unowned_conflict_is_preserved_and_every_identical_file_remains_unowned() {
-    for index in 0..5 {
+    for target in MANAGED {
         let (root, policy) = fixture("library");
         let initial = inspect(root.path(), policy.path()).unwrap();
-        let change = &initial.changes[index];
-        let path = root.path().join(&change.path);
+        let initial_change = change(&initial, target);
+        let path = root.path().join(&initial_change.path);
         fs::create_dir_all(path.parent().unwrap()).unwrap();
         fs::write(&path, "bespoke λ\r\nno final newline").unwrap();
         let before = snapshot(root.path());
         let conflict = inspect(root.path(), policy.path()).unwrap();
         assert_eq!(
-            conflict.changes[index].disposition,
+            change(&conflict, target).disposition,
             plan::Disposition::Conflict
         );
         assert_eq!(
-            conflict.changes[index].before_content.as_deref(),
+            change(&conflict, target).before_content.as_deref(),
             Some("bespoke λ\r\nno final newline")
         );
         assert!(apply(root.path(), &conflict, &conflict.plan_sha256).is_err());
         assert_eq!(snapshot(root.path()), before);
-        fs::write(&path, &change.proposed_content).unwrap();
+        fs::write(&path, &initial_change.proposed_content).unwrap();
         let plan = inspect(root.path(), policy.path()).unwrap();
         assert_eq!(
-            plan.changes[index].disposition,
+            change(&plan, target).disposition,
             plan::Disposition::Unchanged
         );
-        assert!(!plan.changes[index].owned);
+        assert!(!change(&plan, target).owned);
         apply(root.path(), &plan, &plan.plan_sha256).unwrap();
         let state: serde_json::Value =
             serde_json::from_slice(&fs::read(root.path().join(STATE)).unwrap()).unwrap();
-        assert!(
-            !state["managed"]
-                .as_object()
-                .unwrap()
-                .contains_key(&change.path)
-        );
+        assert!(!state["managed"].as_object().unwrap().contains_key(target));
     }
 }
 /// Verify that edits and deletions of each owned file are conflicts without readoption.
 #[test]
 fn edits_and_deletions_of_each_owned_file_are_conflicts_without_readoption() {
-    for index in 0..5 {
+    for target in MANAGED {
         for delete in [false, true] {
             let (root, policy) = fixture("library");
             let plan = inspect(root.path(), policy.path()).unwrap();
             apply(root.path(), &plan, &plan.plan_sha256).unwrap();
-            let path = root.path().join(&plan.changes[index].path);
+            let path = root.path().join(target);
             if delete {
                 fs::remove_file(path).unwrap();
             } else {
@@ -217,10 +235,9 @@ fn edits_and_deletions_of_each_owned_file_are_conflicts_without_readoption() {
             let before = snapshot(root.path());
             let fresh = inspect(root.path(), policy.path()).unwrap();
             assert_eq!(
-                fresh.changes[index].disposition,
+                change(&fresh, target).disposition,
                 plan::Disposition::Conflict,
-                "{} {delete}",
-                plan.changes[index].path
+                "{target} {delete}"
             );
             assert!(apply(root.path(), &fresh, &fresh.plan_sha256).is_err());
             assert!(apply(root.path(), &plan, &plan.plan_sha256).is_err());

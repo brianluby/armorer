@@ -368,7 +368,13 @@ fn retained_build_paths_control_component_scope() {
     }
     let root = graph.nodes.iter().position(|n| n.id == "app").unwrap();
     let host_node = graph.nodes.iter().position(|n| n.id == "host").unwrap();
-    let normal = graph.nodes[root].dependencies.remove(0);
+    // Select the normal dep edge by package identity, not fixture ordering.
+    let edge = graph.nodes[root]
+        .dependencies
+        .iter()
+        .position(|d| d.package == "dep")
+        .unwrap();
+    let normal = graph.nodes[root].dependencies.remove(edge);
     graph.nodes[host_node].dependencies.push(normal.clone());
     let app_edges = bom["dependencies"]
         .as_array()

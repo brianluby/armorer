@@ -405,10 +405,11 @@ fn missing_installed_toolchain_is_an_error_without_installation() {
         "armorer.toml",
         &CONFIG.replace("1.95.0", "99.99.99"),
     );
-    assert_eq!(
-        inspect(root.path(), "plan").unwrap_err().code(),
-        "cargo-discovery"
-    );
+    // Pin the toolchain-lookup stage, not the shared cargo-discovery code: a
+    // regression to rustup-path resolution must not pass this test.
+    let error = inspect(root.path(), "plan").unwrap_err();
+    assert_eq!(error.code(), "cargo-discovery");
+    assert!(error.to_string().contains("toolchain-lookup"), "{error}");
     assert!(!root.path().join("Cargo.lock").exists());
 }
 

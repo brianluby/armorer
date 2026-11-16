@@ -122,6 +122,13 @@ impl AuthenticatedReleaseFiles {
             context.inputs(),
             sigstore::wall_time()?,
         )?;
+        // Names are unique after validation; one index replaces the per-asset linear
+        // scans below so maximum-scale releases stay inside the verification budget.
+        let by_name: BTreeMap<&str, &Asset> = inventory
+            .assets
+            .iter()
+            .map(|asset| (asset.name.as_str(), asset))
+            .collect();
         let names: BTreeSet<_> = inventory
             .assets
             .iter()
@@ -158,10 +165,8 @@ impl AuthenticatedReleaseFiles {
                 asset.subjects.len() == 1,
                 "release-attestation-subject-count",
             )?;
-            let subject = inventory
-                .assets
-                .iter()
-                .find(|candidate| candidate.name == asset.subjects[0])
+            let subject = by_name
+                .get(asset.subjects[0].as_str())
                 .ok_or_else(|| Error::Invalid("release-attestation-subject-missing".into()))?;
             let predicate = asset
                 .predicate
@@ -293,10 +298,8 @@ impl AuthenticatedReleaseFiles {
                         MAX_METADATA
                     } else {
                         asset_cap(
-                            inventory
-                                .assets
-                                .iter()
-                                .find(|a| a.name == *name)
+                            by_name
+                                .get(name.as_str())
                                 .ok_or_else(|| {
                                     Error::Invalid("release-snapshot-asset-missing".into())
                                 })?

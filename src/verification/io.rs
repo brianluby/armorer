@@ -176,29 +176,8 @@ pub(crate) fn snapshot(source: &Path, destination: &Path, max: u64) -> Result<By
         .parent()
         .ok_or_else(|| Error::Invalid("verification-snapshot-destination".into()))?;
     let mut output = tempfile::NamedTempFile::new_in(parent)?;
-    let identity = (|| -> Result<ByteIdentity> {
-        let mut input = regular(source, max)?.take(max + 1);
-        let mut hash = Sha256::new();
-        let mut size = 0_u64;
-        let mut block = [0_u8; 65536];
-        loop {
-            let count = input.read(&mut block)?;
-            if count == 0 {
-                break;
-            }
-            size += count as u64;
-            require(size <= max, "verification-input-size-limit")?;
-            hash.update(&block[..count]);
-            output.write_all(&block[..count])?;
-        }
-        output.as_file().sync_all()?;
-        let identity = ByteIdentity {
-            sha256: format!("{:x}", hash.finalize()),
-            size,
-        };
-        identity.validate()?;
-        Ok(identity)
-    })()?;
+    let identity = stream_hash(source, max, Some(output.as_file_mut()))?;
+    output.as_file().sync_all()?;
     output
         .persist_noclobber(destination)
         .map_err(|_| Error::Invalid("verification-snapshot-destination-exists".into()))?;
@@ -207,6 +186,12 @@ pub(crate) fn snapshot(source: &Path, destination: &Path, max: u64) -> Result<By
 
 /// Stream the bounded file identity; matching a producer digest alone does not authenticate it.
 pub(crate) fn identity(path: &Path, max: u64) -> Result<ByteIdentity> {
+    stream_hash(path, max, None)
+}
+
+/// One size-gated streaming SHA-256 loop shared by snapshot and identity, so the
+/// security gate cannot diverge between the two copies.
+fn stream_hash(path: &Path, max: u64, mut writer: Option<&mut File>) -> Result<ByteIdentity> {
     let mut input = regular(path, max)?.take(max + 1);
     let mut hash = Sha256::new();
     let mut size = 0_u64;
@@ -219,6 +204,9 @@ pub(crate) fn identity(path: &Path, max: u64) -> Result<ByteIdentity> {
         size += count as u64;
         require(size <= max, "verification-input-size-limit")?;
         hash.update(&block[..count]);
+        if let Some(writer) = writer.as_deref_mut() {
+            writer.write_all(&block[..count])?;
+        }
     }
     let value = ByteIdentity {
         sha256: format!("{:x}", hash.finalize()),
