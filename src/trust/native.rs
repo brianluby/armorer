@@ -240,7 +240,9 @@ impl NativeCatalogV2 {
     ) -> Result<()> {
         require(
             self.schema_version == 2
-                && lock.runtime_version == inputs.runtime_version
+                // The lock records the runtime contract; the approved runtime may be a
+                // later patch of that line. The distribution itself stays exact below.
+                && crate::runtime::compatible_with(&lock.runtime_version, &inputs.runtime_version)
                 && !self.adapters.is_empty()
                 && self.adapters.len() <= 32,
             "invalid-native-catalog",

@@ -12,7 +12,9 @@ This is guidance for continued development, not a release qualification.
   `.github/dependabot.yml`. Private vulnerability reporting and Dependabot
   security updates still need enabling in repository settings.
 - **S3 addressed locally:** locks and ownership state follow a patch-line rule
-  (`src/runtime.rs`); catalogs record the frozen contract `0.1.0`. Plans and
+  (`src/runtime.rs`); catalogs record the frozen contract `0.1.0`. Release
+  contexts and the native catalog accept an approved runtime that is a later
+  patch of the locked contract. Plans and
   journals stay exact. Committed example packets must be regenerated at each
   version bump.
 - **S7 addressed locally for `bootstrap check`:** exit 0 when provisioning is in
@@ -321,7 +323,12 @@ cross-compilation, checksummed modules.
   possible: it can download modules and even a different toolchain. If it must
   run, set `GOTOOLCHAIN=local`, `GOFLAGS=-mod=readonly`, `GOPROXY=off`, and a
   private `GOPATH` and `GOCACHE`.
-- **Toolchain pin.** The `go` and `toolchain` directives in `go.mod`.
+- **Toolchain pin.** The `go` directive is only a minimum and `toolchain` is only
+  a suggestion, so neither pins the build. Record an exact Go version in Armorer
+  intent, have CI install exactly that version, run with `GOTOOLCHAIN=local` so
+  Go cannot switch or download another one, and fail unless `go version`
+  reports the recorded version. Require the `go.mod` directives to be no newer
+  than the pin.
 - **Targets.** `GOOS/GOARCH` pairs, not triples; the target list must become
   per-ecosystem.
 - **Build defaults.** `-trimpath`, `-mod=readonly`, `CGO_ENABLED=0` unless
@@ -329,7 +336,12 @@ cross-compilation, checksummed modules.
   the module and any `GONOSUMDB` / `GOPRIVATE` settings.
 - **Gates.** `go vet`, staticcheck, govulncheck, `go mod verify`, a license
   check, and gitleaks / actionlint / zizmor as today.
-- **SBOM.** cyclonedx-gomod; graph check against `go.sum`.
+- **SBOM.** cyclonedx-gomod. Check it against the selected build list, not
+  `go.sum`: `go.sum` keeps stale versions, has no dependency edges and omits
+  local replacements. Use the module set the build actually selected (for
+  example `go list -m -json all` and `go mod graph` under the offline settings
+  above, or `go version -m` on the built binary) and account for every
+  `replace` directive.
 
 ### Python (second, and scope it narrowly)
 
