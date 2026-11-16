@@ -743,3 +743,65 @@ fn cli_check_exit_status_reports_drift_separately_from_release_readiness() {
     fs::write(&workflow, original).unwrap();
     assert_eq!(check(&[]).0, 0);
 }
+
+/// Drift counts only file differences, pending recovery and local setup findings;
+/// release readiness needs every finding closed and an observed capability state.
+#[test]
+fn drift_and_release_blockers_classify_each_reason_independently() {
+    let (root, policy) = fixture("library");
+    let plan = inspect(root.path(), policy.path()).unwrap();
+    apply(root.path(), &plan, &plan.plan_sha256).unwrap();
+    let mut synced = inspect(root.path(), policy.path()).unwrap();
+    assert_eq!(synced.drift(), ["cargo-lock-missing"]);
+    synced.findings.retain(|f| f.code != "cargo-lock-missing");
+    assert!(synced.drift().is_empty());
+
+    let finding = |code: &str| plan::Finding {
+        code: code.into(),
+        detail: String::new(),
+    };
+    // Release gates and review notes never count as drift.
+    for code in [
+        "github-capabilities-unchecked",
+        "release-runtime-unavailable",
+        "cargo-config-excluded",
+        "native-build-review",
+    ] {
+        let mut value = synced.clone();
+        value.findings = vec![finding(code)];
+        assert!(value.drift().is_empty(), "{code}");
+        assert!(value.release_blockers().contains(&code.to_owned()));
+    }
+    // Each local setup finding and a pending recovery is drift on its own.
+    for code in [
+        "cargo-lock-missing",
+        "legacy-ownership-migration-required",
+        "license-file-missing",
+    ] {
+        let mut value = synced.clone();
+        value.findings = vec![finding(code)];
+        assert_eq!(value.drift(), [code]);
+    }
+    let mut value = synced.clone();
+    value.recovery_required = true;
+    assert_eq!(value.drift(), ["transaction-recovery-required"]);
+    // Every non-unchanged disposition is reported with its path, sorted.
+    let mut value = synced.clone();
+    value.changes[0].disposition = plan::Disposition::Update;
+    value.changes[1].disposition = plan::Disposition::Conflict;
+    value.changes[2].disposition = plan::Disposition::Create;
+    assert_eq!(
+        value.drift(),
+        [
+            format!("conflict:{}", MANAGED[1]),
+            format!("create:{}", MANAGED[2]),
+            format!("update:{}", MANAGED[0]),
+        ]
+    );
+    // Readiness requires no findings and an observed supported capability state.
+    let mut value = synced.clone();
+    value.findings.clear();
+    assert_eq!(value.release_blockers(), ["capability-state-unknown"]);
+    value.capability_state = "supported".into();
+    assert!(value.release_blockers().is_empty());
+}
