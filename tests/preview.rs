@@ -31,13 +31,23 @@ fn snapshot(root: &Path) -> std::collections::BTreeMap<String, Vec<u8>> {
     fn walk(root: &Path, path: &Path, output: &mut std::collections::BTreeMap<String, Vec<u8>>) {
         for entry in fs::read_dir(path).unwrap() {
             let path = entry.unwrap().path();
-            if path.is_dir() {
+            let relative = path
+                .strip_prefix(root)
+                .unwrap()
+                .to_string_lossy()
+                .into_owned();
+            // Non-following dispatch: a stray symlink is recorded, never traversed.
+            let kind = fs::symlink_metadata(&path).unwrap().file_type();
+            if kind.is_symlink() {
+                output.insert(
+                    relative,
+                    format!("symlink:{}", fs::read_link(&path).unwrap().display()).into_bytes(),
+                );
+            } else if kind.is_dir() {
+                output.insert(format!("{relative}/"), b"directory".to_vec());
                 walk(root, &path, output);
             } else {
-                output.insert(
-                    path.strip_prefix(root).unwrap().to_string_lossy().into(),
-                    fs::read(path).unwrap(),
-                );
+                output.insert(relative, fs::read(path).unwrap());
             }
         }
     }
@@ -184,10 +194,17 @@ fn saved_plan_preview_rejects_stale_input_without_mutation() {
         let plan = inspect(root.path(), "plan").unwrap();
         assert!(preview_plan(root.path(), &plan).is_ok());
         let path = root.path().join(input);
-        let old = fs::read_to_string(&path).unwrap_or_default();
-        fs::write(path, format!("{old}\n# changed\n")).unwrap();
+        // Absence is a valid prior state (the toolchain files are optional); any other
+        // read error must fail the test rather than masquerade as empty content.
+        let old = match fs::read_to_string(&path) {
+            Ok(text) => text,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => String::new(),
+            Err(error) => panic!("{input}: {error}"),
+        };
+        fs::write(&path, format!("{old}\n# changed\n")).unwrap();
         let before = snapshot(root.path());
-        assert!(preview_plan(root.path(), &plan).is_err(), "{input}");
+        let error = preview_plan(root.path(), &plan).unwrap_err();
+        assert!(error.to_string().contains("stale"), "{input}: {error}");
         assert_eq!(snapshot(root.path()), before);
     }
 }
@@ -225,6 +242,7 @@ fn symlink_inputs_fail_without_reading_the_destination() {
         root.path().join("rust-toolchain.toml"),
     )
     .unwrap();
+    let before = snapshot(root.path());
     let output = Command::new(env!("CARGO_BIN_EXE_armorer"))
         .arg("--repository")
         .arg(root.path())
@@ -233,6 +251,15 @@ fn symlink_inputs_fail_without_reading_the_destination() {
         .unwrap();
     assert_eq!(output.status.code(), Some(1));
     assert!(!String::from_utf8_lossy(&output.stdout).contains("DO-NOT-ECHO"));
+    assert!(!String::from_utf8_lossy(&output.stderr).contains("DO-NOT-ECHO"));
+    // The link itself must survive as a link, and no consumer file may change.
+    assert!(
+        fs::symlink_metadata(root.path().join("rust-toolchain.toml"))
+            .unwrap()
+            .file_type()
+            .is_symlink()
+    );
+    assert_eq!(snapshot(root.path()), before);
     assert_eq!(
         fs::read(outside.path().join("input")).unwrap(),
         b"DO-NOT-ECHO"

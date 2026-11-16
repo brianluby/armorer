@@ -147,30 +147,34 @@ fn rejects_tampered_artifact_and_sbom_bytes_and_wrong_sizes() {
 /// Reject incomplete, expanded, duplicated or cyclic release inventories.
 fn rejects_missing_extra_duplicate_assets_and_cycles() {
     let original = inventory();
+    let invalid_code = |i: &ReleaseInventory, code: &str| {
+        assert!(
+            matches!(validate(i, &original.inputs), Err(armorer::Error::Invalid(c)) if c == code),
+            "expected {code}, got {:?}",
+            validate(i, &original.inputs)
+        );
+    };
     for index in 0..original.assets.len() {
         let mut i = original.clone();
         i.assets.remove(index);
-        assert!(
-            validate(&i, &original.inputs).is_err(),
-            "missing asset {index}"
-        );
+        invalid_code(&i, "required-asset-missing");
     }
     let mut i = original.clone();
     i.assets.push(i.assets[0].clone());
-    assert!(validate(&i, &original.inputs).is_err());
+    invalid_code(&i, "invalid-or-duplicate-asset");
     let mut i = original.clone();
     i.assets[0].name = "extra.tar.gz".into();
-    assert!(validate(&i, &original.inputs).is_err());
+    invalid_code(&i, "unexpected-asset");
     let mut i = original.clone();
     let own_name = i.assets[0].name.clone();
     i.assets[0].subjects.push(own_name);
-    assert!(validate(&i, &original.inputs).is_err());
+    invalid_code(&i, "asset-relationship-mismatch");
     let mut i = original.clone();
     i.assets[0].name = INVENTORY_BUNDLE_NAME.into();
-    assert!(validate(&i, &original.inputs).is_err());
+    invalid_code(&i, "inventory-hash-cycle");
     let mut i = original.clone();
     i.assets[0].name = "../escape".into();
-    assert!(validate(&i, &original.inputs).is_err());
+    invalid_code(&i, "invalid-or-duplicate-asset");
 }
 
 #[test]

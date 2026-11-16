@@ -390,12 +390,21 @@ fn strict_saved_packet_reconstructs_merges_and_rejects_forged_import_or_source_c
     fs::write(file.path(), serde_json::to_vec(&value).unwrap()).unwrap();
     let e = upgrade::load_plan(file.path(), &p.plan_sha256).unwrap_err();
     assert!(!e.to_string().contains("DO-NOT-ECHO"));
-    let raw = serde_json::to_string(&p).unwrap().replace(
-        "\"state_preimages\":{",
-        "\"state_preimages\":{\".armorer/state.json\":null,",
+    // Decode-valid JSON with an extra preimage key and a recomputed digest: rejection
+    // must come from the semantic preimage check, not syntax or the digest gate.
+    let mut forged = p.clone();
+    forged
+        .state_preimages
+        .insert(".armorer/unknown-owner.json".into(), None);
+    forged.plan_sha256 = forged.digest().unwrap();
+    fs::write(file.path(), serde_json::to_vec(&forged).unwrap()).unwrap();
+    let error = upgrade::load_plan(file.path(), &forged.plan_sha256).unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("upgrade ownership inventory differs from supported versions"),
+        "{error}"
     );
-    fs::write(file.path(), raw).unwrap();
-    assert!(upgrade::load_plan(file.path(), &p.plan_sha256).is_err());
 }
 /// Verify that stale configuration ownership manifest policy and inventory require new review.
 #[test]
@@ -854,16 +863,19 @@ fn symlinked_upgrade_controls_and_targets_cannot_be_read_adopted_or_overwritten(
         let link = root.path().join(path);
         fs::create_dir_all(link.parent().unwrap()).unwrap();
         symlink(outside.path(), &link).unwrap();
+        // Pin the symlink guard itself, not staleness or digest side effects.
+        let error = upgrade::inspect(
+            root.path(),
+            &root.path().join(POLICY),
+            "bootstrap-v1",
+            &[],
+            true,
+        )
+        .unwrap_err();
         assert!(
-            upgrade::inspect(
-                root.path(),
-                &root.path().join(POLICY),
-                "bootstrap-v1",
-                &[],
-                true
-            )
-            .is_err(),
-            "{path}"
+            matches!(&error, armorer::Error::Path(message)
+                if message.contains("symlink")),
+            "{path}: {error}"
         );
         assert!(
             upgrade::apply(root.path(), &p, &p.plan_sha256).is_err(),

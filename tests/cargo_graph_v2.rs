@@ -107,39 +107,118 @@ fn producer_graph_cannot_select_its_own_consumer_context() {
     let (graph, _) = fixture("optional");
     let (config, selection, inputs, root_name) = context("optional");
     let original = serde_json::to_value(graph).unwrap();
-    for (pointer, value) in [
-        ("/schema_version", json!(1)),
-        ("/source/repository", json!("attacker/graph")),
-        ("/source/commit", json!("c".repeat(40))),
-        ("/runtime_commit", json!("c".repeat(40))),
-        ("/run_id", json!(18)),
-        ("/run_attempt", json!(3)),
-        ("/run_id", Value::Null),
-        ("/input_sha256/armorer.toml", json!("5".repeat(64))),
-        ("/input_sha256/armorer.lock", json!("5".repeat(64))),
-        ("/input_sha256/Cargo.lock", json!("5".repeat(64))),
-        ("/selection/target", json!("aarch64-unknown-linux-gnu")),
-        ("/selection/features", json!([])),
-        ("/selection/default_features", json!(true)),
-        ("/selection/profile", json!("service")),
-        ("/selection/deliverable_id", json!("other")),
-        ("/selection/binary", json!("other")),
-        ("/selection/package_version", json!("0.2.0")),
-        ("/selection/toolchain", json!("1.94.0")),
-        ("/selection/package", json!("other")),
-        ("/selection/feature_set", json!("minimal")),
-        ("/root_component_name", json!("other")),
-        ("/coverage_gaps", json!([])),
-        ("/nodes/0/features", json!([])),
+    // Pin fixture ordering so index-based pointers keep hitting the intended records.
+    assert_eq!(original["nodes"][0]["id"], "app");
+    for (pointer, value, code) in [
+        (
+            "/schema_version",
+            json!(1),
+            "unsupported-cargo-graph-version",
+        ),
+        (
+            "/source/repository",
+            json!("attacker/graph"),
+            "cargo-graph-input-mismatch",
+        ),
+        (
+            "/source/commit",
+            json!("c".repeat(40)),
+            "cargo-graph-input-mismatch",
+        ),
+        (
+            "/runtime_commit",
+            json!("c".repeat(40)),
+            "cargo-graph-input-mismatch",
+        ),
+        ("/run_id", json!(18), "cargo-graph-input-mismatch"),
+        ("/run_attempt", json!(3), "cargo-graph-input-mismatch"),
+        ("/run_id", Value::Null, "cargo-graph-input-mismatch"),
+        (
+            "/input_sha256/armorer.toml",
+            json!("5".repeat(64)),
+            "cargo-graph-input-mismatch",
+        ),
+        (
+            "/input_sha256/armorer.lock",
+            json!("5".repeat(64)),
+            "cargo-graph-input-mismatch",
+        ),
+        (
+            "/input_sha256/Cargo.lock",
+            json!("5".repeat(64)),
+            "cargo-graph-input-mismatch",
+        ),
+        (
+            "/selection/target",
+            json!("aarch64-unknown-linux-gnu"),
+            "cargo-graph-selection-mismatch",
+        ),
+        (
+            "/selection/features",
+            json!([]),
+            "cargo-graph-selection-mismatch",
+        ),
+        (
+            "/selection/default_features",
+            json!(true),
+            "cargo-graph-selection-mismatch",
+        ),
+        (
+            "/selection/profile",
+            json!("service"),
+            "cargo-graph-selection-mismatch",
+        ),
+        (
+            "/selection/deliverable_id",
+            json!("other"),
+            "cargo-graph-selection-mismatch",
+        ),
+        (
+            "/selection/binary",
+            json!("other"),
+            "cargo-graph-selection-mismatch",
+        ),
+        (
+            "/selection/package_version",
+            json!("0.2.0"),
+            "cargo-graph-selection-mismatch",
+        ),
+        (
+            "/selection/toolchain",
+            json!("1.94.0"),
+            "cargo-graph-selection-mismatch",
+        ),
+        (
+            "/selection/package",
+            json!("other"),
+            "cargo-graph-selection-mismatch",
+        ),
+        (
+            "/selection/feature_set",
+            json!("minimal"),
+            "cargo-graph-selection-mismatch",
+        ),
+        (
+            "/root_component_name",
+            json!("other"),
+            "cargo-graph-selection-mismatch",
+        ),
+        ("/coverage_gaps", json!([]), "cargo-graph-coverage-mismatch"),
+        (
+            "/nodes/0/features",
+            json!([]),
+            "cargo-graph-requested-feature-missing",
+        ),
     ] {
         let mut mutated = original.clone();
         *mutated.pointer_mut(pointer).unwrap() = value;
         let parsed: CargoGraphV2 = serde_json::from_value(mutated).unwrap();
         assert!(
-            parsed
-                .validate_against(&config, &selection, root_name, &inputs, &"b".repeat(40))
-                .is_err(),
-            "{pointer}"
+            matches!(
+                parsed.validate_against(&config, &selection, root_name, &inputs, &"b".repeat(40)),
+                Err(armorer::Error::Invalid(c)) if c == code
+            ),
+            "{pointer} expected {code}"
         );
     }
 }
@@ -193,28 +272,66 @@ fn retained_graph_must_be_complete_and_explicitly_versioned() {
     let (graph, _) = fixture("optional");
     let (config, selection, inputs, root_name) = context("optional");
     let original = serde_json::to_value(graph).unwrap();
-    for (pointer, value) in [
-        ("/packages", json!([])),
-        ("/nodes", json!([])),
-        ("/root", json!("missing")),
-        ("/root", json!("dep")),
-        ("/packages/0/name", json!("other")),
-        ("/packages/0/version", json!("0.2.0")),
-        ("/packages/1/id", json!("app")),
-        ("/nodes/1/id", json!("app")),
-        ("/nodes/0/dependencies", json!([])),
-        ("/nodes/0/dependencies/0/package", json!("missing")),
-        ("/nodes/0/dependencies/0/contexts", json!([])),
-        ("/nodes/0/features", json!(["extra", "extra"])),
+    // Pin fixture ordering so index-based pointers keep hitting the intended records.
+    assert_eq!(original["packages"][0]["id"], "app");
+    assert_eq!(original["packages"][1]["id"], "dep");
+    assert_eq!(original["nodes"][0]["id"], "app");
+    assert_eq!(original["nodes"][1]["id"], "dep");
+    for (pointer, value, code) in [
+        ("/packages", json!([]), "cargo-graph-package-budget"),
+        ("/nodes", json!([]), "cargo-graph-package-budget"),
+        ("/root", json!("missing"), "cargo-graph-root-missing"),
+        ("/root", json!("dep"), "cargo-graph-root-identity-mismatch"),
+        (
+            "/packages/0/name",
+            json!("other"),
+            "cargo-graph-root-identity-mismatch",
+        ),
+        (
+            "/packages/0/version",
+            json!("0.2.0"),
+            "cargo-graph-root-identity-mismatch",
+        ),
+        (
+            "/packages/1/id",
+            json!("app"),
+            "invalid-or-duplicate-cargo-package",
+        ),
+        (
+            "/nodes/1/id",
+            json!("app"),
+            "invalid-or-duplicate-cargo-node",
+        ),
+        (
+            "/nodes/0/dependencies",
+            json!([]),
+            "cargo-graph-unreachable-package",
+        ),
+        (
+            "/nodes/0/dependencies/0/package",
+            json!("missing"),
+            "invalid-or-duplicate-cargo-edge",
+        ),
+        (
+            "/nodes/0/dependencies/0/contexts",
+            json!([]),
+            "invalid-cargo-edge-context",
+        ),
+        (
+            "/nodes/0/features",
+            json!(["extra", "extra"]),
+            "invalid-cargo-feature-inventory",
+        ),
     ] {
         let mut mutated = original.clone();
         *mutated.pointer_mut(pointer).unwrap() = value;
         let parsed: CargoGraphV2 = serde_json::from_value(mutated).unwrap();
         assert!(
-            parsed
-                .validate_against(&config, &selection, root_name, &inputs, &"b".repeat(40))
-                .is_err(),
-            "{pointer}"
+            matches!(
+                parsed.validate_against(&config, &selection, root_name, &inputs, &"b".repeat(40)),
+                Err(armorer::Error::Invalid(c)) if c == code
+            ),
+            "{pointer} expected {code}"
         );
     }
     let mut dev = original.clone();

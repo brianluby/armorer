@@ -48,17 +48,24 @@ fn snapshot(root: &Path) -> std::collections::BTreeMap<String, Vec<u8>> {
     fn walk(root: &Path, dir: &Path, files: &mut std::collections::BTreeMap<String, Vec<u8>>) {
         for entry in fs::read_dir(dir).unwrap() {
             let path = entry.unwrap().path();
-            if path.is_dir() {
+            let relative = path
+                .strip_prefix(root)
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_owned();
+            // Non-following dispatch: a stray symlink is recorded, never traversed.
+            let kind = fs::symlink_metadata(&path).unwrap().file_type();
+            if kind.is_symlink() {
+                files.insert(
+                    relative,
+                    format!("symlink:{}", fs::read_link(&path).unwrap().display()).into_bytes(),
+                );
+            } else if kind.is_dir() {
+                files.insert(format!("{relative}/"), b"directory".to_vec());
                 walk(root, &path, files);
             } else {
-                files.insert(
-                    path.strip_prefix(root)
-                        .unwrap()
-                        .to_str()
-                        .unwrap()
-                        .to_owned(),
-                    fs::read(path).unwrap(),
-                );
+                files.insert(relative, fs::read(path).unwrap());
             }
         }
     }
@@ -103,7 +110,13 @@ fn bootstrap_all_profiles_is_read_only_then_provisions_all_five_files_with_no_bu
             );
         }
         for (path, bytes) in &before {
-            assert_eq!(fs::read(root.path().join(path)).unwrap(), *bytes);
+            // Directory markers and symlink records are compared by the snapshot itself.
+            if fs::symlink_metadata(root.path().join(path))
+                .unwrap()
+                .is_file()
+            {
+                assert_eq!(fs::read(root.path().join(path)).unwrap(), *bytes);
+            }
         }
         let lock = load_lock(root.path(), &plan.config_sha256)
             .unwrap()
