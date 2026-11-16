@@ -343,9 +343,9 @@ cross-compilation, checksummed modules.
     selected module version and any `replace` target.
   - **Edges:** derive them from the import graph of the built targets,
     `go list -deps -json` for the same packages, tags, `GOOS` and `GOARCH` as
-    the build, mapping each package to its module. `go mod graph` lists
-    requirement edges for every version considered, so use it only after
-    filtering both ends to the selected versions.
+    the build, mapping each package to its module. Do not use `go mod graph`
+    for this: it lists module requirements at the required versions, not
+    imports, and an edge disappears when Go selects a newer version.
   - **Cross-check:** `go version -m` on the built binary must list a subset of
     the SBOM components with the same versions and replacements. It carries no
     edges, so it cannot validate the graph by itself.
