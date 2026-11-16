@@ -21,6 +21,10 @@ This is guidance for continued development, not a release qualification.
   sync, exit 2 with reasons on stderr for drift, and `--release-ready` for the
   strict release gate. Top-level version-one `check` still always exits 2; it
   is scheduled for replacement under ADR 0012.
+- **S8 (CI cancellation) addressed:** the catalog template now cancels
+  superseded `armorer-ci.yml` runs only for pull requests. It was changed in
+  place under ADR 0012; example packets were regenerated and this repository
+  was re-bootstrapped.
 - **A4 decided:** the owner accepted removal of superseded contracts before
   0.1.0; see [ADR 0012](../docs/adr/0012-pre-release-contract-consolidation.md).
   The removals themselves are not implemented.
