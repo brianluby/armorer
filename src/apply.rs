@@ -234,7 +234,7 @@ pub(crate) fn state_from_bytes(bytes: &[u8]) -> Result<State> {
 /// Check ownership identities and generated bases before they can authorize a transaction.
 fn validate_state(state: &State) -> Result<()> {
     if state.schema_version != VERSION
-        || state.runtime_version != env!("CARGO_PKG_VERSION")
+        || !crate::runtime::compatible(&state.runtime_version)
         || !hex_digest(&state.last_plan_sha256, 64)
         || state.managed.len() > 1
     {

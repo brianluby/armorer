@@ -18,6 +18,7 @@ pub mod discovery;
 mod filesystem;
 pub mod plan;
 pub mod preview;
+mod runtime;
 mod schema_bounds;
 pub mod trust;
 pub mod upgrade;

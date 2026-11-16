@@ -18,6 +18,10 @@ pub const WORKFLOW_COMMIT: &str = "772ca83e386c883c88cc3b936d69f8cb3216c91e";
 /// rust-ci.yml/rust-build.yml are unchanged between them, so v2 inherits the PR #23
 /// hardening. Both entries authenticate the same embedded digest; only the workflow pin moves.
 pub const WORKFLOW_COMMIT_V2: &str = "e5e9c0d31baff87e357046d81068b646a39a9f23";
+/// Runtime contract frozen by the reviewed bootstrap catalogs and recorded in every
+/// lock they render. Patch releases keep this value, so a catalog id renders the
+/// same lock bytes across a patch line; see `crate::runtime`.
+pub const RUNTIME_VERSION: &str = "0.1.0";
 pub const TOOLS_SHA256: &str = "e21e6cbd2cdd1125dbb9817116b1f46d043807b4d92128abc9dc07256dbb4b13";
 const TOOLS: &[u8] = include_bytes!("../catalogs/bootstrap-tools-v1.json");
 
@@ -161,7 +165,7 @@ impl AuthenticatedCatalog {
         let lock = Lock {
             schema_version: 1,
             config_sha256: config_sha256.into(),
-            runtime_version: env!("CARGO_PKG_VERSION").into(),
+            runtime_version: RUNTIME_VERSION.into(),
             workflows: self.workflow.clone(),
             tools,
         };
@@ -242,6 +246,20 @@ mod tests {
         let mut bad = TOOLS.to_vec();
         bad.push(b'\n');
         assert!(authenticate_with(&bad, WORKFLOW_COMMIT_V2).is_err());
+    }
+
+    #[test]
+    /// A catalog renders the frozen runtime contract, so its lock bytes do not move
+    /// with patch releases of the running binary.
+    fn rendered_lock_records_the_frozen_runtime_contract() {
+        let text = reviewed_v2()
+            .unwrap()
+            .lock_for_config_sha256(&"a".repeat(64))
+            .unwrap();
+        let lock: Lock = toml::from_str(&text).unwrap();
+        assert_eq!(lock.runtime_version, RUNTIME_VERSION);
+        assert_eq!(RUNTIME_VERSION, "0.1.0");
+        assert!(crate::runtime::compatible(RUNTIME_VERSION));
     }
 
     #[test]

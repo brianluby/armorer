@@ -351,7 +351,7 @@ pub fn load_lock(root: &Path, config_digest: &str) -> Result<Option<(Lock, Vec<u
         "armorer.lock does not match the exact config bytes",
     )?;
     require(
-        lock.runtime_version == env!("CARGO_PKG_VERSION"),
+        crate::runtime::compatible(&lock.runtime_version),
         "incompatible runtime_version",
     )?;
     require(

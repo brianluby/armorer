@@ -84,6 +84,12 @@ changing `schema_version` or `runtime_version`. Incompatible trust meanings need
 explicit versioned reader migration; an optional field cannot silently disable
 a required gate. Rehearsal policy cannot authorize publication.
 
+Patch releases within one minor line share a runtime contract. A lock or ownership
+state written for an earlier patch stays valid; one written for a newer patch, or
+for another minor or major line, is rejected. Plans and journals remain bound to
+the exact version that produced them. See the
+[runtime version boundary](upgrades.md#runtime-version-boundary).
+
 No supported-version/deprecation window is promised yet. A future released
 support policy needs maintainer acceptance and actual platform evidence.
 The [support-policy proposal](support-policy-draft.md) supplies a concrete

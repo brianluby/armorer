@@ -85,7 +85,7 @@ fn receipt(plan: &Plan, outcome: &'static str, configured: bool) -> Receipt {
 /// Check ownership identities and generated bases before they can authorize a transaction.
 fn validate_state(state: &State) -> Result<()> {
     if state.schema_version != VERSION
-        || state.runtime_version != env!("CARGO_PKG_VERSION")
+        || !crate::runtime::compatible(&state.runtime_version)
         || state.catalog_sha256 != catalog::TOOLS_SHA256
         || state.workflow.repository != catalog::WORKFLOW_REPOSITORY
         || catalog::id_for_commit(&state.workflow.commit).is_none()
