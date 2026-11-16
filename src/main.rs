@@ -174,7 +174,7 @@ enum PublicationOperation {
 }
 
 /// Explicitly select frozen catalog semantics; failures never retry another version.
-#[derive(Clone, ValueEnum)]
+#[derive(Clone, Copy, ValueEnum)]
 enum ContextKind {
     LegacyV1,
     NativeV2,
@@ -295,44 +295,76 @@ fn freeze_publication_inputs(
     armorer::verification::publication::TrustedPublicationPolicy,
     armorer::verification::publication::FrozenRelease,
 )> {
-    use armorer::verification::{
-        apple::VerifiedAppleRelease,
-        context::TrustedReleaseContext,
-        cyclonedx::OfflineSbomValidator,
-        publication::{FrozenRelease, TrustedPublicationPolicy},
-        release::AuthenticatedReleaseFiles,
-        sigstore::OfflineVerifier,
-    };
-    let context = match inputs.context_kind {
-        ContextKind::LegacyV1 => {
-            TrustedReleaseContext::open(&inputs.trusted_inputs, &inputs.expect_context_sha256)?
-        }
-        ContextKind::NativeV2 => TrustedReleaseContext::open_native_v2(
-            &inputs.trusted_inputs,
-            &inputs.expect_context_sha256,
-        )?,
-        ContextKind::NativeV3 => TrustedReleaseContext::open_native_v3(
-            &inputs.trusted_inputs,
-            &inputs.expect_context_sha256,
-        )?,
-    };
+    use armorer::verification::publication::{FrozenRelease, TrustedPublicationPolicy};
+    let context = open_trusted_context(
+        &inputs.trusted_inputs,
+        &inputs.expect_context_sha256,
+        inputs.context_kind,
+    )?;
+    // Publication intent is authenticated after the context and before executable adapters.
     let policy = TrustedPublicationPolicy::open(
         &inputs.publication_policy,
         &inputs.expect_publication_policy_sha256,
         &context,
     )?;
-    let verifier = OfflineVerifier::open(
-        &inputs.trusted_inputs.join("verification-policy.json"),
-        &context.policy_identity().sha256,
+    let (files, apple) = authenticate_release_files(
+        &inputs.directory,
+        &inputs.trusted_inputs,
+        &context,
         &inputs.gh,
         &inputs.trusted_root,
+        &inputs.cyclonedx,
     )?;
-    let validator = OfflineSbomValidator::open(&inputs.cyclonedx, context.sbom_validator())?;
-    let files =
-        AuthenticatedReleaseFiles::verify(&inputs.directory, &context, &verifier, &validator)?;
-    let apple = VerifiedAppleRelease::verify(&files, &context)?;
     let frozen = FrozenRelease::freeze(&files, &apple, &context, &policy)?;
     Ok((context, policy, frozen))
+}
+
+/// Open the explicitly selected trusted context version; errors never fall back.
+fn open_trusted_context(
+    trusted_inputs: &std::path::Path,
+    expect_context_sha256: &str,
+    context_kind: ContextKind,
+) -> Result<armorer::verification::context::TrustedReleaseContext> {
+    use armorer::verification::context::TrustedReleaseContext;
+    match context_kind {
+        ContextKind::LegacyV1 => TrustedReleaseContext::open(trusted_inputs, expect_context_sha256),
+        ContextKind::NativeV2 => {
+            TrustedReleaseContext::open_native_v2(trusted_inputs, expect_context_sha256)
+        }
+        ContextKind::NativeV3 => {
+            TrustedReleaseContext::open_native_v3(trusted_inputs, expect_context_sha256)
+        }
+    }
+}
+
+/// Shared security sequence for VerifyRelease and publication freezing: verifier,
+/// SBOM validator, authenticated release files and native Apple evidence, in order.
+/// A fix or reordering here applies to both callers.
+fn authenticate_release_files(
+    directory: &std::path::Path,
+    trusted_inputs: &std::path::Path,
+    context: &armorer::verification::context::TrustedReleaseContext,
+    gh: &std::path::Path,
+    trusted_root: &std::path::Path,
+    cyclonedx: &std::path::Path,
+) -> Result<(
+    armorer::verification::release::AuthenticatedReleaseFiles,
+    armorer::verification::apple::VerifiedAppleRelease,
+)> {
+    use armorer::verification::{
+        apple::VerifiedAppleRelease, cyclonedx::OfflineSbomValidator,
+        release::AuthenticatedReleaseFiles, sigstore::OfflineVerifier,
+    };
+    let verifier = OfflineVerifier::open(
+        &trusted_inputs.join("verification-policy.json"),
+        &context.policy_identity().sha256,
+        gh,
+        trusted_root,
+    )?;
+    let validator = OfflineSbomValidator::open(cyclonedx, context.sbom_validator())?;
+    let files = AuthenticatedReleaseFiles::verify(directory, context, &verifier, &validator)?;
+    let apple = VerifiedAppleRelease::verify(&files, context)?;
+    Ok((files, apple))
 }
 
 /// Route explicit actions through independent intent and preserve existing read-only discovery behavior.
@@ -343,33 +375,18 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
                 ApprovedPublication, NativeGithub, OwnedDraftController,
             };
             let (context, policy, frozen) = freeze_publication_inputs(&inputs)?;
-            if matches!(operation, PublicationOperation::Plan) {
-                return Ok((
-                    json!({"plan":frozen.plan(), "plan_identity":frozen.identity(),
-                    "remote_mutations":false, "publication_authorized":false}),
-                    0,
-                ));
-            }
-            // Authenticate an independent action before reading credentials. Inspect and recovery are GET-only.
-            let approval = match &operation {
-                PublicationOperation::Stage {
-                    approval,
-                    expect_approval_sha256,
-                    ..
+            // One exhaustive match: Plan returns before any credential access, and a new
+            // variant must be handled here at compile time instead of reaching a panic.
+            // Authenticate an independent action before reading credentials; inspect and
+            // recovery are GET-only.
+            let (state_directory, owner_home, read_only, approval) = match &operation {
+                PublicationOperation::Plan => {
+                    return Ok((
+                        json!({"plan":frozen.plan(), "plan_identity":frozen.identity(),
+                        "remote_mutations":false, "publication_authorized":false}),
+                        0,
+                    ));
                 }
-                | PublicationOperation::Publish {
-                    approval,
-                    expect_approval_sha256,
-                    ..
-                } => Some(ApprovedPublication::open(
-                    approval,
-                    expect_approval_sha256,
-                    &frozen,
-                    &policy,
-                )?),
-                _ => None,
-            };
-            let (state_directory, owner_home, read_only) = match &operation {
                 PublicationOperation::Inspect {
                     state_directory,
                     owner_home,
@@ -377,14 +394,29 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
                 | PublicationOperation::RecoverPublished {
                     state_directory,
                     owner_home,
-                } => (state_directory, owner_home.as_deref(), true),
+                } => (state_directory, owner_home.as_deref(), true, None),
                 PublicationOperation::Stage {
-                    state_directory, ..
+                    state_directory,
+                    approval,
+                    expect_approval_sha256,
+                    ..
                 }
                 | PublicationOperation::Publish {
-                    state_directory, ..
-                } => (state_directory, None, false),
-                PublicationOperation::Plan => unreachable!(),
+                    state_directory,
+                    approval,
+                    expect_approval_sha256,
+                    ..
+                } => (
+                    state_directory,
+                    None,
+                    false,
+                    Some(ApprovedPublication::open(
+                        approval,
+                        expect_approval_sha256,
+                        &frozen,
+                        &policy,
+                    )?),
+                ),
             };
             let client = if read_only {
                 let home = owner_home
@@ -420,7 +452,12 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
                 PublicationOperation::RecoverPublished { .. } => {
                     serde_json::to_value(controller.recover_published()?)
                 }
-                PublicationOperation::Plan => unreachable!(),
+                // Dead by construction: Plan returned in the exhaustive match above.
+                PublicationOperation::Plan => {
+                    return Err(Error::Invalid(
+                        "publication plan is served before authentication".into(),
+                    ));
+                }
             };
             Ok((value.map_err(|_| Error::Json)?, 0))
         }
@@ -527,37 +564,18 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
             trusted_root,
             cyclonedx,
         } => {
-            use armorer::verification::{
-                apple::VerifiedAppleRelease, context::TrustedReleaseContext,
-                cyclonedx::OfflineSbomValidator, release::AuthenticatedReleaseFiles,
-                sigstore::OfflineVerifier,
-            };
-            // Authenticate independent intent before reading a release or opening executable adapters.
-            let context = match context_kind {
-                ContextKind::LegacyV1 => {
-                    TrustedReleaseContext::open(&trusted_inputs, &expect_context_sha256)?
-                }
-                ContextKind::NativeV2 => {
-                    TrustedReleaseContext::open_native_v2(&trusted_inputs, &expect_context_sha256)?
-                }
-                ContextKind::NativeV3 => {
-                    TrustedReleaseContext::open_native_v3(&trusted_inputs, &expect_context_sha256)?
-                }
-            };
-            let verifier = OfflineVerifier::open(
-                &trusted_inputs.join("verification-policy.json"),
-                &context.policy_identity().sha256,
+            // Authenticate independent intent before reading a release or opening
+            // executable adapters; the sequence is shared with publication freezing.
+            let context =
+                open_trusted_context(&trusted_inputs, &expect_context_sha256, context_kind)?;
+            let (verified, apple) = authenticate_release_files(
+                &directory,
+                &trusted_inputs,
+                &context,
                 &gh,
                 &trusted_root,
+                &cyclonedx,
             )?;
-            let sbom_validator = OfflineSbomValidator::open(&cyclonedx, context.sbom_validator())?;
-            let verified = AuthenticatedReleaseFiles::verify(
-                &directory,
-                &context,
-                &verifier,
-                &sbom_validator,
-            )?;
-            let apple = VerifiedAppleRelease::verify(&verified, &context)?;
             Ok((
                 json!({
                     "status": "authenticated-release-files",

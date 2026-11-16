@@ -1,6 +1,6 @@
 use armorer::{
     apply::apply,
-    plan::inspect,
+    plan::{Disposition, inspect},
     preview::{preview, preview_plan},
 };
 use std::{fs, path::Path, process::Command};
@@ -69,7 +69,7 @@ fn creation_is_exact_deterministic_read_only_and_keeps_v1_plan_identity() {
         serde_json::to_value(plan).unwrap()
     );
     assert_eq!(result.files.len(), 1);
-    assert_eq!(result.files[0].disposition, "create");
+    assert_eq!(result.files[0].disposition, Disposition::Create);
     assert_eq!(result.files[0].before_content, None);
     assert_eq!(
         result.files[0].proposed_content,
@@ -95,7 +95,7 @@ fn conflicts_show_all_custom_bytes_and_block_apply() {
     fs::write(root.path().join("rust-toolchain.toml"), custom).unwrap();
     let before = snapshot(root.path());
     let result = preview(root.path()).unwrap();
-    assert_eq!(result.files[0].disposition, "conflict");
+    assert_eq!(result.files[0].disposition, Disposition::Conflict);
     assert_eq!(result.files[0].before_content.as_deref(), Some(custom));
     assert!(result.files[0].unified_diff.contains("-# λ custom\r\n"));
     assert!(
@@ -114,7 +114,7 @@ fn owned_update_and_unchanged_views_preserve_ownership_rules() {
     let plan = inspect(root.path(), "plan").unwrap();
     apply(root.path(), &plan, &plan.plan_sha256).unwrap();
     let unchanged = preview(root.path()).unwrap();
-    assert_eq!(unchanged.files[0].disposition, "unchanged");
+    assert_eq!(unchanged.files[0].disposition, Disposition::Unchanged);
     assert_eq!(unchanged.files[0].unified_diff, "");
     assert_eq!(
         unchanged.files[0].before_content.as_deref(),
@@ -134,7 +134,7 @@ fn owned_update_and_unchanged_views_preserve_ownership_rules() {
     fs::write(root.path().join("rust-toolchain.toml"), &old).unwrap();
     let before = snapshot(root.path());
     let result = preview(root.path()).unwrap();
-    assert_eq!(result.files[0].disposition, "update");
+    assert_eq!(result.files[0].disposition, Disposition::Update);
     assert_eq!(
         result.files[0].before_content.as_deref(),
         Some(old.as_str())
@@ -169,7 +169,7 @@ fn legacy_toolchain_is_visible_even_when_toml_has_no_diff() {
     .unwrap();
     let before = snapshot(root.path());
     let result = preview(root.path()).unwrap();
-    assert_eq!(result.files[0].disposition, "conflict");
+    assert_eq!(result.files[0].disposition, Disposition::Conflict);
     assert_eq!(result.files[0].unified_diff, "");
     assert_eq!(result.preserved_inputs[0].path, "rust-toolchain");
     assert_eq!(

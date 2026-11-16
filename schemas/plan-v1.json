@@ -21,7 +21,7 @@
           ]
         },
         "disposition": {
-          "type": "string"
+          "$ref": "#/$defs/Disposition"
         },
         "path": {
           "type": "string"
@@ -140,6 +140,16 @@
         "feature_set"
       ],
       "type": "object"
+    },
+    "Disposition": {
+      "description": "Typed file outcome. The lowercase wire strings are identity-bearing: plan\ndigests and stored packets depend on them, so variants must never be renamed.",
+      "enum": [
+        "create",
+        "unchanged",
+        "update",
+        "conflict"
+      ],
+      "type": "string"
     },
     "FeatureSet": {
       "additionalProperties": false,

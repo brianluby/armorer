@@ -2,7 +2,7 @@
 
 use armorer::{
     apply::{apply, load_plan},
-    plan::inspect,
+    plan::{Disposition, inspect},
 };
 use std::{fs, path::Path, process::Command};
 
@@ -176,7 +176,7 @@ fn preserves_conflicts_and_does_not_adopt_identical_existing_files() {
     )
     .unwrap();
     let conflict = inspect(root.path(), "plan").unwrap();
-    assert_eq!(conflict.changes[0].disposition, "conflict");
+    assert_eq!(conflict.changes[0].disposition, Disposition::Conflict);
     assert!(apply(root.path(), &conflict, &conflict.plan_sha256).is_err());
     assert_eq!(
         bytes(root.path(), "rust-toolchain.toml"),
@@ -196,7 +196,7 @@ fn rejects_preimage_changes_and_edited_owned_files() {
     assert!(apply(root.path(), &plan, &plan.plan_sha256).is_err());
     assert_eq!(
         inspect(root.path(), "plan").unwrap().changes[0].disposition,
-        "conflict"
+        Disposition::Conflict
     );
 }
 

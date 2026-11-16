@@ -1,6 +1,6 @@
 use armorer::{
     config::{load_config, load_lock},
-    plan::inspect,
+    plan::{Disposition, inspect},
     safe_path,
 };
 use std::{fs, path::Path, process::Command};
@@ -154,7 +154,7 @@ fn preserves_existing_toolchain_and_lock_bytes() {
     write(root.path(), "Cargo.lock", lock);
     write(root.path(), "rust-toolchain.toml", toolchain);
     let plan = inspect(root.path(), "plan").unwrap();
-    assert_eq!(plan.changes[0].disposition, "conflict");
+    assert_eq!(plan.changes[0].disposition, Disposition::Conflict);
     assert_eq!(
         fs::read_to_string(root.path().join("Cargo.lock")).unwrap(),
         lock

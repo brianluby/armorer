@@ -2,7 +2,7 @@
 
 use crate::{
     Error, Result, digest,
-    plan::{Plan, inspect},
+    plan::{Disposition, Plan, inspect},
     read_small, safe_path,
 };
 use serde::Serialize;
@@ -23,7 +23,7 @@ pub struct Preview {
 #[derive(Debug, Serialize)]
 pub struct FilePreview {
     pub path: String,
-    pub disposition: String,
+    pub disposition: Disposition,
     pub before_content: Option<String>,
     pub proposed_content: String,
     /// A complete replacement hunk; no quadratic matching or omitted lines.
@@ -103,7 +103,7 @@ fn from_plan(root: &Path, plan: Plan) -> Result<Preview> {
         let before_content = optional_text(root, &change.path, change.before_sha256.as_deref())?;
         files.push(FilePreview {
             path: change.path.clone(),
-            disposition: change.disposition.clone(),
+            disposition: change.disposition,
             unified_diff: diff(
                 &change.path,
                 before_content.as_deref(),
