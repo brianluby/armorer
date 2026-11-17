@@ -1,7 +1,6 @@
 use armorer::{
     Error, Result,
     config::{Config, Lock},
-    plan::{Plan, inspect},
 };
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use serde_json::json;
@@ -38,32 +37,6 @@ enum Operation {
         operation: UpgradeOperation,
     },
 
-    /// Preview changes without writing repository files (JSON).
-    Plan {
-        /// Include exact before/proposed text and complete diffs in a review envelope.
-        #[arg(long)]
-        preview: bool,
-    },
-    /// Show exact before/proposed bytes and diffs without writing consumer files.
-    Preview {
-        /// Optionally review this saved v1 plan against current repository state.
-        #[arg(long, requires = "expect_plan_sha256")]
-        plan: Option<PathBuf>,
-        #[arg(long, requires = "plan")]
-        expect_plan_sha256: Option<String>,
-    },
-    /// Apply a reviewed plan; the digest must be supplied independently.
-    Apply {
-        #[arg(long)]
-        plan: PathBuf,
-        #[arg(long)]
-        expect_plan_sha256: String,
-    },
-    /// Explicitly roll back or finalize a matching interrupted transaction.
-    Recover {
-        #[arg(long)]
-        expect_plan_sha256: String,
-    },
     /// Authenticate the complete release set; Apple executables also require native macOS checks.
     VerifyRelease {
         #[arg(long)]
@@ -270,7 +243,6 @@ enum SchemaKind {
     CiPolicy,
     Config,
     Lock,
-    Plan,
     ReleaseInventory,
     VerificationPolicy,
     ArtifactEvidence,
@@ -696,7 +668,6 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
                 SchemaKind::CiPolicy => schemars::schema_for!(armorer::ci_policy::CiPolicy),
                 SchemaKind::Config => schemars::schema_for!(Config),
                 SchemaKind::Lock => schemars::schema_for!(Lock),
-                SchemaKind::Plan => schemars::schema_for!(Plan),
                 SchemaKind::ReleaseInventory => {
                     schemars::schema_for!(armorer::trust::inventory::ReleaseInventory)
                 }
@@ -731,56 +702,6 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
             };
             Ok((serde_json::to_value(schema).map_err(|_| Error::Json)?, 0))
         }
-        Operation::Apply {
-            plan,
-            expect_plan_sha256,
-        } => {
-            let plan = armorer::apply::load_plan(&plan, &expect_plan_sha256)?;
-            Ok((
-                serde_json::to_value(armorer::apply::apply(
-                    &cli.repository,
-                    &plan,
-                    &expect_plan_sha256,
-                )?)
-                .map_err(|_| Error::Json)?,
-                0,
-            ))
-        }
-        Operation::Recover { expect_plan_sha256 } => Ok((
-            serde_json::to_value(armorer::apply::recover(
-                &cli.repository,
-                &expect_plan_sha256,
-            )?)
-            .map_err(|_| Error::Json)?,
-            0,
-        )),
-        Operation::Preview {
-            plan,
-            expect_plan_sha256,
-        } => {
-            let preview = match (plan, expect_plan_sha256) {
-                (Some(path), Some(expected)) => {
-                    let plan = armorer::apply::load_plan(&path, &expected)?;
-                    armorer::preview::preview_plan(&cli.repository, &plan)?
-                }
-                (None, None) => armorer::preview::preview(&cli.repository)?,
-                _ => {
-                    return Err(Error::Transaction(
-                        "saved preview requires a plan and digest",
-                    ));
-                }
-            };
-            Ok((serde_json::to_value(preview).map_err(|_| Error::Json)?, 0))
-        }
-        Operation::Plan { preview: true } => Ok((
-            serde_json::to_value(armorer::preview::preview(&cli.repository)?)
-                .map_err(|_| Error::Json)?,
-            0,
-        )),
-        Operation::Plan { preview: false } => Ok((
-            serde_json::to_value(inspect(&cli.repository, "plan")?).map_err(|_| Error::Json)?,
-            0,
-        )),
         Operation::Check => {
             // The surviving contract: bootstrap drift over the managed policy.
             let plan = armorer::bootstrap::inspect(

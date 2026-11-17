@@ -22,7 +22,6 @@ use std::{
 #[serde(rename_all = "kebab-case")]
 pub enum SourceFormat {
     Unmanaged,
-    LegacyV1,
     BootstrapV2,
     UpgradeV1,
 }
@@ -196,8 +195,7 @@ fn known_bases(
 /// Exact state preimages are decoded before inspecting Cargo; import flags do
 /// not override unknown versions, ambiguous ownership or failed authenticity.
 pub(super) fn source_bytes(preimages: &BTreeMap<String, Option<String>>) -> Result<Ownership> {
-    if preimages.len() != 3
-        || !preimages.contains_key(bootstrap::V1_STATE)
+    if preimages.len() != 2
         || !preimages.contains_key(bootstrap::STATE)
         || !preimages.contains_key(super::STATE)
     {
@@ -205,10 +203,6 @@ pub(super) fn source_bytes(preimages: &BTreeMap<String, Option<String>>) -> Resu
             "upgrade ownership inventory differs from supported versions",
         ));
     }
-    let legacy = preimages[bootstrap::V1_STATE]
-        .as_ref()
-        .map(|b| crate::apply::state_from_bytes(b.as_bytes()))
-        .transpose()?;
     let modern = preimages[bootstrap::STATE]
         .as_ref()
         .map(|b| bootstrap::transaction::state_from_bytes(b.as_bytes()))
@@ -217,14 +211,9 @@ pub(super) fn source_bytes(preimages: &BTreeMap<String, Option<String>>) -> Resu
         .as_ref()
         .map(|b| super::state::decode_state(b.as_bytes()))
         .transpose()?;
-    if upgraded.is_some() && (legacy.is_some() || modern.is_some()) {
+    if upgraded.is_some() && modern.is_some() {
         return Err(Error::Transaction(
             "multiple active ownership versions require recovery",
-        ));
-    }
-    if legacy.is_some() && modern.is_some() {
-        return Err(Error::Transaction(
-            "conflicting ownership versions require explicit recovery",
         ));
     }
     let (format, catalog, bases) = if let Some(state) = upgraded {
@@ -253,14 +242,6 @@ pub(super) fn source_bytes(preimages: &BTreeMap<String, Option<String>>) -> Resu
             Some(authority::select(id)?),
             bases,
         )
-    } else if let Some(state) = legacy {
-        let bases = state
-            .managed
-            .into_iter()
-            .map(|(p, b)| (p, b.content))
-            .collect();
-        known_bases(&bases, &catalog::reviewed()?)?;
-        (SourceFormat::LegacyV1, None, bases)
     } else {
         (SourceFormat::Unmanaged, None, BTreeMap::new())
     };
@@ -275,7 +256,7 @@ pub(super) fn source_bytes(preimages: &BTreeMap<String, Option<String>>) -> Resu
 /// version failure never falls back to unowned import.
 fn source(root: &Path) -> Result<(Ownership, BTreeMap<String, Option<String>>)> {
     let mut preimages = BTreeMap::new();
-    for path in [bootstrap::V1_STATE, bootstrap::STATE, super::STATE] {
+    for path in [bootstrap::STATE, super::STATE] {
         preimages.insert(
             path.into(),
             optional_bytes(root, path)?.map(|b| text(&b)).transpose()?,
@@ -404,9 +385,7 @@ pub(super) fn license_overlap(license_file: &str) -> Result<()> {
         std::path::Path::new(license_file).components().collect();
     let controls = [
         bootstrap::STATE,
-        bootstrap::V1_STATE,
         bootstrap::JOURNAL,
-        bootstrap::V1_JOURNAL,
         super::STATE,
         super::JOURNAL,
         ".armorer/apply.lock",
@@ -498,12 +477,13 @@ pub(super) fn inspect_bytes(
         &changes,
         policy_review_day,
     )?;
-    let recovery_required = [bootstrap::JOURNAL, bootstrap::V1_JOURNAL, super::JOURNAL]
-        .into_iter()
-        .try_fold(false, |found, path| {
-            let present = optional_bytes(root, path)?.is_some();
-            Ok::<_, Error>(found || present)
-        })?;
+    let recovery_required =
+        [bootstrap::JOURNAL, super::JOURNAL]
+            .into_iter()
+            .try_fold(false, |found, path| {
+                let present = optional_bytes(root, path)?.is_some();
+                Ok::<_, Error>(found || present)
+            })?;
     let mut import_files = import_files.to_vec();
     import_files.sort();
     let mut plan = Plan {
@@ -564,9 +544,6 @@ fn metadata(
             "Target workflow/tool identities are independently compiled immutable authority, not before-file claims.",
         ),
     ];
-    if *source_format == SourceFormat::LegacyV1 {
-        compatibility.push(note("manual-review","legacy-ownership-migration","V1 owns only the recorded toolchain; moving ownership to the upgrade writer needs the separate reviewed transaction."));
-    }
     if *source_format == SourceFormat::Unmanaged {
         compatibility.push(note("manual-review","unowned-inputs","Unowned files stay unowned unless a specific supported import is approved; before pins are declarations only."));
     }

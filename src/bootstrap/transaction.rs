@@ -1,6 +1,6 @@
-//! Fixed-inventory durable transactions with exact recovery and shared v1 locking.
+//! Fixed-inventory durable transactions with exact recovery and shared locking.
 use super::{
-    JOURNAL, STATE, TARGETS, V1_JOURNAL, V1_STATE, VERSION,
+    JOURNAL, STATE, TARGETS, VERSION,
     plan::{self, Plan},
 };
 use crate::{
@@ -187,20 +187,9 @@ fn operations(plan: &Plan, state_bytes: Option<&str>) -> Result<Vec<Write>> {
     Ok(writes)
 }
 
-/// Refuse legacy ownership or unfinished journals that require their explicit migration or recovery path.
+/// Refuse an upgrade owner or journal that requires the upgrade command.
 fn guard_legacy(root: &Path) -> Result<()> {
-    crate::upgrade::guard_previous(root)?;
-    if optional_bytes(root, V1_STATE)?.is_some() {
-        return Err(Error::Transaction(
-            "version-one ownership requires an explicit reviewed migration",
-        ));
-    }
-    if optional_bytes(root, V1_JOURNAL)?.is_some() {
-        return Err(Error::Transaction(
-            "unfinished version-one transaction requires version-one recovery",
-        ));
-    }
-    Ok(())
+    crate::upgrade::guard_previous(root)
 }
 
 /// Create only required parents, sync each creation, and recheck for symlinks.
@@ -441,11 +430,6 @@ fn validate_journal(journal: &Journal, expected: &str) -> Result<()> {
     plan::validate(&journal.plan, expected)?;
     if journal.schema_version != VERSION
         || journal.plan.recovery_required
-        || journal
-            .plan
-            .preserved_inputs
-            .get(V1_STATE)
-            .is_none_or(Option::is_some)
         || journal.operations.is_empty()
         || journal.operations.len() > TARGETS.len() + 1
         || journal

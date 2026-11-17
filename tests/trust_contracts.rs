@@ -574,7 +574,6 @@ fn generated_schemas_match_all_committed_version_one_schemas() {
     let kinds = [
         "config",
         "lock",
-        "plan",
         "release-inventory",
         "verification-policy",
         "artifact-evidence",

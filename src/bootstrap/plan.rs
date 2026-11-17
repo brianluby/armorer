@@ -1,5 +1,5 @@
 //! Exact fixed-target previews and independent catalog authority.
-use super::{JOURNAL, STATE, TARGETS, V1_JOURNAL, V1_STATE, VERSION, transaction::load_state};
+use super::{JOURNAL, STATE, TARGETS, VERSION, transaction::load_state};
 use crate::{
     Error, Result, catalog, ci_policy,
     config::{Config, hex_digest, load_config},
@@ -125,11 +125,7 @@ pub(super) fn disposition(
 
 /// Findings that mean local provisioning is incomplete. Every other finding is a
 /// release gate or review note and does not make the managed files drift.
-const SETUP_FINDINGS: [&str; 3] = [
-    "cargo-lock-missing",
-    "legacy-ownership-migration-required",
-    "license-file-missing",
-];
+const SETUP_FINDINGS: [&str; 2] = ["cargo-lock-missing", "license-file-missing"];
 
 impl Plan {
     /// Reasons the repository differs from what this plan would provision, sorted.
@@ -207,14 +203,7 @@ pub(super) fn inspect_bytes(root: &Path, policy: &[u8]) -> Result<Plan> {
         std::path::Path::new(intent.policy.license_file.as_str())
             .components()
             .collect();
-    let controls = [
-        STATE,
-        JOURNAL,
-        V1_STATE,
-        V1_JOURNAL,
-        ".armorer/apply.lock",
-        "armorer.toml",
-    ];
+    let controls = [STATE, JOURNAL, ".armorer/apply.lock", "armorer.toml"];
     if TARGETS
         .iter()
         .chain(controls.iter())
@@ -238,12 +227,12 @@ pub(super) fn inspect_bytes(root: &Path, policy: &[u8]) -> Result<Plan> {
             .map(digest),
     );
     let mut preserved_inputs = BTreeMap::new();
-    for path in ["rust-toolchain", V1_STATE] {
-        let content = optional_bytes(root, path)?
+    preserved_inputs.insert(
+        "rust-toolchain".into(),
+        optional_bytes(root, "rust-toolchain")?
             .map(|bytes| text(&bytes))
-            .transpose()?;
-        preserved_inputs.insert(path.into(), content);
-    }
+            .transpose()?,
+    );
     let mut plan = Plan {
         schema_version: VERSION,
         runtime_version: env!("CARGO_PKG_VERSION").into(),
@@ -258,7 +247,7 @@ pub(super) fn inspect_bytes(root: &Path, policy: &[u8]) -> Result<Plan> {
         policy_content: text(policy)?,
         input_preimages,
         preserved_inputs,
-        recovery_required: optional_bytes(root, JOURNAL)?.is_some() || optional_bytes(root, V1_JOURNAL)?.is_some(),
+        recovery_required: optional_bytes(root, JOURNAL)?.is_some(),
         capability_state: "unknown".into(),
         findings: vec![
             Finding { code: "github-capabilities-unchecked".into(), detail: "Authenticated GitHub capability preflight remains required.".into() },
@@ -266,9 +255,6 @@ pub(super) fn inspect_bytes(root: &Path, policy: &[u8]) -> Result<Plan> {
         ],
         changes: Vec::new(),
     };
-    if plan.preserved_inputs[V1_STATE].is_some() {
-        plan.findings.push(Finding { code: "legacy-ownership-migration-required".into(), detail: "Version-one ownership is preserved; bootstrap requires an explicit reviewed migration.".into() });
-    }
     if !plan.workspace.cargo_lock_present {
         plan.findings.push(Finding { code: "cargo-lock-missing".into(), detail: "CI and builds require a committed Cargo.lock; discovery and provisioning never generate it.".into() });
     }

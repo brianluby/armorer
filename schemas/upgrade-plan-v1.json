@@ -405,7 +405,6 @@
     "SourceFormat": {
       "enum": [
         "unmanaged",
-        "legacy-v1",
         "bootstrap-v2",
         "upgrade-v1"
       ],

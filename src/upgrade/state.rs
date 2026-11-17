@@ -157,7 +157,6 @@ pub(super) fn next_text(plan: &Plan) -> Result<String> {
 /// Source formats remain explicit; migration removes only the exact original owner.
 pub(super) fn prior_path(format: &SourceFormat) -> Option<&'static str> {
     match format {
-        SourceFormat::LegacyV1 => Some(bootstrap::V1_STATE),
         SourceFormat::BootstrapV2 => Some(bootstrap::STATE),
         SourceFormat::Unmanaged | SourceFormat::UpgradeV1 => None,
     }
