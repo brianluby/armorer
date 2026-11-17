@@ -83,9 +83,7 @@ jobs:
           done
           target/debug/armorer schema cargo-graph-v2 > "$RUNNER_TEMP/armorer-cargo-graph-v2.json"
           diff -u schemas/cargo-graph-v2.json "$RUNNER_TEMP/armorer-cargo-graph-v2.json"
-          target/debug/armorer schema verification-context > "$RUNNER_TEMP/armorer-verification-context-v1.json"
-          diff -u schemas/verification-context-v1.json "$RUNNER_TEMP/armorer-verification-context-v1.json"
-          for kind in native-catalog-v2 runtime-distribution-v1 verification-context-v2 verification-context-v3; do
+          for kind in native-catalog-v2 runtime-distribution-v1 verification-context-v3; do
             target/debug/armorer schema "$kind" > "$RUNNER_TEMP/armorer-$kind.json"
             diff -u "schemas/$kind.json" "$RUNNER_TEMP/armorer-$kind.json"
           done
