@@ -108,10 +108,6 @@ fn all_profiles_share_the_integrated_cli_without_building_or_losing_customizatio
         let policy = policy.to_str().unwrap();
         let catalog = cli(root.path(), &["catalog"], 0);
         assert!(catalog.is_object());
-        assert_eq!(
-            cli(root.path(), &["plan", "--preview"], 0),
-            cli(root.path(), &["preview"], 0)
-        );
         cli(root.path(), &["bootstrap", "check", "--policy", policy], 2);
         let plan = cli(root.path(), &["bootstrap", "plan", "--policy", policy], 0);
         assert_eq!(snapshot(root.path()), before);

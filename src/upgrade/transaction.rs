@@ -7,12 +7,11 @@ use super::{
     state,
 };
 use crate::{
-    Error, Result,
-    apply::{decode, json, lock, optional_bytes, replace, sync_directory},
-    bootstrap, ci_policy,
+    Error, Result, bootstrap, ci_policy,
     config::load_config,
     digest,
     discovery::discover,
+    filesystem::{decode, json, lock, optional_bytes, replace, sync_directory},
     safe_path,
 };
 use serde::{Deserialize, Serialize};
@@ -233,12 +232,11 @@ pub(super) fn rollback_fresh(root: &Path, p: &Plan) -> Result<()> {
 
 /// Never mix unfinished journal versions. This gate reads only bounded regular files.
 fn guard(root: &Path, own: bool) -> Result<()> {
-    for path in [bootstrap::V1_JOURNAL, bootstrap::JOURNAL] {
-        if optional_bytes(root, path)?.is_some() {
-            return Err(Error::Transaction(
-                "earlier transaction requires its explicit recovery command",
-            ));
-        }
+    super::reject_v1(root)?;
+    if optional_bytes(root, bootstrap::JOURNAL)?.is_some() {
+        return Err(Error::Transaction(
+            "earlier transaction requires its explicit recovery command",
+        ));
     }
     if !own && optional_bytes(root, JOURNAL)?.is_some() {
         return Err(Error::Transaction(
@@ -304,10 +302,8 @@ fn after_images(root: &Path, p: &Plan) -> Result<bool> {
     ) {
         return Ok(false);
     }
-    for path in [bootstrap::STATE, bootstrap::V1_STATE] {
-        if optional_bytes(root, path)?.is_some() {
-            return Ok(false);
-        }
+    if optional_bytes(root, bootstrap::STATE)?.is_some() {
+        return Ok(false);
     }
     for c in &p.changes {
         if !matches(
@@ -622,10 +618,6 @@ mod tests {
         .unwrap();
         fs::write(root.path().join("armorer.toml"),"schema_version = 1\nrepository = \"example/pilot\"\ntoolchain = \"1.95.0\"\n[[deliverables]]\nid = \"library\"\nprofile = \"library\"\npackage = \"pilot\"\ntargets = [\"x86_64-unknown-linux-gnu\"]\nfeature_set = \"standard\"\n[feature_sets.standard]\ndefault_features = true\nfeatures = []\n[policy]\nlicense_file = \"LICENSE\"\nattestations = \"required\"\n").unwrap();
         match kind {
-            "legacy" => {
-                let p = crate::plan::inspect(root.path(), "plan").unwrap();
-                crate::apply::apply(root.path(), &p, &p.plan_sha256).unwrap();
-            }
             "bootstrap" => {
                 let policy = tempfile::NamedTempFile::new().unwrap();
                 fs::write(policy.path(), POLICY).unwrap();
@@ -717,7 +709,7 @@ mod tests {
     /// Verify that io failures restore every write and owner deletion boundary in both directions.
     #[test]
     fn io_failures_restore_every_write_and_owner_deletion_boundary_in_both_directions() {
-        for kind in ["unmanaged", "legacy", "bootstrap", "upgrade"] {
+        for kind in ["unmanaged", "bootstrap", "upgrade"] {
             for reverse in [false, true] {
                 let (probe, plan) = fixture(kind);
                 let approved = approval(probe.path(), plan, reverse);
@@ -760,7 +752,7 @@ mod tests {
     #[test]
     fn process_interruption_recovery_restores_prior_owner_and_rejects_wrong_digest_for_each_boundary()
      {
-        for kind in ["unmanaged", "legacy", "bootstrap", "upgrade"] {
+        for kind in ["unmanaged", "bootstrap", "upgrade"] {
             for reverse in [false, true] {
                 let (probe, plan) = fixture(kind);
                 let approved = approval(probe.path(), plan, reverse);
@@ -804,7 +796,7 @@ mod tests {
     {
         for reverse in [false, true] {
             for persisted in [false, true] {
-                let (root, p) = fixture("legacy");
+                let (root, p) = fixture("bootstrap");
                 let approved = approval(root.path(), p, reverse);
                 let before = snapshot(root.path());
                 assert!(
@@ -843,11 +835,8 @@ mod tests {
     #[test]
     fn intervening_file_owner_or_journal_edits_block_recovery_before_any_restoration() {
         for reverse in [false, true] {
-            for path in bootstrap::TARGETS
-                .into_iter()
-                .chain([STATE, bootstrap::V1_STATE, JOURNAL])
-            {
-                let (root, p) = fixture("legacy");
+            for path in bootstrap::TARGETS.into_iter().chain([STATE, JOURNAL]) {
+                let (root, p) = fixture("bootstrap");
                 let approved = approval(root.path(), p, reverse);
                 let count = approved.operations().unwrap().len();
                 interrupt(root.path(), &approved, count - 1);
@@ -864,7 +853,7 @@ mod tests {
     #[test]
     /// An externally deleted journal must not be reported as restored-or-preserved.
     fn externally_deleted_journal_reports_absence_not_restoration() {
-        let (root, plan) = fixture("legacy");
+        let (root, plan) = fixture("bootstrap");
         let approved = approval(root.path(), plan, false);
         let error = transaction(
             root.path(),
@@ -887,7 +876,7 @@ mod tests {
     fn forged_missing_reordered_redirected_or_reverse_journals_never_restore_unapproved_paths() {
         for reverse in [false, true] {
             for mutation in 0..8 {
-                let (root, p) = fixture("legacy");
+                let (root, p) = fixture("bootstrap");
                 let approved = approval(root.path(), p, reverse);
                 interrupt(root.path(), &approved, 0);
                 let mut journal: Journal =
@@ -987,11 +976,7 @@ mod tests {
     /// Verify that unchanged targets and foreign owner presence also block whole recovery.
     #[test]
     fn unchanged_targets_and_foreign_owner_presence_also_block_whole_recovery() {
-        for path in [
-            bootstrap::TARGETS[0],
-            bootstrap::TARGETS[1],
-            bootstrap::V1_STATE,
-        ] {
+        for path in [bootstrap::TARGETS[0], bootstrap::TARGETS[1], STATE] {
             let (root, p) = fixture("bootstrap");
             let approved = Approval::Upgrade { plan: p };
             let count = approved.operations().unwrap().len();

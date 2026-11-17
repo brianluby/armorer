@@ -98,10 +98,9 @@
     "toolchain": "1.95.0"
   },
   "mode": "bootstrap-plan",
-  "plan_sha256": "b746f05adedaa86269b607f3a1e6ad8f309477db577405bf4081acb64c15472f",
+  "plan_sha256": "71eb459b53152706b308b04a060da87e3509cfa5a14fc617f59059930170d13a",
   "policy_content": "# Fixture-only decision for this dependency-free MIT example.\n# Replace with the consuming owner's reviewed dependency policy.\nschema_version = 1\n\n[licenses]\nallow = [\"MIT\"]\n\n[advisories]\nexceptions = []\n\n[sources]\nallow_git = []\n\n[bans]\nmultiple_versions = \"warn\"\ndeny = []\n",
   "preserved_inputs": {
-    ".armorer/state.json": null,
     "rust-toolchain": null
   },
   "recovery_required": false,

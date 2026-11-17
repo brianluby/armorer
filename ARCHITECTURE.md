@@ -47,7 +47,7 @@ flowchart TD
 
 ## Configuration and bootstrap contract
 
-Use root **`armorer.toml`** for intent, **`armorer.lock`** for resolved compatible versions and SHA/digest pins, and **`.armorer/state.json`** for generated-file bases and ownership. All are versioned in Git; the state file contains no secrets and is never a source of cryptographic trust. Put consumer trust policy in an explicitly reviewed independent document, distributable separately from artifacts. [Proposed ADR 0006](docs/adr/0006-release-trust-contract-versioning.md) freezes the new document as JSON (`armorer-policy.json`) while preserving existing TOML config/lock contracts.
+Use root **`armorer.toml`** for intent, **`armorer.lock`** for resolved compatible versions and SHA/digest pins, and **`.armorer/bootstrap-state-v2.json`** for generated-file bases and ownership. All are versioned in Git; the state file contains no secrets and is never a source of cryptographic trust. Put consumer trust policy in an explicitly reviewed independent document, distributable separately from artifacts. [Proposed ADR 0006](docs/adr/0006-release-trust-contract-versioning.md) freezes the new document as JSON (`armorer-policy.json`) while preserving existing TOML config/lock contracts.
 
 The schema includes:
 
@@ -64,8 +64,8 @@ Proposed interface:
 
 ```text
 armorer check [--online] [--json]
-armorer plan --profile cli --output armorer-plan.json
-armorer apply --plan armorer-plan.json
+armorer bootstrap plan --policy reviewed-policy.toml > armorer-plan.json
+armorer bootstrap apply --plan armorer-plan.json --expect-plan-sha256 <digest>
 armorer upgrade --to <reviewed-catalog-version> --output armorer-plan.json
 armorer verify --repo <owner/repo> --tag <exact-tag> --policy armorer-policy.json
 ```

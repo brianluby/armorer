@@ -1,6 +1,6 @@
 use armorer::{
     config::{load_config, load_lock},
-    plan::{Disposition, inspect},
+    plan::Disposition,
     safe_path,
 };
 use std::{fs, path::Path, process::Command};
@@ -43,9 +43,12 @@ fn write(root: &Path, name: &str, text: &str) {
     fs::write(path, text).unwrap();
 }
 
+const POLICY: &str = "schema_version = 1\n[licenses]\nallow = [\"MIT\"]\n[advisories]\nexceptions = []\n[sources]\nallow_git = []\n[bans]\nmultiple_versions = \"warn\"\ndeny = []\n";
+
 fn fixture() -> TempDir {
     let root = tempfile::tempdir().unwrap();
     write(root.path(), "armorer.toml", CONFIG);
+    write(root.path(), "ci-policy.reviewed.toml", POLICY);
     write(root.path(), "LICENSE", "MIT\n");
     write(
         root.path(),
@@ -112,14 +115,19 @@ required-features = ["service"]
     root
 }
 
+/// The surviving inspection contract: bootstrap over the fixture's reviewed policy.
+fn inspect(root: &Path) -> armorer::Result<armorer::bootstrap::Plan> {
+    armorer::bootstrap::inspect(root, &root.join("ci-policy.reviewed.toml"))
+}
+
 fn plan_bytes(root: &Path) -> Vec<u8> {
-    serde_json::to_vec_pretty(&inspect(root, "plan").unwrap()).unwrap()
+    serde_json::to_vec_pretty(&inspect(root).unwrap()).unwrap()
 }
 
 #[test]
 fn discovers_inheritance_profiles_and_native_requirements_without_building() {
     let root = fixture();
-    let plan = inspect(root.path(), "plan").unwrap();
+    let plan = inspect(root.path()).unwrap();
     assert_eq!(plan.workspace.packages.len(), 2);
     assert_eq!(plan.intent.deliverables.len(), 3);
     assert_eq!(plan.workspace.packages[0].version, "0.3.0");
@@ -131,7 +139,6 @@ fn discovers_inheritance_profiles_and_native_requirements_without_building() {
     );
     assert!(!root.path().join("Cargo.lock").exists());
     assert!(!root.path().join("target").exists());
-    assert_eq!(plan.state, "configuration-valid");
     assert_eq!(plan.capability_state, "unknown");
 }
 
@@ -153,8 +160,13 @@ fn preserves_existing_toolchain_and_lock_bytes() {
     let toolchain = "[toolchain]\nchannel = \"stable\"\ncomponents = [\"rust-src\"]\n";
     write(root.path(), "Cargo.lock", lock);
     write(root.path(), "rust-toolchain.toml", toolchain);
-    let plan = inspect(root.path(), "plan").unwrap();
-    assert_eq!(plan.changes[0].disposition, Disposition::Conflict);
+    let plan = inspect(root.path()).unwrap();
+    let toolchain_change = plan
+        .changes
+        .iter()
+        .find(|c| c.path == "rust-toolchain.toml")
+        .unwrap();
+    assert_eq!(toolchain_change.disposition, Disposition::Conflict);
     assert_eq!(
         fs::read_to_string(root.path().join("Cargo.lock")).unwrap(),
         lock
@@ -190,7 +202,7 @@ fn excludes_repository_credential_providers_and_overrides() {
             root.path().join("provider.sh").display()
         ),
     );
-    let plan = inspect(root.path(), "plan").unwrap();
+    let plan = inspect(root.path()).unwrap();
     assert!(plan.workspace.cargo_config_present);
     assert!(
         plan.findings
@@ -208,7 +220,7 @@ fn rejects_unknown_fields_without_echoing_values() {
         "schema_version = 1\nsecret = \"DO-NOT-ECHO-THIS\"",
     );
     write(root.path(), "armorer.toml", &poison);
-    let error = inspect(root.path(), "plan").unwrap_err();
+    let error = inspect(root.path()).unwrap_err();
     assert_eq!(error.code(), "invalid-toml");
     assert!(!error.to_string().contains("DO-NOT-ECHO-THIS"));
 }
@@ -241,10 +253,7 @@ fn rejects_missing_packages_binaries_and_disabled_required_features() {
     ] {
         let root = fixture();
         write(root.path(), "armorer.toml", &replacement);
-        assert_eq!(
-            inspect(root.path(), "plan").unwrap_err().code(),
-            "invalid-config"
-        );
+        assert_eq!(inspect(root.path()).unwrap_err().code(), "invalid-config");
     }
 }
 
@@ -257,19 +266,13 @@ fn rejects_manifest_escape_and_incompatible_msrv() {
         "Cargo.toml",
         &manifest.replace("rust-version = \"1.85\"", "rust-version = \"1.96\""),
     );
-    assert_eq!(
-        inspect(root.path(), "plan").unwrap_err().code(),
-        "invalid-config"
-    );
+    assert_eq!(inspect(root.path()).unwrap_err().code(), "invalid-config");
     write(
         root.path(),
         "Cargo.toml",
         &manifest.replace("crates/core\" }", "../outside\" }"),
     );
-    assert_eq!(
-        inspect(root.path(), "plan").unwrap_err().code(),
-        "unsafe-path"
-    );
+    assert_eq!(inspect(root.path()).unwrap_err().code(), "unsafe-path");
 }
 
 #[cfg(unix)]
@@ -279,10 +282,7 @@ fn rejects_symlink_inputs() {
     fs::remove_file(root.path().join("LICENSE")).unwrap();
     std::os::unix::fs::symlink("Cargo.toml", root.path().join("LICENSE")).unwrap();
     assert!(safe_path(root.path(), "LICENSE").is_err());
-    assert_eq!(
-        inspect(root.path(), "plan").unwrap_err().code(),
-        "unsafe-path"
-    );
+    assert_eq!(inspect(root.path()).unwrap_err().code(), "unsafe-path");
 }
 
 #[test]
@@ -376,15 +376,14 @@ sha256 = "{}"
     );
     for bytes in [lock.clone(), format!("# reviewed comment\n{lock}")] {
         write(root.path(), "armorer.lock", &bytes);
-        let plan = inspect(root.path(), "plan").unwrap();
+        // The surviving contract binds exact lock bytes through load_lock; the
+        // bootstrap plan reads the managed armorer.lock as a provisioning target.
+        let (validated, exact) = load_lock(root.path(), &config_digest).unwrap().unwrap();
+        assert_eq!(validated.config_sha256, config_digest);
+        assert_eq!(exact, bytes.as_bytes());
         assert_eq!(
-            plan.lock_sha256,
-            Some(format!("{:x}", Sha256::digest(bytes.as_bytes())))
-        );
-        assert!(
-            plan.findings
-                .iter()
-                .any(|f| f.code == "pins-not-authenticated")
+            format!("{:x}", Sha256::digest(&exact)),
+            format!("{:x}", Sha256::digest(bytes.as_bytes()))
         );
     }
 }
@@ -392,34 +391,93 @@ sha256 = "{}"
 #[test]
 fn cli_check_fails_closed_plan_is_read_only_and_errors_are_json() {
     let root = fixture();
-    let run = |mode: &str| {
+    let run = |args: &[&str]| {
         Command::new(env!("CARGO_BIN_EXE_armorer"))
-            .args(["--repository", root.path().to_str().unwrap(), mode])
+            .args(["--repository", root.path().to_str().unwrap()])
+            .args(args)
             .output()
             .unwrap()
     };
-    let check = run("check");
-    assert_eq!(check.status.code(), Some(2));
-    let plan = run("plan");
+    // Without a managed policy, check fails closed with a JSON error.
+    let check = run(&["check"]);
+    assert_eq!(check.status.code(), Some(1));
+    let value: serde_json::Value = serde_json::from_slice(&check.stdout).unwrap();
+    assert!(value["error"]["code"].is_string());
+    let policy = root.path().join("ci-policy.reviewed.toml");
+    let run_plan = || {
+        Command::new(env!("CARGO_BIN_EXE_armorer"))
+            .args(["--repository", root.path().to_str().unwrap()])
+            .args(["bootstrap", "plan", "--policy"])
+            .arg(&policy)
+            .output()
+            .unwrap()
+    };
+    let plan = run_plan();
     assert!(plan.status.success());
-    assert_eq!(plan.stdout, run("plan").stdout);
+    assert_eq!(plan.stdout, run_plan().stdout);
     assert!(!root.path().join("rust-toolchain.toml").exists());
     assert!(!root.path().join("Cargo.lock").exists());
     write(root.path(), "armorer.toml", "invalid");
-    let error = run("plan");
+    let error = run_plan();
     assert_eq!(error.status.code(), Some(1));
     let value: serde_json::Value = serde_json::from_slice(&error.stdout).unwrap();
     assert_eq!(value["error"]["code"], "invalid-toml");
+}
+
+/// Top-level check reads the bootstrap contract: fail-closed without a policy,
+/// exit 0 in sync, exit 2 with stderr reasons on drift, never writes.
+#[test]
+fn cli_check_reads_the_bootstrap_contract() {
+    let root = fixture();
+    let run = || {
+        Command::new(env!("CARGO_BIN_EXE_armorer"))
+            .args(["--repository", root.path().to_str().unwrap(), "check"])
+            .output()
+            .unwrap()
+    };
+    // No managed policy: fail closed with a JSON error, nothing written.
+    let missing = run();
+    assert_eq!(
+        missing.status.code(),
+        Some(1),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&missing.stdout),
+        String::from_utf8_lossy(&missing.stderr)
+    );
+    let value: serde_json::Value = serde_json::from_slice(&missing.stdout).unwrap();
+    assert!(value["error"]["code"].is_string());
+    assert!(!root.path().join("rust-toolchain.toml").exists());
+
+    // Provision through the bootstrap contract, then check reports sync.
+    write(root.path(), "ci-policy.reviewed.toml", POLICY);
+    write(root.path(), "Cargo.lock", "version = 4\n");
+    let plan =
+        armorer::bootstrap::inspect(root.path(), &root.path().join("ci-policy.reviewed.toml"))
+            .unwrap();
+    armorer::bootstrap::apply(root.path(), &plan, &plan.plan_sha256).unwrap();
+    let synced = run();
+    assert_eq!(synced.status.code(), Some(0));
+    let value: serde_json::Value = serde_json::from_slice(&synced.stdout).unwrap();
+    assert_eq!(value["schema_version"], 2);
+
+    // Editing an owned file is drift: exit 2, reason on stderr, bytes untouched.
+    let edited = "[toolchain]\nchannel = \"9.9.9\"\n";
+    write(root.path(), "rust-toolchain.toml", edited);
+    let drifted = run();
+    assert_eq!(drifted.status.code(), Some(2));
+    let stderr = String::from_utf8(drifted.stderr).unwrap();
+    assert!(stderr.contains("rust-toolchain.toml"), "{stderr}");
+    assert_eq!(
+        fs::read_to_string(root.path().join("rust-toolchain.toml")).unwrap(),
+        edited
+    );
 }
 
 #[test]
 fn rejects_oversized_inputs_before_metadata() {
     let root = fixture();
     write(root.path(), "armorer.toml", &"x".repeat(1_048_577));
-    assert_eq!(
-        inspect(root.path(), "plan").unwrap_err().code(),
-        "invalid-config"
-    );
+    assert_eq!(inspect(root.path()).unwrap_err().code(), "invalid-config");
 }
 
 #[test]
@@ -432,7 +490,7 @@ fn handles_recursive_feature_cycles_and_transitive_required_features() {
     );
     assert_ne!(manifest, mutated);
     write(root.path(), "crates/tool/Cargo.toml", &mutated);
-    assert!(inspect(root.path(), "plan").is_ok());
+    assert!(inspect(root.path()).is_ok());
 }
 
 #[cfg(unix)]
@@ -456,7 +514,14 @@ fn missing_installed_toolchain_is_an_error_without_installation() {
     .unwrap();
     let output = Command::new(env!("CARGO_BIN_EXE_armorer"))
         .env("PATH", tools.path())
-        .args(["--repository", root.path().to_str().unwrap(), "plan"])
+        .args([
+            "--repository",
+            root.path().to_str().unwrap(),
+            "bootstrap",
+            "plan",
+            "--policy",
+        ])
+        .arg(root.path().join("ci-policy.reviewed.toml"))
         .output()
         .unwrap();
     assert_eq!(output.status.code(), Some(1));
@@ -489,7 +554,14 @@ fn preserves_rustup_multicall_executable_name() {
     std::os::unix::fs::symlink("rustup-init", tools.path().join("rustup")).unwrap();
     let result = Command::new(env!("CARGO_BIN_EXE_armorer"))
         .env("PATH", tools.path())
-        .args(["--repository", root.path().to_str().unwrap(), "plan"])
+        .args([
+            "--repository",
+            root.path().to_str().unwrap(),
+            "bootstrap",
+            "plan",
+            "--policy",
+        ])
+        .arg(root.path().join("ci-policy.reviewed.toml"))
         .output()
         .unwrap();
     assert!(
@@ -527,7 +599,14 @@ fn rejects_repository_local_executable_on_path() {
     .unwrap();
     let result = Command::new(env!("CARGO_BIN_EXE_armorer"))
         .env("PATH", root.path().join(".cargo"))
-        .args(["--repository", root.path().to_str().unwrap(), "plan"])
+        .args([
+            "--repository",
+            root.path().to_str().unwrap(),
+            "bootstrap",
+            "plan",
+            "--policy",
+        ])
+        .arg(root.path().join("ci-policy.reviewed.toml"))
         .output()
         .unwrap();
     assert_eq!(result.status.code(), Some(1));
@@ -549,7 +628,7 @@ fn accepts_anchored_package_patterns_and_opaque_metadata() {
     let mutated = manifest.replace("[package]", "[package]\nexclude = [\"/ci\", \"/.github\"]");
     assert_ne!(manifest, mutated);
     write(root.path(), "crates/tool/Cargo.toml", &mutated);
-    assert!(inspect(root.path(), "plan").is_ok());
+    assert!(inspect(root.path()).is_ok());
     write(
         root.path(),
         "crates/tool/Cargo.toml",
@@ -557,7 +636,7 @@ fn accepts_anchored_package_patterns_and_opaque_metadata() {
             "{manifest}\n[package.metadata.external]\npath = \"/opaque/value\"\nexclude = [\"/opaque/pattern\"]\n"
         ),
     );
-    assert!(inspect(root.path(), "plan").is_ok());
+    assert!(inspect(root.path()).is_ok());
 }
 
 #[test]
@@ -582,7 +661,7 @@ fn rejects_actual_workspace_and_dependency_escapes_in_all_cargo_tables() {
         let root = fixture();
         write(root.path(), "Cargo.toml", declaration);
         assert_eq!(
-            inspect(root.path(), "plan").unwrap_err().code(),
+            inspect(root.path()).unwrap_err().code(),
             "unsafe-path",
             "{declaration}"
         );
@@ -597,10 +676,7 @@ fn rejects_excessively_deep_directory_trees() {
         fs::create_dir(&path).unwrap();
         path.push("nested");
     }
-    assert_eq!(
-        inspect(root.path(), "plan").unwrap_err().code(),
-        "invalid-config"
-    );
+    assert_eq!(inspect(root.path()).unwrap_err().code(), "invalid-config");
     assert!(!root.path().join("Cargo.lock").exists());
 }
 
@@ -612,10 +688,7 @@ fn rejects_oversized_directory_inventory() {
     for i in 0..20_000 {
         fs::File::create(many.join(i.to_string())).unwrap();
     }
-    assert_eq!(
-        inspect(root.path(), "plan").unwrap_err().code(),
-        "invalid-config"
-    );
+    assert_eq!(inspect(root.path()).unwrap_err().code(), "invalid-config");
     assert!(!root.path().join("Cargo.lock").exists());
 }
 
@@ -640,7 +713,14 @@ fn rejects_fifo_inputs_without_blocking() {
                 .success()
         );
         let mut child = Command::new(env!("CARGO_BIN_EXE_armorer"))
-            .args(["--repository", root.path().to_str().unwrap(), "plan"])
+            .args([
+                "--repository",
+                root.path().to_str().unwrap(),
+                "bootstrap",
+                "plan",
+                "--policy",
+            ])
+            .arg(root.path().join("ci-policy.reviewed.toml"))
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
             .spawn()
@@ -672,7 +752,14 @@ fn rejects_temporary_directory_inside_consumer_before_writing() {
     let before = fs::metadata(&scratch).unwrap().modified().unwrap();
     let result = Command::new(env!("CARGO_BIN_EXE_armorer"))
         .env("TMPDIR", &scratch)
-        .args(["--repository", root.path().to_str().unwrap(), "plan"])
+        .args([
+            "--repository",
+            root.path().to_str().unwrap(),
+            "bootstrap",
+            "plan",
+            "--policy",
+        ])
+        .arg(root.path().join("ci-policy.reviewed.toml"))
         .output()
         .unwrap();
     assert_eq!(result.status.code(), Some(1));
@@ -697,7 +784,14 @@ fn rejects_inherited_temporary_ancestor_cargo_configuration() {
     let before = fs::metadata(&scratch).unwrap().modified().unwrap();
     let result = Command::new(env!("CARGO_BIN_EXE_armorer"))
         .env("TMPDIR", &scratch)
-        .args(["--repository", root.path().to_str().unwrap(), "plan"])
+        .args([
+            "--repository",
+            root.path().to_str().unwrap(),
+            "bootstrap",
+            "plan",
+            "--policy",
+        ])
+        .arg(root.path().join("ci-policy.reviewed.toml"))
         .output()
         .unwrap();
     assert_eq!(result.status.code(), Some(1));
@@ -738,7 +832,14 @@ fn inherited_stdout_descendant_does_not_block_toolchain_lookup() {
     .unwrap();
     let mut child = Command::new(env!("CARGO_BIN_EXE_armorer"))
         .env("PATH", tools.path())
-        .args(["--repository", root.path().to_str().unwrap(), "plan"])
+        .args([
+            "--repository",
+            root.path().to_str().unwrap(),
+            "bootstrap",
+            "plan",
+            "--policy",
+        ])
+        .arg(root.path().join("ci-policy.reviewed.toml"))
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .spawn()
@@ -766,5 +867,109 @@ fn inherited_stdout_descendant_does_not_block_toolchain_lookup() {
             .unwrap()
             .contains("toolchain-path"),
         "{value}"
+    );
+}
+
+/// After an upgrade owns the files, read-only check still reports drift;
+/// only writers refuse the upgrade owner. Leftover v1 ownership stays refused.
+#[cfg(unix)]
+#[test]
+fn check_reports_drift_under_upgrade_ownership_and_refuses_symlinked_policy() {
+    let root = fixture();
+    write(root.path(), "Cargo.lock", "version = 4\n");
+    let plan = inspect(root.path()).unwrap();
+    armorer::bootstrap::apply(root.path(), &plan, &plan.plan_sha256).unwrap();
+    let policy = root.path().join("ci-policy.reviewed.toml");
+    let up = armorer::upgrade::inspect(root.path(), &policy, "bootstrap-v2", &[], false).unwrap();
+    armorer::upgrade::apply(root.path(), &up, &up.plan_sha256).unwrap();
+    // Writers still refuse the upgrade owner; read-only inspection stays usable.
+    let stale = inspect(root.path()).unwrap();
+    let refusal = armorer::bootstrap::apply(root.path(), &stale, &stale.plan_sha256)
+        .unwrap_err()
+        .to_string();
+    assert!(refusal.contains("upgrade"), "{refusal}");
+    // Read-only check works: copy the reviewed policy to the managed path.
+    fs::copy(&policy, root.path().join(".armorer/ci-policy.toml")).unwrap();
+    let run = |repo: &Path| {
+        Command::new(env!("CARGO_BIN_EXE_armorer"))
+            .args(["--repository", repo.to_str().unwrap(), "check"])
+            .output()
+            .unwrap()
+    };
+    let synced = run(root.path());
+    assert_eq!(
+        synced.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&synced.stdout)
+    );
+    fs::write(
+        root.path().join("rust-toolchain.toml"),
+        "[toolchain]\nchannel = \"9.9.9\"\n",
+    )
+    .unwrap();
+    assert_eq!(run(root.path()).status.code(), Some(2));
+
+    // A symlinked .armorer parent must not redirect the managed policy read.
+    let root = fixture();
+    let outside = tempfile::tempdir().unwrap();
+    fs::write(outside.path().join("ci-policy.toml"), POLICY).unwrap();
+    std::os::unix::fs::symlink(outside.path(), root.path().join(".armorer")).unwrap();
+    let error = run(root.path());
+    assert_eq!(error.status.code(), Some(1));
+    let value: serde_json::Value = serde_json::from_slice(&error.stdout).unwrap();
+    assert_eq!(value["error"]["code"], "unsafe-path");
+}
+
+/// An interrupted upgrade journal is drift even when managed bytes are in sync:
+/// empty drift must mean no transaction awaits recovery.
+#[test]
+fn pending_upgrade_journal_is_recovery_drift() {
+    let root = fixture();
+    write(root.path(), "Cargo.lock", "version = 4\n");
+    write(root.path(), ".armorer/ci-policy.toml", POLICY);
+    let policy = root.path().join("ci-policy.reviewed.toml");
+    let plan = inspect(root.path()).unwrap();
+    armorer::bootstrap::apply(root.path(), &plan, &plan.plan_sha256).unwrap();
+    let up = armorer::upgrade::inspect(root.path(), &policy, "bootstrap-v2", &[], false).unwrap();
+    armorer::upgrade::apply(root.path(), &up, &up.plan_sha256).unwrap();
+    fs::copy(&policy, root.path().join(".armorer/ci-policy.toml")).unwrap();
+    let run = || {
+        Command::new(env!("CARGO_BIN_EXE_armorer"))
+            .args(["--repository", root.path().to_str().unwrap(), "check"])
+            .output()
+            .unwrap()
+    };
+    assert_eq!(run().status.code(), Some(0));
+    fs::write(root.path().join(".armorer/upgrade-journal-v1.json"), "{}").unwrap();
+    let pending = run();
+    assert_eq!(pending.status.code(), Some(2));
+    assert!(
+        String::from_utf8(pending.stderr)
+            .unwrap()
+            .contains("transaction-recovery-required")
+    );
+}
+
+/// A repository provisioned by `upgrade --catalog bootstrap-v1` records ownership
+/// only in the upgrade state; check must use that catalog, not the v2 default.
+#[test]
+fn check_uses_the_upgrade_owners_catalog() {
+    let root = fixture();
+    write(root.path(), "Cargo.lock", "version = 4\n");
+    let policy = root.path().join("ci-policy.reviewed.toml");
+    let up = armorer::upgrade::inspect(root.path(), &policy, "bootstrap-v1", &[], false).unwrap();
+    armorer::upgrade::apply(root.path(), &up, &up.plan_sha256).unwrap();
+    fs::copy(&policy, root.path().join(".armorer/ci-policy.toml")).unwrap();
+    let out = Command::new(env!("CARGO_BIN_EXE_armorer"))
+        .args(["--repository", root.path().to_str().unwrap(), "check"])
+        .output()
+        .unwrap();
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
     );
 }

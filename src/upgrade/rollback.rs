@@ -1,11 +1,11 @@
 //! Separately reviewed exact historical restoration, never authenticity fallback.
 use super::{Plan, plan, transaction};
 use crate::{
-    Error, Result,
-    apply::{decode, json},
-    bootstrap,
+    Error, Result, bootstrap,
     config::hex_digest,
-    digest, read_small,
+    digest,
+    filesystem::{decode, json},
+    read_small,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};

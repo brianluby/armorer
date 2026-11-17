@@ -34,7 +34,8 @@ from the Armorer checkout in a POSIX shell:
 armorer_binary="$PWD/target/debug/armorer"
 armorer_profile_root="$(mktemp -d /tmp/armorer-profiles.XXXXXX)" || exit 1
 cp -R examples/profile-workspace/. "$armorer_profile_root/" || exit 1
-"$armorer_binary" --repository "$armorer_profile_root" plan \
+"$armorer_binary" --repository "$armorer_profile_root" bootstrap plan \
+  --policy examples/bootstrap-v2/library/ci-policy.reviewed.toml \
   > "$armorer_profile_root-plan.json" || exit 1
 cat "$armorer_profile_root-plan.json" || exit 1
 "$armorer_binary" --repository "$armorer_profile_root" check
@@ -45,10 +46,10 @@ three deliverables and four target selections. The library uses Linux x64; the
 CLI names Linux x64 and macOS ARM64; the service uses Linux ARM64. These are
 metadata selections even when the host has a different architecture.
 
-`plan` exits 0 with `state: configuration-valid` and proposes the toolchain file.
-`check` exits 2. Findings are `cargo-lock-missing`, `reviewed-lock-missing`,
-`license-policy-unreviewed`, `github-capabilities-unchecked` and
-`release-runtime-unavailable`. License presence alone cannot validate dependency
+`bootstrap plan` exits 0 and proposes the five managed files, including the
+toolchain file. Top-level `check` fails closed with a JSON error until a managed
+policy exists. Findings include `cargo-lock-missing`, `license-file-missing`,
+`github-capabilities-unchecked` and `release-runtime-unavailable`. License presence alone cannot validate dependency
 licenses. Discovery creates no consumer Cargo.lock, target output or build.
 
 Read the declared selection. Keep the missing proof visible.
@@ -70,7 +71,7 @@ dependency feature unions or target-specific dependency closure. Complete Cargo
 graph and SBOM checks belong to the separate consumer implementation.
 
 To see a rejected selection, change only the copied fixture's daemon feature
-list from `["service"]` to `[]`, keeping defaults false, and rerun `plan`.
+list from `["service"]` to `[]`, keeping defaults false, and rerun `bootstrap plan`.
 Expect exit 1 with `invalid-config`: the selected binary's required features are
 disabled. Restore the fixture selection and inspect again. Do not weaken required
 features to turn a missing runtime dependency into a passing gate.
@@ -80,7 +81,7 @@ features to turn a missing runtime dependency into a passing gate.
 Keep an isolated adoption branch. Inventory bespoke workflows, Cargo configuration,
 toolchain files, license policy and uncommitted work before adding `armorer.toml`.
 Choose the actual deliverables and review [platform prerequisites](platform-prerequisites.md).
-Run read-only `plan` and `preview`; compare the exact proposed bytes with your
+Run read-only `bootstrap plan`; compare the exact proposed bytes with your
 existing toolchain. Discovery excludes repository `.cargo` configuration and
 reports that exclusion. A successful metadata snapshot does not prove those
 overrides are safe or that the real build works.
@@ -88,7 +89,7 @@ overrides are safe or that the real build works.
 On current main, differing unowned toolchain files and legacy `rust-toolchain`
 produce conflicts. Identical files remain unowned. There is no force/adopt flag.
 Preserve the custom bytes, resolve the desired toolchain deliberately, then review
-a fresh plan. Follow [apply and recovery](apply.md) for the toolchain-only change.
+a fresh plan. Follow [bootstrap and recovery](bootstrap-v2.md) for the reviewed change.
 Use [bootstrap](bootstrap-v2.md) for five-file provisioning and
 [reviewed upgrades](upgrades.md) for explicit managed-file imports and migration.
 Two-accepted-catalog migration and full release adoption remain operational gates.

@@ -214,12 +214,10 @@ fn owned_configuration_binding_updates_preserve_exact_previous_lock_base() {
     assert!(p.pin_changes.is_empty());
     assert_eq!(snapshot(root.path()), before);
 }
-/// Verify that legacy v1 and declared unqualified lock require explicit scoped import.
+/// Verify that a declared unqualified lock requires explicit scoped import.
 #[test]
-fn legacy_v1_and_declared_unqualified_lock_require_explicit_scoped_import() {
+fn declared_unqualified_lock_requires_explicit_scoped_import() {
     let root = fixture("library");
-    let p = armorer::plan::inspect(root.path(), "plan").unwrap();
-    armorer::apply::apply(root.path(), &p, &p.plan_sha256).unwrap();
     let rendered = armorer::catalog::reviewed()
         .unwrap()
         .render_lock(root.path())
@@ -249,7 +247,7 @@ fn legacy_v1_and_declared_unqualified_lock_require_explicit_scoped_import() {
     );
     let imported = preview(root.path(), &["armorer.lock"]);
     assert_eq!(change(&imported, "armorer.lock").decision, Decision::Import);
-    assert_eq!(imported.source_format, upgrade::SourceFormat::LegacyV1);
+    assert_eq!(imported.source_format, upgrade::SourceFormat::Unmanaged);
     assert!(imported.source_catalog.is_none());
     assert!(
         imported
@@ -474,9 +472,8 @@ fn old_unknown_config_or_ownership_versions_are_explicitly_unsupported_not_downg
         assert_eq!(snapshot(root.path()), before);
     }
     let root = fixture("library");
-    let p = armorer::plan::inspect(root.path(), "plan").unwrap();
-    armorer::apply::apply(root.path(), &p, &p.plan_sha256).unwrap();
-    let state = root.path().join(".armorer/state.json");
+    bootstrap(root.path());
+    let state = root.path().join(".armorer/bootstrap-state-v2.json");
     let mut value: serde_json::Value = serde_json::from_slice(&fs::read(&state).unwrap()).unwrap();
     value["runtime_version"] = "0.0.9".into();
     fs::write(state, serde_json::to_vec(&value).unwrap()).unwrap();
@@ -485,7 +482,7 @@ fn old_unknown_config_or_ownership_versions_are_explicitly_unsupported_not_downg
         upgrade::inspect(
             root.path(),
             &root.path().join(POLICY),
-            "bootstrap-v1",
+            "bootstrap-v2",
             &[],
             true
         )
@@ -622,9 +619,9 @@ fn all_profiles_apply_repeat_migrate_ownership_and_restore_exact_reviewed_previo
                     .iter()
                     .all(|c| c.decision == Decision::Unchanged)
             );
-            assert!(bootstrap::inspect(root.path(), &root.path().join(POLICY)).is_err());
-            let legacy = armorer::plan::inspect(root.path(), "plan").unwrap();
-            assert!(armorer::apply::apply(root.path(), &legacy, &legacy.plan_sha256).is_err());
+            // Read-only inspection stays usable; bootstrap writers refuse the upgrade owner.
+            let stale = bootstrap::inspect(root.path(), &root.path().join(POLICY)).unwrap();
+            assert!(bootstrap::apply(root.path(), &stale, &stale.plan_sha256).is_err());
             assert!(upgrade::inspect_rollback(root.path(), &p, &p.plan_sha256, false).is_err());
             assert_eq!(snapshot(root.path()), after);
             let reverse = upgrade::inspect_rollback(root.path(), &p, &p.plan_sha256, true).unwrap();
@@ -722,8 +719,6 @@ fn upgraded_generated_bases_survive_customizations_and_refreshes_then_configurat
 #[test]
 fn declared_import_is_explicit_and_reversible_without_upgrading_its_claim_to_authentication() {
     let root = fixture("library");
-    let legacy = armorer::plan::inspect(root.path(), "plan").unwrap();
-    armorer::apply::apply(root.path(), &legacy, &legacy.plan_sha256).unwrap();
     let old = format!(
         "schema_version=1\nruntime_version=\"0.1.0\"\nconfig_sha256=\"{}\"\n[workflows]\nrepository=\"example/old\"\ncommit=\"{}\"\n[tools.cargo-deny]\nversion=\"0.19.0\"\nsha256=\"{}\"\n",
         "a".repeat(64),
@@ -738,7 +733,10 @@ fn declared_import_is_explicit_and_reversible_without_upgrading_its_claim_to_aut
     assert!(load_lock(root.path()).is_ok());
     let reverse = upgrade::inspect_rollback(root.path(), &p, &p.plan_sha256, true).unwrap();
     upgrade::apply_rollback(root.path(), &reverse, &reverse.plan_sha256).unwrap();
-    assert_eq!(snapshot(root.path()), before);
+    let mut restored = snapshot(root.path());
+    // The shared transaction lock file persists by design after the first transaction.
+    restored.remove(".armorer/apply.lock");
+    assert_eq!(restored, before);
     assert_eq!(
         fs::read_to_string(root.path().join("armorer.lock")).unwrap(),
         old
@@ -997,14 +995,13 @@ fn independent_patch_reconstructs_upgrade_and_reverse_images_including_deleted_o
     }
 }
 
-/// Verify that forged legacy generated toolchain base with matching self hash never becomes an import.
+/// Verify that a forged generated toolchain base with matching self hash never becomes an import.
 #[test]
-fn forged_legacy_generated_toolchain_base_with_matching_self_hash_never_becomes_an_import() {
+fn forged_generated_toolchain_base_with_matching_self_hash_never_becomes_an_import() {
     use sha2::{Digest, Sha256};
     let root = fixture("library");
-    let legacy = armorer::plan::inspect(root.path(), "plan").unwrap();
-    armorer::apply::apply(root.path(), &legacy, &legacy.plan_sha256).unwrap();
-    let path = root.path().join(".armorer/state.json");
+    bootstrap(root.path());
+    let path = root.path().join(".armorer/bootstrap-state-v2.json");
     let mut value: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
     let forged = "[toolchain]\nchannel=\"1.95.0\"\nprofile=\"default\"\n";
     value["managed"]["rust-toolchain.toml"]["content"] = forged.into();
@@ -1017,7 +1014,7 @@ fn forged_legacy_generated_toolchain_base_with_matching_self_hash_never_becomes_
         upgrade::inspect(
             root.path(),
             &root.path().join(POLICY),
-            "bootstrap-v1",
+            "bootstrap-v2",
             &["armorer.lock".into()],
             true
         )
@@ -1159,15 +1156,7 @@ fn ownership_states_reject_runtime_versions_outside_the_running_patch_line() {
     let upgrade_reads: Reader =
         |root| upgrade::inspect(root, &root.join(POLICY), "bootstrap-v2", &[], false).is_ok();
     type Case = (&'static str, fn(&Path), Reader);
-    let cases: [Case; 3] = [
-        (
-            ".armorer/state.json",
-            |root| {
-                let p = armorer::plan::inspect(root, "plan").unwrap();
-                armorer::apply::apply(root, &p, &p.plan_sha256).unwrap();
-            },
-            |root| armorer::plan::inspect(root, "plan").is_ok(),
-        ),
+    let cases: [Case; 2] = [
         (".armorer/bootstrap-state-v2.json", bootstrap, |root| {
             bootstrap::inspect(root, &root.join(POLICY)).is_ok()
         }),
@@ -1202,5 +1191,30 @@ fn ownership_states_reject_runtime_versions_outside_the_running_patch_line() {
         }
         fs::write(&path, &original).unwrap();
         assert!(reads(root.path()), "{state} restored");
+    }
+}
+
+/// ADR 0012 rule 1: surviving paths refuse leftover version-one ownership
+/// explicitly; it is never silently treated as unmanaged or re-adopted.
+#[test]
+fn leftover_version_one_ownership_is_refused_not_treated_as_unmanaged() {
+    for path in [".armorer/state.json", ".armorer/journal.json"] {
+        let root = fixture("library");
+        let file = root.path().join(path);
+        fs::create_dir_all(file.parent().unwrap()).unwrap();
+        fs::write(&file, "{}").unwrap();
+        let before = snapshot(root.path());
+        let b = bootstrap::inspect(root.path(), &root.path().join(POLICY)).unwrap_err();
+        assert!(b.to_string().contains("version-one"), "{path}: {b}");
+        let u = upgrade::inspect(
+            root.path(),
+            &root.path().join(POLICY),
+            "bootstrap-v2",
+            &[],
+            false,
+        )
+        .unwrap_err();
+        assert!(u.to_string().contains("version-one"), "{path}: {u}");
+        assert_eq!(snapshot(root.path()), before);
     }
 }

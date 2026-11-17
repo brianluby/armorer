@@ -1,12 +1,11 @@
 //! Exact fixed-target previews and independent catalog authority.
-use super::{JOURNAL, STATE, TARGETS, V1_JOURNAL, V1_STATE, VERSION, transaction::load_state};
+use super::{JOURNAL, STATE, TARGETS, VERSION, transaction::load_state};
 use crate::{
-    Error, Result,
-    apply::{decode, json, optional_bytes, text},
-    catalog, ci_policy,
+    Error, Result, catalog, ci_policy,
     config::{Config, hex_digest, load_config},
     digest,
     discovery::{Workspace, discover},
+    filesystem::{decode, json, optional_bytes, text},
     plan::{Disposition, Finding},
     read_small,
 };
@@ -126,11 +125,7 @@ pub(super) fn disposition(
 
 /// Findings that mean local provisioning is incomplete. Every other finding is a
 /// release gate or review note and does not make the managed files drift.
-const SETUP_FINDINGS: [&str; 3] = [
-    "cargo-lock-missing",
-    "legacy-ownership-migration-required",
-    "license-file-missing",
-];
+const SETUP_FINDINGS: [&str; 2] = ["cargo-lock-missing", "license-file-missing"];
 
 impl Plan {
     /// Reasons the repository differs from what this plan would provision, sorted.
@@ -200,7 +195,9 @@ pub fn inspect(root: &Path, policy: &Path) -> Result<Plan> {
 
 /// The exact approved policy is self-contained; its external filename is not authority.
 pub(super) fn inspect_bytes(root: &Path, policy: &[u8]) -> Result<Plan> {
-    crate::upgrade::guard_previous(root)?;
+    // Read-only inspection stays usable under upgrade ownership (check reports
+    // drift); only writers refuse the upgrade owner via guard_previous.
+    crate::upgrade::reject_v1(root)?;
     ci_policy::parse_at(policy, ci_policy::today()?)?;
     let (intent, config) = load_config(root)?;
     // Compare normalized components: safe_path collapses `//`, `./` and trailing slashes.
@@ -208,14 +205,7 @@ pub(super) fn inspect_bytes(root: &Path, policy: &[u8]) -> Result<Plan> {
         std::path::Path::new(intent.policy.license_file.as_str())
             .components()
             .collect();
-    let controls = [
-        STATE,
-        JOURNAL,
-        V1_STATE,
-        V1_JOURNAL,
-        ".armorer/apply.lock",
-        "armorer.toml",
-    ];
+    let controls = [STATE, JOURNAL, ".armorer/apply.lock", "armorer.toml"];
     if TARGETS
         .iter()
         .chain(controls.iter())
@@ -227,10 +217,14 @@ pub(super) fn inspect_bytes(root: &Path, policy: &[u8]) -> Result<Plan> {
     }
     let workspace = discover(root, &intent)?;
     let state = load_state(root)?;
+    // An upgrade owner may record bootstrap-v1; the v2 default only applies when
+    // neither owner records a catalog.
     let catalog_id = state
         .as_ref()
         .and_then(|(state, _)| state.catalog_id())
-        .unwrap_or("bootstrap-v2");
+        .map(str::to_owned)
+        .or(crate::upgrade::owner_catalog_id(root)?)
+        .unwrap_or_else(|| "bootstrap-v2".into());
     let mut input_preimages = BTreeMap::new();
     input_preimages.insert(
         intent.policy.license_file.clone(),
@@ -239,12 +233,12 @@ pub(super) fn inspect_bytes(root: &Path, policy: &[u8]) -> Result<Plan> {
             .map(digest),
     );
     let mut preserved_inputs = BTreeMap::new();
-    for path in ["rust-toolchain", V1_STATE] {
-        let content = optional_bytes(root, path)?
+    preserved_inputs.insert(
+        "rust-toolchain".into(),
+        optional_bytes(root, "rust-toolchain")?
             .map(|bytes| text(&bytes))
-            .transpose()?;
-        preserved_inputs.insert(path.into(), content);
-    }
+            .transpose()?,
+    );
     let mut plan = Plan {
         schema_version: VERSION,
         runtime_version: env!("CARGO_PKG_VERSION").into(),
@@ -252,14 +246,15 @@ pub(super) fn inspect_bytes(root: &Path, policy: &[u8]) -> Result<Plan> {
         plan_sha256: String::new(),
         config_sha256: digest(&config),
         catalog_sha256: catalog::TOOLS_SHA256.into(),
-        catalog_id: catalog_id.into(),
+        catalog_id,
         state_sha256: state.as_ref().map(|(_, bytes)| digest(bytes)),
         intent,
         workspace,
         policy_content: text(policy)?,
         input_preimages,
         preserved_inputs,
-        recovery_required: optional_bytes(root, JOURNAL)?.is_some() || optional_bytes(root, V1_JOURNAL)?.is_some(),
+        recovery_required: optional_bytes(root, JOURNAL)?.is_some()
+            || optional_bytes(root, crate::upgrade::JOURNAL)?.is_some(),
         capability_state: "unknown".into(),
         findings: vec![
             Finding { code: "github-capabilities-unchecked".into(), detail: "Authenticated GitHub capability preflight remains required.".into() },
@@ -267,9 +262,6 @@ pub(super) fn inspect_bytes(root: &Path, policy: &[u8]) -> Result<Plan> {
         ],
         changes: Vec::new(),
     };
-    if plan.preserved_inputs[V1_STATE].is_some() {
-        plan.findings.push(Finding { code: "legacy-ownership-migration-required".into(), detail: "Version-one ownership is preserved; bootstrap requires an explicit reviewed migration.".into() });
-    }
     if !plan.workspace.cargo_lock_present {
         plan.findings.push(Finding { code: "cargo-lock-missing".into(), detail: "CI and builds require a committed Cargo.lock; discovery and provisioning never generate it.".into() });
     }

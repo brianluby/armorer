@@ -71,7 +71,7 @@ jobs:
         run: cargo build --locked
       - name: Verify committed schemas
         run: |
-          for kind in config lock plan release-inventory verification-policy artifact-evidence evidence-requirements capability-config catalog capability-observation lifecycle-record github-receipt publish-set registry-receipt ci-policy; do
+          for kind in config lock release-inventory verification-policy artifact-evidence evidence-requirements capability-config catalog capability-observation lifecycle-record github-receipt publish-set registry-receipt ci-policy; do
             target/debug/armorer schema "$kind" > "$RUNNER_TEMP/armorer-$kind.json"
             diff -u "schemas/$kind-v1.json" "$RUNNER_TEMP/armorer-$kind.json"
           done

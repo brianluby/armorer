@@ -332,12 +332,11 @@ fn exact_policy_bytes_are_frozen_after_review_and_invalid_policies_never_write()
     assert!(inspect(root.path(), policy.path()).is_err());
     assert_eq!(snapshot(root.path()), before);
 }
-/// Verify that kernel lock serializes versions and v1 state requires reviewed migration.
+/// Verify that the kernel lock serializes transactions and releases on drop.
 #[test]
-fn kernel_lock_serializes_versions_and_v1_state_requires_reviewed_migration() {
+fn kernel_lock_serializes_transactions() {
     let (root, policy) = fixture("library");
     let bootstrap = inspect(root.path(), policy.path()).unwrap();
-    let v1 = plan::inspect(root.path(), "plan").unwrap();
     fs::create_dir(root.path().join(".armorer")).unwrap();
     let guard = fs::File::create(root.path().join(".armorer/apply.lock")).unwrap();
     guard.try_lock().unwrap();
@@ -347,44 +346,22 @@ fn kernel_lock_serializes_versions_and_v1_state_requires_reviewed_migration() {
             .to_string()
             .contains("another Armorer")
     );
-    assert!(armorer::apply::apply(root.path(), &v1, &v1.plan_sha256).is_err());
     drop(guard);
-    armorer::apply::apply(root.path(), &v1, &v1.plan_sha256).unwrap();
-    let before = snapshot(root.path());
-    assert!(
-        apply(root.path(), &bootstrap, &bootstrap.plan_sha256)
-            .unwrap_err()
-            .to_string()
-            .contains("migration")
-    );
-    assert_eq!(snapshot(root.path()), before);
-    let (root, policy) = fixture("library");
-    let bootstrap = inspect(root.path(), policy.path()).unwrap();
-    let v1 = plan::inspect(root.path(), "plan").unwrap();
     apply(root.path(), &bootstrap, &bootstrap.plan_sha256).unwrap();
-    let before = snapshot(root.path());
-    assert!(armorer::apply::apply(root.path(), &v1, &v1.plan_sha256).is_err());
-    assert_eq!(snapshot(root.path()), before);
 }
-/// Verify that legacy toolchain and v1 journal are preserved and block provisioning.
+/// Verify that the legacy rustup toolchain file is preserved and blocks provisioning.
 #[test]
-fn legacy_toolchain_and_v1_journal_are_preserved_and_block_provisioning() {
-    for input in ["rust-toolchain", ".armorer/journal.json"] {
-        let (root, policy) = fixture("library");
-        let path = root.path().join(input);
-        fs::create_dir_all(path.parent().unwrap()).unwrap();
-        fs::write(path, "legacy bytes").unwrap();
-        let plan = inspect(root.path(), policy.path()).unwrap();
-        let before = snapshot(root.path());
-        if input == "rust-toolchain" {
-            assert_eq!(
-                plan.preserved_inputs[input].as_deref(),
-                Some("legacy bytes")
-            );
-        }
-        assert!(apply(root.path(), &plan, &plan.plan_sha256).is_err());
-        assert_eq!(snapshot(root.path()), before);
-    }
+fn legacy_toolchain_is_preserved_and_blocks_provisioning() {
+    let (root, policy) = fixture("library");
+    fs::write(root.path().join("rust-toolchain"), "legacy bytes").unwrap();
+    let plan = inspect(root.path(), policy.path()).unwrap();
+    let before = snapshot(root.path());
+    assert_eq!(
+        plan.preserved_inputs["rust-toolchain"].as_deref(),
+        Some("legacy bytes")
+    );
+    assert!(apply(root.path(), &plan, &plan.plan_sha256).is_err());
+    assert_eq!(snapshot(root.path()), before);
 }
 /// Verify that symlink parents targets and control files do not redirect writes.
 #[cfg(unix)]
@@ -454,9 +431,9 @@ fn independently_applied_complete_diffs_reconstruct_every_target() {
         }
     }
 }
-/// Verify that cli requires explicit policy approval and keeps v1 plan separate.
+/// Verify that cli requires explicit policy approval.
 #[test]
-fn cli_requires_explicit_policy_approval_and_keeps_v1_plan_separate() {
+fn cli_requires_explicit_policy_approval() {
     let (root, policy) = fixture("library");
     let cli = || {
         let mut c = Command::new(env!("CARGO_BIN_EXE_armorer"));
@@ -528,10 +505,10 @@ fn cli_requires_explicit_policy_approval_and_keeps_v1_plan_separate() {
     let receipt: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
     assert_eq!(receipt["configured"], true);
     assert_eq!(receipt["provenance_verified"], false);
-    let v1 = cli().arg("plan").output().unwrap();
-    let v1: serde_json::Value = serde_json::from_slice(&v1.stdout).unwrap();
-    assert_eq!(v1["schema_version"], 1);
-    assert_eq!(v1["changes"].as_array().unwrap().len(), 1);
+    // Removed command names stay reserved: the v1 CLI surface must not resolve.
+    for removed in ["plan", "preview", "apply", "recover"] {
+        assert!(!cli().arg(removed).output().unwrap().status.success());
+    }
 }
 /// Verify that oversized escaped or non utf8 conflicts fail without truncation or writes.
 #[test]
@@ -773,11 +750,7 @@ fn drift_and_release_blockers_classify_each_reason_independently() {
         assert!(value.release_blockers().contains(&code.to_owned()));
     }
     // Each local setup finding and a pending recovery is drift on its own.
-    for code in [
-        "cargo-lock-missing",
-        "legacy-ownership-migration-required",
-        "license-file-missing",
-    ] {
+    for code in ["cargo-lock-missing", "license-file-missing"] {
         let mut value = synced.clone();
         value.findings = vec![finding(code)];
         assert_eq!(value.drift(), [code]);

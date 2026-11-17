@@ -11,7 +11,7 @@ Read [onboarding](onboarding.md) for your first inspection, then
 Use [the profile walkthrough](profiles.md) for library, CLI and service selections.
 Check [compatibility](compatibility.md) before changing versions and
 [troubleshooting](troubleshooting.md) when inspection or a transaction stops.
-Use [apply and recovery](apply.md) when you are ready to approve a local change.
+Use [bootstrap and recovery](bootstrap-v2.md) when you are ready to approve a local change.
 Read [the bootstrap catalog](bootstrap-catalog.md) to inspect reviewed pins and
 [the offline verifier](offline-verifier.md) to understand individual evidence proofs.
 These guides describe the implementation on `main`; the
@@ -82,7 +82,7 @@ and [resolved-feature review](../reviews/2026-10-02-pr21-resolved-features.md), 
 the [evidence and lock continuation](../reviews/2026-10-03-pr21-evidence-and-locks.md).
 The [contributor repair record](../reviews/2026-10-03-pr23-schema-guide.md)
 retains the failing literal command and #23's validated 24-schema correction.
-The current contributor procedure stages all 27 schemas; #23 is superseded.
+The current contributor procedure stages all 26 schemas; #23 is superseded.
 The separate [workflow prerequisite review](../reviews/2026-10-02-workflow-prerequisites.md)
 and [integration continuation](../reviews/2026-10-03-workflow-integration.md)
 retain the source and qualification boundary behind the operational preparation.

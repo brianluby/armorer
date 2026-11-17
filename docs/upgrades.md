@@ -1,9 +1,8 @@
 # Reviewed upgrades, imports and historical rollback
 
 The `upgrade` commands use new `upgrade-plan-v1.json` and
-`upgrade-rollback-v1.json` contracts. Frozen v1 toolchain-only plans and v2
-bootstrap plans retain their fields and write permissions. They cannot authorize
-an upgrade or accept either new packet. This implementation is delivered for
+`upgrade-rollback-v1.json` contracts. A v2 bootstrap plan retains its fields and
+write permissions. It cannot authorize an upgrade or accept either new packet. This implementation is delivered for
 review; it does not establish acceptance, CI/release readiness or a SLSA level.
 
 ## Select and review an upgrade
@@ -66,9 +65,11 @@ change, resolve the conflict through owner review before generating a fresh plan
 
 ## Explicit imports and apply
 
-V1 ownership migrates only its recorded toolchain. V2 ownership supplies its five
-recorded generated bases; those workflow/lock bases are checked against independent
-compiled catalog identity rather than trusting their self-declared hashes. New
+V2 ownership supplies its five recorded generated bases; those workflow/lock
+bases are checked against independent compiled catalog identity rather than
+trusting their self-declared hashes. Leftover version-one ownership
+(`.armorer/state.json`/`journal.json`) is refused explicitly and requires owner
+removal review; it is never imported (ADR 0012). New
 upgrade ownership retains generated and approved customized images separately, so
 later previews still use the actual generated base.
 

@@ -1,7 +1,6 @@
 use armorer::{
     Error, Result,
     config::{Config, Lock},
-    plan::{Plan, inspect},
 };
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use serde_json::json;
@@ -21,7 +20,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Operation {
-    /// Validate selections and report unmet setup requirements (JSON; exit 2 until ready).
+    /// Report bootstrap drift over .armorer/ci-policy.toml (JSON; exit 0 in sync, 2 on drift).
     Check,
     /// Print the authenticated embedded bootstrap tool/workflow catalog (no downloads).
     Catalog,
@@ -38,32 +37,6 @@ enum Operation {
         operation: UpgradeOperation,
     },
 
-    /// Preview changes without writing repository files (JSON).
-    Plan {
-        /// Include exact before/proposed text and complete diffs in a review envelope.
-        #[arg(long)]
-        preview: bool,
-    },
-    /// Show exact before/proposed bytes and diffs without writing consumer files.
-    Preview {
-        /// Optionally review this saved v1 plan against current repository state.
-        #[arg(long, requires = "expect_plan_sha256")]
-        plan: Option<PathBuf>,
-        #[arg(long, requires = "plan")]
-        expect_plan_sha256: Option<String>,
-    },
-    /// Apply a reviewed plan; the digest must be supplied independently.
-    Apply {
-        #[arg(long)]
-        plan: PathBuf,
-        #[arg(long)]
-        expect_plan_sha256: String,
-    },
-    /// Explicitly roll back or finalize a matching interrupted transaction.
-    Recover {
-        #[arg(long)]
-        expect_plan_sha256: String,
-    },
     /// Authenticate the complete release set; Apple executables also require native macOS checks.
     VerifyRelease {
         #[arg(long)]
@@ -270,7 +243,6 @@ enum SchemaKind {
     CiPolicy,
     Config,
     Lock,
-    Plan,
     ReleaseInventory,
     VerificationPolicy,
     ArtifactEvidence,
@@ -287,9 +259,9 @@ enum SchemaKind {
 /// Produce JSON and an exit status for the selected operation.
 ///
 /// Schema, catalog, plan, preview, apply, recovery, release verification and historical
-/// comparison return 0; check returns 2 because release
-/// readiness remains blocked. Propagates inspection errors and maps JSON value
-/// conversion failures to `Error::Json`; output is left to the caller.
+/// comparison return 0; check returns 0 in sync and 2 on drift. Propagates
+/// inspection errors and maps JSON value conversion failures to `Error::Json`;
+/// output is left to the caller.
 /// Authenticate complete inert release bytes and native Apple evidence before creating publication intent.
 fn freeze_publication_inputs(
     inputs: &PublicationInputs,
@@ -696,7 +668,6 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
                 SchemaKind::CiPolicy => schemars::schema_for!(armorer::ci_policy::CiPolicy),
                 SchemaKind::Config => schemars::schema_for!(Config),
                 SchemaKind::Lock => schemars::schema_for!(Lock),
-                SchemaKind::Plan => schemars::schema_for!(Plan),
                 SchemaKind::ReleaseInventory => {
                     schemars::schema_for!(armorer::trust::inventory::ReleaseInventory)
                 }
@@ -731,60 +702,21 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
             };
             Ok((serde_json::to_value(schema).map_err(|_| Error::Json)?, 0))
         }
-        Operation::Apply {
-            plan,
-            expect_plan_sha256,
-        } => {
-            let plan = armorer::apply::load_plan(&plan, &expect_plan_sha256)?;
-            Ok((
-                serde_json::to_value(armorer::apply::apply(
-                    &cli.repository,
-                    &plan,
-                    &expect_plan_sha256,
-                )?)
-                .map_err(|_| Error::Json)?,
-                0,
-            ))
-        }
-        Operation::Recover { expect_plan_sha256 } => Ok((
-            serde_json::to_value(armorer::apply::recover(
+        Operation::Check => {
+            // The surviving contract: bootstrap drift over the managed policy.
+            let plan = armorer::bootstrap::inspect(
                 &cli.repository,
-                &expect_plan_sha256,
-            )?)
-            .map_err(|_| Error::Json)?,
-            0,
-        )),
-        Operation::Preview {
-            plan,
-            expect_plan_sha256,
-        } => {
-            let preview = match (plan, expect_plan_sha256) {
-                (Some(path), Some(expected)) => {
-                    let plan = armorer::apply::load_plan(&path, &expected)?;
-                    armorer::preview::preview_plan(&cli.repository, &plan)?
-                }
-                (None, None) => armorer::preview::preview(&cli.repository)?,
-                _ => {
-                    return Err(Error::Transaction(
-                        "saved preview requires a plan and digest",
-                    ));
-                }
+                &armorer::safe_path(&cli.repository, ".armorer/ci-policy.toml")?,
+            )?;
+            let drift = plan.drift();
+            let status = if drift.is_empty() {
+                0
+            } else {
+                eprintln!("armorer: provisioning drift: {}", drift.join(", "));
+                2
             };
-            Ok((serde_json::to_value(preview).map_err(|_| Error::Json)?, 0))
+            Ok((serde_json::to_value(plan).map_err(|_| Error::Json)?, status))
         }
-        Operation::Plan { preview: true } => Ok((
-            serde_json::to_value(armorer::preview::preview(&cli.repository)?)
-                .map_err(|_| Error::Json)?,
-            0,
-        )),
-        Operation::Plan { preview: false } => Ok((
-            serde_json::to_value(inspect(&cli.repository, "plan")?).map_err(|_| Error::Json)?,
-            0,
-        )),
-        Operation::Check => Ok((
-            serde_json::to_value(inspect(&cli.repository, "check")?).map_err(|_| Error::Json)?,
-            2,
-        )),
     }
 }
 

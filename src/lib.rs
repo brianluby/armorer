@@ -9,7 +9,6 @@
 //! assert!(!repository_name("https://example.invalid/project"));
 //! ```
 
-pub mod apply;
 pub mod bootstrap;
 pub mod catalog;
 pub mod ci_policy;
@@ -17,7 +16,6 @@ pub mod config;
 pub mod discovery;
 mod filesystem;
 pub mod plan;
-pub mod preview;
 mod runtime;
 mod schema_bounds;
 pub mod trust;
