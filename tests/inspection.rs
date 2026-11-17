@@ -920,3 +920,33 @@ fn check_reports_drift_under_upgrade_ownership_and_refuses_symlinked_policy() {
     let value: serde_json::Value = serde_json::from_slice(&error.stdout).unwrap();
     assert_eq!(value["error"]["code"], "unsafe-path");
 }
+
+/// An interrupted upgrade journal is drift even when managed bytes are in sync:
+/// empty drift must mean no transaction awaits recovery.
+#[test]
+fn pending_upgrade_journal_is_recovery_drift() {
+    let root = fixture();
+    write(root.path(), "Cargo.lock", "version = 4\n");
+    write(root.path(), ".armorer/ci-policy.toml", POLICY);
+    let policy = root.path().join("ci-policy.reviewed.toml");
+    let plan = inspect(root.path()).unwrap();
+    armorer::bootstrap::apply(root.path(), &plan, &plan.plan_sha256).unwrap();
+    let up = armorer::upgrade::inspect(root.path(), &policy, "bootstrap-v2", &[], false).unwrap();
+    armorer::upgrade::apply(root.path(), &up, &up.plan_sha256).unwrap();
+    fs::copy(&policy, root.path().join(".armorer/ci-policy.toml")).unwrap();
+    let run = || {
+        Command::new(env!("CARGO_BIN_EXE_armorer"))
+            .args(["--repository", root.path().to_str().unwrap(), "check"])
+            .output()
+            .unwrap()
+    };
+    assert_eq!(run().status.code(), Some(0));
+    fs::write(root.path().join(".armorer/upgrade-journal-v1.json"), "{}").unwrap();
+    let pending = run();
+    assert_eq!(pending.status.code(), Some(2));
+    assert!(
+        String::from_utf8(pending.stderr)
+            .unwrap()
+            .contains("transaction-recovery-required")
+    );
+}

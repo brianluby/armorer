@@ -249,7 +249,8 @@ pub(super) fn inspect_bytes(root: &Path, policy: &[u8]) -> Result<Plan> {
         policy_content: text(policy)?,
         input_preimages,
         preserved_inputs,
-        recovery_required: optional_bytes(root, JOURNAL)?.is_some(),
+        recovery_required: optional_bytes(root, JOURNAL)?.is_some()
+            || optional_bytes(root, crate::upgrade::JOURNAL)?.is_some(),
         capability_state: "unknown".into(),
         findings: vec![
             Finding { code: "github-capabilities-unchecked".into(), detail: "Authenticated GitHub capability preflight remains required.".into() },
