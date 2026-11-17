@@ -398,8 +398,11 @@ fn cli_check_fails_closed_plan_is_read_only_and_errors_are_json() {
             .output()
             .unwrap()
     };
+    // Without a managed policy, check fails closed with a JSON error.
     let check = run("check");
-    assert_eq!(check.status.code(), Some(2));
+    assert_eq!(check.status.code(), Some(1));
+    let value: serde_json::Value = serde_json::from_slice(&check.stdout).unwrap();
+    assert!(value["error"]["code"].is_string());
     let plan = run("plan");
     assert!(plan.status.success());
     assert_eq!(plan.stdout, run("plan").stdout);
@@ -410,6 +413,56 @@ fn cli_check_fails_closed_plan_is_read_only_and_errors_are_json() {
     assert_eq!(error.status.code(), Some(1));
     let value: serde_json::Value = serde_json::from_slice(&error.stdout).unwrap();
     assert_eq!(value["error"]["code"], "invalid-toml");
+}
+
+/// Top-level check reads the bootstrap contract: fail-closed without a policy,
+/// exit 0 in sync, exit 2 with stderr reasons on drift, never writes.
+#[test]
+fn cli_check_reads_the_bootstrap_contract() {
+    const POLICY: &str = "schema_version = 1\n[licenses]\nallow = [\"MIT\"]\n[advisories]\nexceptions = []\n[sources]\nallow_git = []\n[bans]\nmultiple_versions = \"warn\"\ndeny = []\n";
+    let root = fixture();
+    let run = || {
+        Command::new(env!("CARGO_BIN_EXE_armorer"))
+            .args(["--repository", root.path().to_str().unwrap(), "check"])
+            .output()
+            .unwrap()
+    };
+    // No managed policy: fail closed with a JSON error, nothing written.
+    let missing = run();
+    assert_eq!(
+        missing.status.code(),
+        Some(1),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&missing.stdout),
+        String::from_utf8_lossy(&missing.stderr)
+    );
+    let value: serde_json::Value = serde_json::from_slice(&missing.stdout).unwrap();
+    assert!(value["error"]["code"].is_string());
+    assert!(!root.path().join("rust-toolchain.toml").exists());
+
+    // Provision through the bootstrap contract, then check reports sync.
+    write(root.path(), "ci-policy.reviewed.toml", POLICY);
+    write(root.path(), "Cargo.lock", "version = 4\n");
+    let plan =
+        armorer::bootstrap::inspect(root.path(), &root.path().join("ci-policy.reviewed.toml"))
+            .unwrap();
+    armorer::bootstrap::apply(root.path(), &plan, &plan.plan_sha256).unwrap();
+    let synced = run();
+    assert_eq!(synced.status.code(), Some(0));
+    let value: serde_json::Value = serde_json::from_slice(&synced.stdout).unwrap();
+    assert_eq!(value["schema_version"], 2);
+
+    // Editing an owned file is drift: exit 2, reason on stderr, bytes untouched.
+    let edited = "[toolchain]\nchannel = \"9.9.9\"\n";
+    write(root.path(), "rust-toolchain.toml", edited);
+    let drifted = run();
+    assert_eq!(drifted.status.code(), Some(2));
+    let stderr = String::from_utf8(drifted.stderr).unwrap();
+    assert!(stderr.contains("rust-toolchain.toml"), "{stderr}");
+    assert_eq!(
+        fs::read_to_string(root.path().join("rust-toolchain.toml")).unwrap(),
+        edited
+    );
 }
 
 #[test]

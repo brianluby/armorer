@@ -21,7 +21,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Operation {
-    /// Validate selections and report unmet setup requirements (JSON; exit 2 until ready).
+    /// Report bootstrap drift over .armorer/ci-policy.toml (JSON; exit 0 in sync, 2 on drift).
     Check,
     /// Print the authenticated embedded bootstrap tool/workflow catalog (no downloads).
     Catalog,
@@ -287,9 +287,9 @@ enum SchemaKind {
 /// Produce JSON and an exit status for the selected operation.
 ///
 /// Schema, catalog, plan, preview, apply, recovery, release verification and historical
-/// comparison return 0; check returns 2 because release
-/// readiness remains blocked. Propagates inspection errors and maps JSON value
-/// conversion failures to `Error::Json`; output is left to the caller.
+/// comparison return 0; check returns 0 in sync and 2 on drift. Propagates
+/// inspection errors and maps JSON value conversion failures to `Error::Json`;
+/// output is left to the caller.
 /// Authenticate complete inert release bytes and native Apple evidence before creating publication intent.
 fn freeze_publication_inputs(
     inputs: &PublicationInputs,
@@ -781,10 +781,21 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
             serde_json::to_value(inspect(&cli.repository, "plan")?).map_err(|_| Error::Json)?,
             0,
         )),
-        Operation::Check => Ok((
-            serde_json::to_value(inspect(&cli.repository, "check")?).map_err(|_| Error::Json)?,
-            2,
-        )),
+        Operation::Check => {
+            // The surviving contract: bootstrap drift over the managed policy.
+            let plan = armorer::bootstrap::inspect(
+                &cli.repository,
+                &cli.repository.join(".armorer/ci-policy.toml"),
+            )?;
+            let drift = plan.drift();
+            let status = if drift.is_empty() {
+                0
+            } else {
+                eprintln!("armorer: provisioning drift: {}", drift.join(", "));
+                2
+            };
+            Ok((serde_json::to_value(plan).map_err(|_| Error::Json)?, status))
+        }
     }
 }
 
