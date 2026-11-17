@@ -14,8 +14,8 @@ pub(crate) const JOURNAL: &str = ".armorer/upgrade-journal-v1.json";
 
 /// Earlier writers must refuse an upgrade owner/journal instead of crossing versions.
 pub(crate) fn guard_previous(root: &std::path::Path) -> crate::Result<()> {
-    if crate::apply::optional_bytes(root, STATE)?.is_some()
-        || crate::apply::optional_bytes(root, JOURNAL)?.is_some()
+    if crate::filesystem::optional_bytes(root, STATE)?.is_some()
+        || crate::filesystem::optional_bytes(root, JOURNAL)?.is_some()
     {
         return Err(crate::Error::Transaction(
             "upgrade ownership or journal requires the upgrade command",

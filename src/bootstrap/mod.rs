@@ -6,7 +6,7 @@ pub(crate) mod transaction;
 pub use plan::{Change, Plan, inspect, load_plan};
 pub use transaction::{Receipt, apply, recover};
 
-use crate::{Error, Result, apply::optional_bytes};
+use crate::{Error, Result, filesystem::optional_bytes};
 use std::path::Path;
 
 pub(crate) const VERSION: u32 = 2;

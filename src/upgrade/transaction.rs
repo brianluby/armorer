@@ -7,12 +7,11 @@ use super::{
     state,
 };
 use crate::{
-    Error, Result,
-    apply::{decode, json, lock, optional_bytes, replace, sync_directory},
-    bootstrap, ci_policy,
+    Error, Result, bootstrap, ci_policy,
     config::load_config,
     digest,
     discovery::discover,
+    filesystem::{decode, json, lock, optional_bytes, replace, sync_directory},
     safe_path,
 };
 use serde::{Deserialize, Serialize};

@@ -4,12 +4,11 @@ use super::{
     merge::{self, Decision},
 };
 use crate::{
-    Error, Result,
-    apply::{decode, json, optional_bytes, text},
-    bootstrap, catalog, ci_policy,
+    Error, Result, bootstrap, catalog, ci_policy,
     config::{Config, Lock, ToolPin, hex_digest, identifier, load_config, repository_name},
     digest,
     discovery::{Workspace, discover},
+    filesystem::{decode, json, optional_bytes, text},
     read_small,
 };
 use schemars::JsonSchema;

@@ -1,12 +1,11 @@
 //! Exact fixed-target previews and independent catalog authority.
 use super::{JOURNAL, STATE, TARGETS, V1_JOURNAL, V1_STATE, VERSION, transaction::load_state};
 use crate::{
-    Error, Result,
-    apply::{decode, json, optional_bytes, text},
-    catalog, ci_policy,
+    Error, Result, catalog, ci_policy,
     config::{Config, hex_digest, load_config},
     digest,
     discovery::{Workspace, discover},
+    filesystem::{decode, json, optional_bytes, text},
     plan::{Disposition, Finding},
     read_small,
 };

@@ -5,11 +5,10 @@ use super::{
     merge::{self, Decision},
 };
 use crate::{
-    Error, Result,
-    apply::{decode, json, text},
-    bootstrap, catalog,
+    Error, Result, bootstrap, catalog,
     config::hex_digest,
     digest,
+    filesystem::{decode, json, text},
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;

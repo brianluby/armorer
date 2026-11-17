@@ -4,11 +4,11 @@ use super::{
     plan::{self, Plan},
 };
 use crate::{
-    Error, Result,
-    apply::{decode, json, lock, optional_bytes, replace, sync_directory, text},
-    catalog,
+    Error, Result, catalog,
     config::{WorkflowPin, hex_digest},
-    digest, safe_path,
+    digest,
+    filesystem::{decode, json, lock, optional_bytes, replace, sync_directory, text},
+    safe_path,
 };
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fs, path::Path};
