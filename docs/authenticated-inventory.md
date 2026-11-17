@@ -23,7 +23,7 @@ run/attempt, reusable signer pin or root identity from the release download.
 Review fields alone cannot establish approval. Changing approved inputs requires
 new independently reviewed bytes and a new approved context digest.
 
-`TrustedReleaseContext::open` matches the context digest before parsing. It checks
+`TrustedReleaseContext::open_native_v3` matches the context digest before parsing. It checks
 the exact configuration, both locks, catalog and verification-policy bytes;
 current context/catalog/policy/root review expiry; the input runtime version and
 workflow commit; source and caller identities; and one independently selected

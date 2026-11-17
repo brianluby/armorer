@@ -47,7 +47,7 @@ independently approved source, exact compiler 1.95.0, runtime Cargo.lock,
 same-source build workflow and retained authentication record. Workflow helper
 code remains separately bound by the immutable workflow commit.
 
-`ApprovedRuntimeFiles::open` borrows the private v2 context. It snapshots and
+`ApprovedRuntimeFiles::open` borrows the private v3 context. It snapshots and
 rehashes the whole approved archive before decoding. All three members must
 match their approved bytes and native header architecture before the selected
 host member becomes executable. Members are capped at 128 MiB; total archive
