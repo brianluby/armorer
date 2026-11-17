@@ -108,7 +108,7 @@ exercise and the complete hosted rehearsal evidence still required.
 ## Preserve evidence on failure
 
 For local writes, retain the original digest/journal and follow
-[apply recovery](apply.md#transaction-and-recovery). For trust failures, retain
+[bootstrap recovery](bootstrap-v2.md#ownership-repeatability-and-recovery). For trust failures, retain
 the failed stage and source/policy/byte identities. Review independently approved
 replacement inputs before retrying. Expired root policy or failed authenticity
 cannot silently downgrade into historical mode.

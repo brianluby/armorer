@@ -1,8 +1,11 @@
 # ADR 0012: consolidate superseded contracts before the first release
 
-Status: decision accepted by the owner, 2026-11-16. Implementation is pending
-and is delivered as separately reviewed removals. This ADR authorizes no
-release, tag or publication.
+Status: decision accepted by the owner, 2026-11-16. Removals are delivered as
+separately reviewed changes. Rows 1–2 (version-one provisioning commands,
+plan-v1 schema, v1 state/journal, guard_v1, LegacyV1 upgrade source) are
+implemented on branch `adr0012/remove-v1-provisioning`. The context-kind and
+compiled-catalog removals remain pending. This ADR authorizes no release, tag
+or publication.
 
 ## Context
 

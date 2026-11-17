@@ -17,9 +17,8 @@ Their latest push validation passes. **This is the way.**
 | Armorer [#26](https://github.com/brianluby/armorer/pull/26) | `7b0cca9df2b5f3744ce2af109ab937d3097917c3` | Rerun-initiator self-review rejection and explicit completed state-lock release |
 | Armorer [#27](https://github.com/brianluby/armorer/pull/27) | `ab526d7a0d3b547cc39041b52262e60173223b49` | OCR remediation: private staging hardening and tightened verification contracts |
 
-Main exposes `check`, `catalog`, `bootstrap`, `upgrade`, `plan`, `preview`,
-`apply`, `recover`, `verify-release`, `verify-historical-bytes`, `publication`
-and `schema`. There are 27 schema exporters. Follow the
+Main exposes `check`, `catalog`, `bootstrap`, `upgrade`, `verify-release`,
+`verify-historical-bytes`, `publication` and `schema`. There are 26 schema exporters. Follow the
 [command reference](cli-reference.md), [bootstrap](bootstrap-v2.md),
 [upgrades](upgrades.md), [complete verifier](verify-release-cli.md),
 [historical policy](historical-verification.md) and

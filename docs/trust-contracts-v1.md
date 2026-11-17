@@ -18,7 +18,6 @@ v0.1 targets Build L2; L3 remains deferred.
 | --- | --- | --- |
 | config-v1 | Strict intent, package/binary/target/features, required attestations | Capability decisions live in a separate config-digest-bound sidecar; existing consumers cannot silently enable it |
 | lock-v1 | Exact config bytes, runtime version, workflow SHA and tool distribution digest syntax | Independently authenticated catalog and authentication records supplement pins; syntax alone is not authentication |
-| plan-v1 | Deterministic local preview/preimages and existing apply digest | No readiness promotion; new lifecycle records remain separate |
 | workflow build-inventory-v1 | Unsigned artifact/SBOM/Cargo graph, source/run/attempt and tracked input identities | Trusted controller rehashes outputs; release inventory is a different document with a final-byte chain |
 | Release contracts | Additive v1 library interfaces | Inventory, policy, evidence, capability/catalog and receipt schemas; production execution has separate gates |
 

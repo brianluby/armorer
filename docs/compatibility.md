@@ -61,7 +61,7 @@ Armorer and `armorer-workflows` are versioned independently. The embedded
 [bootstrap catalog](bootstrap-catalog.md) binds one reviewed workflow commit and
 target-qualified tool distributions. Its renderer supplies locks and fixed
 unprivileged caller text; the separately approved [bootstrap](bootstrap-v2.md)
-transaction provisions those files without changing version-one apply semantics.
+transaction provisions those files under its own approval contract.
 A syntactically valid lock does not prove that every supplied pin belongs to the
 catalog or that its upstream distribution was authenticated.
 

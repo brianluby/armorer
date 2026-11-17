@@ -26,7 +26,8 @@ git archive --format=tar --output="$dogfood_root/source.tar" "$dogfood_source_co
 tar -xf "$dogfood_root/source.tar" -C "$dogfood_root/project" || exit 1
 cp "$dogfood_root/project/examples/armorer-dogfood/armorer.toml" \
   "$dogfood_root/project/armorer.toml" || exit 1
-"$armorer_binary" --repository "$dogfood_root/project" plan \
+"$armorer_binary" --repository "$dogfood_root/project" bootstrap plan \
+  --policy "$dogfood_root/project/.armorer/ci-policy.toml" \
   > "$dogfood_root/inspection-plan.json" || exit 1
 if "$armorer_binary" --repository "$dogfood_root/project" check \
     > "$dogfood_root/inspection-check.json"; then
@@ -34,12 +35,12 @@ if "$armorer_binary" --repository "$dogfood_root/project" check \
 else
   dogfood_check_status=$?
 fi
-test "$dogfood_check_status" -eq 2 || exit 1
+test "$dogfood_check_status" -eq 0 || test "$dogfood_check_status" -eq 2 || exit 1
 printf 'Inspected tracked source: %s\n' "$dogfood_source_commit"
 ```
 
-Keep packets outside the copied project. `plan` returns valid JSON/exit 0;
-`check` returns JSON/exit 2 while release readiness is blocked. Inspect the selected
+Keep packets outside the copied project. `bootstrap plan` returns valid JSON/exit 0;
+`check` returns JSON/exit 2 while provisioning drift remains, or JSON/exit 0 in sync. Inspect the selected
 package, binary, feature case and all three target selections. Plan/check must
 preserve every copied consumer file, including Cargo.lock and source; they do not
 compile, run build scripts or fetch dependencies. The toolchain already matches

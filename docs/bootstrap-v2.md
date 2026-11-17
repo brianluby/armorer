@@ -124,12 +124,9 @@ original timestamps or directory absence. Unknown directories are never deleted.
 
 ## Compatibility and remaining gates
 
-A version-one plan still authorizes only its single toolchain target and cannot be
-submitted as a version-two plan. Existing `.armorer/state.json` requires an explicit
-reviewed migration (#5); it is shown and preserved, not imported or force-adopted.
 A legacy `rust-toolchain` blocks the new toolchain and is shown verbatim for review.
-Recover unfinished v1 journals using v1 `recover` first. The updated v1 writer
-refuses active v2 state/journals. Older CLI builds do not understand the v2 ownership
+The bootstrap writer refuses an active upgrade owner or journal; those require the
+upgrade command. Older CLI builds do not understand the v2 ownership
 contract; switching back requires a separately reviewed rollback/migration.
 Ownership also records the exact workflow repository/commit. Changed workflow,
 catalog or runtime identities fail closed pending #5's reviewed upgrades.

@@ -20,7 +20,7 @@ coverage, validation and the exact outstanding acceptance evidence.
 | Choose commands and interpret results | [CLI reference](cli-reference.md) | Current help, errors and finding codes |
 | Correct failed inspection or local transaction | [Troubleshooting](troubleshooting.md) | Current error categories, feature/path/preview bounds and preserved recovery evidence |
 | Know version and host boundaries | [Compatibility](compatibility.md) | Exact v1/runtime rules, target selections versus native verifier hosts; no invented support window |
-| Review, apply and recover | [Apply and recovery](apply.md) | v1 toolchain-only transaction, exact preview and retained digest/journal |
+| Review, apply and recover | [Bootstrap and recovery](bootstrap-v2.md) | Five-file transaction, exact preview and retained digest/journal |
 | Understand intent and preview identity | [Local contracts](contracts-v1.md) | Current types, schemas and semantic rules |
 | Inspect bootstrap authority | [Catalog](bootstrap-catalog.md) | Embedded identity and library rendering; no automatic adoption |
 | Understand release evidence | [Trust contracts](trust-contracts-v1.md), [examples](../examples/trust-v1/README.md) | Structural/semantic interfaces; synthetic labels retained |
@@ -32,7 +32,7 @@ coverage, validation and the exact outstanding acceptance evidence.
 | Contribute in the creed | [Contributing](../CONTRIBUTING.md), [writing guide](writing-guide.md) | Pinned checks, all schemas and accurate Mandalorian prose |
 
 The [historical contributor repair](../reviews/2026-10-03-pr23-schema-guide.md)
-records #23's 24-schema fix. The accepted procedure now stages all 27 schemas;
+records #23's 24-schema fix. The accepted procedure now stages all 26 schemas;
 #23 is closed as superseded. Bootstrap, upgrade and complete verification are
 accepted implementations; their production/operational gates remain open.
 

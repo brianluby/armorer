@@ -1,9 +1,8 @@
 # Reviewed upgrades, imports and historical rollback
 
 The `upgrade` commands use new `upgrade-plan-v1.json` and
-`upgrade-rollback-v1.json` contracts. Frozen v1 toolchain-only plans and v2
-bootstrap plans retain their fields and write permissions. They cannot authorize
-an upgrade or accept either new packet. This implementation is delivered for
+`upgrade-rollback-v1.json` contracts. A v2 bootstrap plan retains its fields and
+write permissions. It cannot authorize an upgrade or accept either new packet. This implementation is delivered for
 review; it does not establish acceptance, CI/release readiness or a SLSA level.
 
 ## Select and review an upgrade

@@ -28,16 +28,20 @@ A digest names bytes. Review establishes which bytes you trust.
 
 ## Deterministic preview
 
-The [plan schema](../schemas/plan-v1.json) reports schema/runtime version, mode, validated intent including selected deliverables/features, config/optional lock digests, ownership state digest, license/legacy-toolchain preimages, relative inputs, sorted metadata, proposed changes, findings and capability state. `plan_sha256` binds compact typed JSON with that digest field blank. Plans are bounded to 1 MiB and exclude temporary paths, timestamps and random IDs. Inputs hash Cargo manifests/locks; `.rs` records indicate **path presence only** to bind implicit target discovery. They do not hash source or constitute release source evidence.
+The [bootstrap plan schema](../schemas/bootstrap-plan-v2.json) reports schema/runtime version, mode, validated intent including selected deliverables/features, config/catalog digests, ownership state digest, license/legacy-toolchain preimages, relative inputs, sorted metadata, proposed changes, findings and capability state. `plan_sha256` binds compact typed JSON with that digest field blank. Plans are bounded to 1 MiB and exclude temporary paths, timestamps and random IDs. Inputs hash Cargo manifests/locks; `.rs` records indicate **path presence only** to bind implicit target discovery. They do not hash source or constitute release source evidence.
 
-The preview proposes `rust-toolchain.toml` with existing/proposed digests. Different unowned contents or legacy `rust-toolchain` produce `conflict`; matching contents are `unchanged`, missing contents are `create`. An owned file matching its recorded base can be refreshed through a reviewed `update` plan. Matching preexisting files remain unowned. The catalog's library caller renderer does not extend this plan's mutation scope. [Transactional apply](apply.md) requires an independently approved digest and fresh regeneration, preserves customization, and records durable before/after evidence for explicit recovery. Workflow/tool catalog upgrades use the separate [upgrade contract](upgrades.md).
+The plan proposes the five managed files with exact current/proposed UTF-8 text,
+digests and complete replacement diffs, including legacy blockers. Different
+unowned contents or a legacy `rust-toolchain` produce `conflict`; matching
+contents are `unchanged`, missing contents are `create`. An owned file matching
+its recorded base can be refreshed through a reviewed `update` plan. Matching
+preexisting files remain unowned. Oversized or non-UTF-8 review text fails
+explicitly; no truncated view can authorize a replacement.
+[Transactional apply](bootstrap-v2.md) requires an independently approved digest
+and fresh regeneration, preserves customization, and records durable
+before/after evidence for explicit recovery. Workflow/tool catalog upgrades use
+the separate [upgrade contract](upgrades.md).
 
-`plan --preview` and `preview` wrap the unchanged v1 plan in an exact review view.
-It contains full current/proposed UTF-8 text and complete replacement diffs,
-including legacy blockers. The saved-plan view checks the retained digest and
-fresh preimages. Apply still takes the v1 plan itself. Oversized or non-UTF-8
-review text fails explicitly; no truncated view can authorize a replacement.
-
-`state = "configuration-valid"` means local intent passed validation. It does not mean configured, CI verified, release rehearsed, published or provenance verified. `capability_state = "unknown"` blocks secure readiness. Later states require evidence from their own gates.
+A valid plan means local intent passed validation. It does not mean configured, CI verified, release rehearsed, published or provenance verified. `capability_state = "unknown"` blocks secure readiness. Later states require evidence from their own gates.
 
 Earn each state with its own proof. **This is the way.**

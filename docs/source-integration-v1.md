@@ -14,7 +14,7 @@ The combined CLI exposes these independently approved paths:
 
 | Command | Contract and runbook |
 | --- | --- |
-| `check`, `plan`, `plan --preview`, `preview`, `apply`, `recover` | [Version-one preview and toolchain transaction](apply.md) |
+| `check` | [Bootstrap drift gate](bootstrap-v2.md) |
 | `catalog` | [Embedded bootstrap authority](bootstrap-catalog.md) |
 | `bootstrap check/plan/apply/recover` | [Explicit five-file provisioning](bootstrap-v2.md) |
 | `upgrade plan/apply/recover/rollback-plan/rollback-apply` | [Reviewed migration and reversal](upgrades.md) |

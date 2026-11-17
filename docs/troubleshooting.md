@@ -13,14 +13,14 @@ for their separate error/recovery contracts; native publication remains gated.
 
 | Observation | Meaning | Next duty |
 | --- | --- | --- |
-| `plan`/`preview` exits 0 with findings | Inspection succeeded; setup requirements remain | Review findings, exact changes and missing evidence |
-| `check` exits 2 with plan JSON | Expected current readiness result | Track prerequisites; main always retains a release-runtime gap |
+| `bootstrap plan` exits 0 with findings | Inspection succeeded; setup requirements remain | Review findings, exact changes and missing evidence |
+| `check` exits 2 with plan JSON | Provisioning drift over the managed policy | Read the reasons on stderr; review a fresh `bootstrap plan` |
 | `bootstrap check` exits 2 with plan JSON | Provisioning drift, or with `--release-ready` an open release gate | Read the reasons on stderr; review a new `bootstrap plan` for drift |
 | Exit 1 with JSON `error` | Operation could not complete | Match the category below and correct its input |
-| Exit 2 with stderr usage text | Invalid CLI arguments | Read that command's `--help`; saved preview needs both plan and digest |
+| Exit 2 with stderr usage text | Invalid CLI arguments | Read that command's `--help` |
 | Incomplete stdout | Output failed | Obtain a fresh complete result before review or mutation |
 
-A successful local apply receipt can say `toolchain_configured: true` while
+A successful local bootstrap apply receipt can say `configured: true` while
 `configured`, `ci_verified`, `release_rehearsed`, `published` and
 `provenance_verified` stay false. Treat each state as a separate claim.
 
@@ -88,12 +88,12 @@ the filesystem; apply rechecks under its own transaction lock.
 
 ## Preserve conflicts and unfinished transactions
 
-For `toolchain-conflict`, retain existing bytes and inspect both candidates.
+For a toolchain conflict, retain existing bytes and inspect both candidates.
 Different unowned contents, legacy `rust-toolchain` and edits to owned bases need
 deliberate resolution. Current main has no force/adopt command.
 
 For `transaction` errors or `transaction-recovery-required`, follow
-[the recovery runbook](apply.md#transaction-and-recovery). Keep the journal and
+[the recovery runbook](bootstrap-v2.md#ownership-repeatability-and-recovery). Keep the journal and
 original approval. Do not delete `.armorer/apply.lock` to break contention: the
 kernel releases a process lock on exit, and deleting a locked inode can create
 two independent locks. Preserve intervening edits when rollback conflicts.
