@@ -1191,3 +1191,28 @@ fn ownership_states_reject_runtime_versions_outside_the_running_patch_line() {
         assert!(reads(root.path()), "{state} restored");
     }
 }
+
+/// ADR 0012 rule 1: surviving paths refuse leftover version-one ownership
+/// explicitly; it is never silently treated as unmanaged or re-adopted.
+#[test]
+fn leftover_version_one_ownership_is_refused_not_treated_as_unmanaged() {
+    for path in [".armorer/state.json", ".armorer/journal.json"] {
+        let root = fixture("library");
+        let file = root.path().join(path);
+        fs::create_dir_all(file.parent().unwrap()).unwrap();
+        fs::write(&file, "{}").unwrap();
+        let before = snapshot(root.path());
+        let b = bootstrap::inspect(root.path(), &root.path().join(POLICY)).unwrap_err();
+        assert!(b.to_string().contains("version-one"), "{path}: {b}");
+        let u = upgrade::inspect(
+            root.path(),
+            &root.path().join(POLICY),
+            "bootstrap-v2",
+            &[],
+            false,
+        )
+        .unwrap_err();
+        assert!(u.to_string().contains("version-one"), "{path}: {u}");
+        assert_eq!(snapshot(root.path()), before);
+    }
+}

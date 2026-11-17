@@ -411,6 +411,7 @@ pub(super) fn inspect_bytes(
     import_files: &[String],
     allow_downgrade: bool,
 ) -> Result<Plan> {
+    super::reject_v1(root)?;
     let policy_review_day = ci_policy::today()?;
     ci_policy::parse_at(policy, policy_review_day)?;
     let (intent, config) = load_config(root)?;

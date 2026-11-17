@@ -232,6 +232,7 @@ pub(super) fn rollback_fresh(root: &Path, p: &Plan) -> Result<()> {
 
 /// Never mix unfinished journal versions. This gate reads only bounded regular files.
 fn guard(root: &Path, own: bool) -> Result<()> {
+    super::reject_v1(root)?;
     if optional_bytes(root, bootstrap::JOURNAL)?.is_some() {
         return Err(Error::Transaction(
             "earlier transaction requires its explicit recovery command",
