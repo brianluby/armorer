@@ -47,6 +47,7 @@ fn require_bootstrap_runtime(runtime_version: &str) -> Result<()> {
 /// superseded entry with no adopter is removed, never reinterpreted.
 pub fn select(id: &str) -> Result<Authority> {
     let revision = match id {
+        #[cfg(feature = "test-predecessor")]
         "bootstrap-v1" => 1,
         "bootstrap-v2" => 2,
         _ => {

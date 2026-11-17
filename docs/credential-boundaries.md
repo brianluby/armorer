@@ -14,8 +14,7 @@ for the proposed complete consumer.
 ## Current CI and unsigned build need no provisioned secrets
 
 The current `bootstrap-v2` catalog pins `brianluby/armorer-workflows` commit
-`e5e9c0d31baff87e357046d81068b646a39a9f23` (the frozen `bootstrap-v1` entry remains
-at `772ca83e386c883c88cc3b936d69f8cb3216c91e`). Its
+`e5e9c0d31baff87e357046d81068b646a39a9f23`. Its
 [Rust CI](https://github.com/brianluby/armorer-workflows/blob/e5e9c0d31baff87e357046d81068b646a39a9f23/.github/workflows/rust-ci.yml)
 and [unsigned builder](https://github.com/brianluby/armorer-workflows/blob/e5e9c0d31baff87e357046d81068b646a39a9f23/.github/workflows/rust-build.yml)
 declare `contents: read`, no caller inputs/secrets, no signing environment and no

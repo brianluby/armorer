@@ -16,8 +16,8 @@ Every change needs its own approval. **This is the way.**
 
 ## Review the selected authority and images
 
-Only the immutable catalog ID `bootstrap-v1` is compiled into this candidate.
-It identifies workflow commit `772ca83e386c883c88cc3b936d69f8cb3216c91e` in
+Only the immutable catalog ID `bootstrap-v2` is compiled into this candidate.
+It identifies workflow commit `e5e9c0d31baff87e357046d81068b646a39a9f23` in
 `brianluby/armorer-workflows` and tool-catalog SHA-256
 `e21e6cbd2cdd1125dbb9817116b1f46d043807b4d92128abc9dc07256dbb4b13`.
 A moving tag, branch or unknown catalog fails. `--allow-downgrade` cannot approve
@@ -26,7 +26,7 @@ is established by this exercise.
 
 ```sh
 "$armorer_candidate" --repository "$project" upgrade plan \
-  --policy "$policy" --catalog bootstrap-v1 \
+  --policy "$policy" --catalog bootstrap-v2 \
   > "$training_dir/upgrade-plan.json"
 ```
 
@@ -59,7 +59,7 @@ unowned unless each supported import is explicitly named:
 
 ```sh
 "$armorer_candidate" --repository "$project" upgrade plan \
-  --policy "$policy" --catalog bootstrap-v1 \
+  --policy "$policy" --catalog bootstrap-v2 \
   --import-file .github/workflows/armorer-ci.yml --import-file armorer.lock \
   > "$training_dir/upgrade-plan.json"
 ```

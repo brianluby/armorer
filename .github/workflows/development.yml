@@ -69,6 +69,15 @@ jobs:
         run: cargo test --locked --test release_context real_inventory_authentication_failure_precedes_json_and_asset_processing -- --ignored --test-threads=1
       - name: Build
         run: cargo build --locked
+      - name: Production binary cannot select the test-only predecessor catalog
+        run: |
+          training=$(mktemp -d)
+          cp -R examples/bootstrap-v2/library/. "$training/"
+          if target/debug/armorer --repository "$training" upgrade plan \
+            --policy "$training/ci-policy.reviewed.toml" --catalog bootstrap-v1; then
+            echo "production binary accepted bootstrap-v1" >&2
+            exit 1
+          fi
       - name: Verify committed schemas
         run: |
           for kind in config lock release-inventory verification-policy artifact-evidence evidence-requirements capability-config catalog capability-observation lifecycle-record github-receipt publish-set registry-receipt ci-policy; do

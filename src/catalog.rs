@@ -11,6 +11,8 @@ use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::Path};
 
 pub const WORKFLOW_REPOSITORY: &str = "brianluby/armorer-workflows";
+/// Test-only predecessor pin (ADR 0012 rule 3); production builds cannot select it.
+#[cfg(feature = "test-predecessor")]
 pub const WORKFLOW_COMMIT: &str = "772ca83e386c883c88cc3b936d69f8cb3216c91e";
 /// Accepted workflows head pinned by the separately reviewed bootstrap-v2 successor.
 /// Settled at workflows main `e5e9c0d31baff87e357046d81068b646a39a9f23`: `pins/tools.json`
@@ -65,7 +67,7 @@ pub struct AuthenticatedCatalog {
 /// Rejects oversized, substituted or malformed catalog bytes. No network or
 /// consuming-repository operation occurs; upgrades require a reviewed CLI source change.
 pub fn authenticate(bytes: &[u8]) -> Result<AuthenticatedCatalog> {
-    authenticate_with(bytes, WORKFLOW_COMMIT)
+    authenticate_with(bytes, WORKFLOW_COMMIT_V2)
 }
 
 /// Hash-before-parse against the compiled digest, binding the given compiled workflow pin.
@@ -90,9 +92,11 @@ fn authenticate_with(bytes: &[u8], workflow_commit: &str) -> Result<Authenticate
     })
 }
 
-/// Load the reviewed bootstrap-v1 catalog shipped with this CLI, without downloads or execution.
+/// Load the test-only predecessor catalog (ADR 0012 rule 3). Not compiled into
+/// production builds; bootstrap-v2 is the only production authority.
+#[cfg(feature = "test-predecessor")]
 pub fn reviewed() -> Result<AuthenticatedCatalog> {
-    authenticate(TOOLS)
+    authenticate_with(TOOLS, WORKFLOW_COMMIT)
 }
 
 /// Load the reviewed bootstrap-v2 successor: same authenticated tool bytes, accepted workflows head.
@@ -103,6 +107,7 @@ pub fn reviewed_v2() -> Result<AuthenticatedCatalog> {
 /// Select the compiled catalog for a registry id. Unknown ids never fall back.
 pub fn reviewed_for(id: &str) -> Result<AuthenticatedCatalog> {
     match id {
+        #[cfg(feature = "test-predecessor")]
         "bootstrap-v1" => reviewed(),
         "bootstrap-v2" => reviewed_v2(),
         _ => Err(Error::Invalid("unknown bootstrap catalog authority".into())),
@@ -112,6 +117,7 @@ pub fn reviewed_for(id: &str) -> Result<AuthenticatedCatalog> {
 /// Map a compiled workflow pin back to its registry id. Unknown commits have no authority.
 pub(crate) fn id_for_commit(commit: &str) -> Option<&'static str> {
     match commit {
+        #[cfg(feature = "test-predecessor")]
         WORKFLOW_COMMIT => Some("bootstrap-v1"),
         WORKFLOW_COMMIT_V2 => Some("bootstrap-v2"),
         _ => None,

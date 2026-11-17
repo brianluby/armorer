@@ -20,16 +20,18 @@ reformatted catalog fails authentication even if its JSON schema is valid.
 The operator must already trust the CLI source/distribution. This is trust in
 membership in that reviewed source, not Sigstore verification of the CLI or tools.
 
-The compiled registry has two immutable entries. `bootstrap-v1` is frozen at
-workflow commit `772ca83e386c883c88cc3b936d69f8cb3216c91e`; its catalog was read
-from the authenticated GitHub HTTPS API at that commit, compared byte-for-byte
-with its clean checkout and checked against Git blob
-`6f001a407768dcd716324624faff60a1633362f6`. `bootstrap-v2` is the separately
-reviewed successor and the current default for new bootstrap; it pins workflows
-main `e5e9c0d31baff87e357046d81068b646a39a9f23`. `pins/tools.json` is byte-identical
+The production registry has one entry: `bootstrap-v2`, the default for new
+bootstrap, pinning workflows main
+`e5e9c0d31baff87e357046d81068b646a39a9f23`. Its tool catalog was read from the
+authenticated GitHub HTTPS API at the predecessor commit
+`772ca83e386c883c88cc3b936d69f8cb3216c91e`, compared byte-for-byte with its clean
+checkout and checked against Git blob `6f001a407768dcd716324624faff60a1633362f6`.
+The `bootstrap-v1` predecessor was removed from production builds before 0.1.0
+(ADR 0012); it survives only behind the `test-predecessor` feature for
+catalog-to-catalog migration tests. `pins/tools.json` is byte-identical
 at both commits (and at `b94969c`), and the bootstrap callers rust-ci.yml /
 rust-build.yml are unchanged between them, so v2 inherits the PR #23 download
-hardening. Both entries therefore authenticate the same embedded tool-catalog
+hardening. The entry authenticates the embedded tool-catalog
 SHA-256 `e21e6cbd2cdd1125dbb9817116b1f46d043807b4d92128abc9dc07256dbb4b13`
 (5,970 bytes); only the workflow pin moves. The
 [source/asset receipt](../catalogs/bootstrap-tools-v1-source.json) retains all 18
