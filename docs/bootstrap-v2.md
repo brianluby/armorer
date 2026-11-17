@@ -1,9 +1,9 @@
 # Explicit multi-file bootstrap, version 2
 
 `armorer bootstrap` provisions a pinned toolchain, catalog-backed lock, explicit
-project CI policy and two unprivileged caller workflows. It is separate from the
-frozen version-one toolchain-only `plan`/`apply` contract. All fourteen existing
-version-one schemas retain their exact bytes. New schemas are
+project CI policy and two unprivileged caller workflows. It is the only local
+provisioning path; the version-one toolchain-only `plan`/`apply` contract was
+removed before 0.1.0 (ADR 0012). Its schemas are
 `bootstrap-plan-v2.json` and `ci-policy-v1.json`; structural validation does not
 establish catalog trust or hosted/release readiness.
 
@@ -130,7 +130,7 @@ upgrade command. Older CLI builds do not understand the v2 ownership
 contract; switching back requires a separately reviewed rollback/migration.
 Ownership also records the exact workflow repository/commit. Changed workflow,
 catalog or runtime identities fail closed pending #5's reviewed upgrades.
-The separate [reviewed upgrade command](upgrades.md) implements explicit v1/v2
+The separate [reviewed upgrade command](upgrades.md) implements explicit v2
 ownership migration, supported imported workflows, stored generated-base previews
 and historical reversal. It remains in review; migration between two independently
 accepted catalogs still needs the future authenticated successor. Active upgrade

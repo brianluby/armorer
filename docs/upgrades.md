@@ -65,9 +65,11 @@ change, resolve the conflict through owner review before generating a fresh plan
 
 ## Explicit imports and apply
 
-V1 ownership migrates only its recorded toolchain. V2 ownership supplies its five
-recorded generated bases; those workflow/lock bases are checked against independent
-compiled catalog identity rather than trusting their self-declared hashes. New
+V2 ownership supplies its five recorded generated bases; those workflow/lock
+bases are checked against independent compiled catalog identity rather than
+trusting their self-declared hashes. Leftover version-one ownership
+(`.armorer/state.json`/`journal.json`) is refused explicitly and requires owner
+removal review; it is never imported (ADR 0012). New
 upgrade ownership retains generated and approved customized images separately, so
 later previews still use the actual generated base.
 

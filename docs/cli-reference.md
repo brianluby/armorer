@@ -81,7 +81,7 @@ authentication are separate requirements.
 
 | Contract family | Accepted `schema` names |
 | --- | --- |
-| Local setup | `config`, `lock`, `plan` |
+| Local setup | `config`, `lock` |
 | Artifact trust | `release-inventory`, `verification-policy`, `artifact-evidence`, `evidence-requirements` |
 | Capability and catalog | `capability-config`, `catalog`, `capability-observation` |
 | Lifecycle and publication | `lifecycle-record`, `github-receipt`, `publish-set`, `registry-receipt`, `publication-policy`, `publication-plan`, `publication-approval` |
@@ -142,7 +142,8 @@ Main also provides the following explicit interfaces:
 | `publication` | `plan`, `inspect`, `stage`, `publish`, `recover-published`; [owned-draft controller and native limits](owned-draft-controller-v1.md) |
 
 Run each command with `--help` for its exact input flags. Bootstrap and upgrade
-packets never authorize version-one apply. Verification failures do not select
+packets are separate contracts; neither authorizes the other's writes.
+Verification failures do not select
 historical comparison or a weaker context. Native publication writes remain
 blocked until every required gate is Enforced and a separate publication approval
 is supplied; the current-attempt approval and runner serialization gates are now
