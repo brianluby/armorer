@@ -25,6 +25,14 @@ pub(crate) fn reject_v1(root: &std::path::Path) -> crate::Result<()> {
     Ok(())
 }
 
+/// The catalog recorded by the upgrade owner, validated against compiled authority.
+pub(crate) fn owner_catalog_id(root: &std::path::Path) -> crate::Result<Option<String>> {
+    match crate::filesystem::optional_bytes(root, STATE)? {
+        Some(bytes) => Ok(Some(state::decode_state(&bytes)?.authority.id)),
+        None => Ok(None),
+    }
+}
+
 /// Earlier writers must refuse an upgrade owner/journal instead of crossing versions.
 pub(crate) fn guard_previous(root: &std::path::Path) -> crate::Result<()> {
     reject_v1(root)?;

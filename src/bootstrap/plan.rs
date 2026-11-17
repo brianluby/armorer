@@ -217,10 +217,14 @@ pub(super) fn inspect_bytes(root: &Path, policy: &[u8]) -> Result<Plan> {
     }
     let workspace = discover(root, &intent)?;
     let state = load_state(root)?;
+    // An upgrade owner may record bootstrap-v1; the v2 default only applies when
+    // neither owner records a catalog.
     let catalog_id = state
         .as_ref()
         .and_then(|(state, _)| state.catalog_id())
-        .unwrap_or("bootstrap-v2");
+        .map(str::to_owned)
+        .or(crate::upgrade::owner_catalog_id(root)?)
+        .unwrap_or_else(|| "bootstrap-v2".into());
     let mut input_preimages = BTreeMap::new();
     input_preimages.insert(
         intent.policy.license_file.clone(),
@@ -242,7 +246,7 @@ pub(super) fn inspect_bytes(root: &Path, policy: &[u8]) -> Result<Plan> {
         plan_sha256: String::new(),
         config_sha256: digest(&config),
         catalog_sha256: catalog::TOOLS_SHA256.into(),
-        catalog_id: catalog_id.into(),
+        catalog_id,
         state_sha256: state.as_ref().map(|(_, bytes)| digest(bytes)),
         intent,
         workspace,

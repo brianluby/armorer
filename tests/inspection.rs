@@ -950,3 +950,26 @@ fn pending_upgrade_journal_is_recovery_drift() {
             .contains("transaction-recovery-required")
     );
 }
+
+/// A repository provisioned by `upgrade --catalog bootstrap-v1` records ownership
+/// only in the upgrade state; check must use that catalog, not the v2 default.
+#[test]
+fn check_uses_the_upgrade_owners_catalog() {
+    let root = fixture();
+    write(root.path(), "Cargo.lock", "version = 4\n");
+    let policy = root.path().join("ci-policy.reviewed.toml");
+    let up = armorer::upgrade::inspect(root.path(), &policy, "bootstrap-v1", &[], false).unwrap();
+    armorer::upgrade::apply(root.path(), &up, &up.plan_sha256).unwrap();
+    fs::copy(&policy, root.path().join(".armorer/ci-policy.toml")).unwrap();
+    let out = Command::new(env!("CARGO_BIN_EXE_armorer"))
+        .args(["--repository", root.path().to_str().unwrap(), "check"])
+        .output()
+        .unwrap();
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
