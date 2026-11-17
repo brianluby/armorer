@@ -167,7 +167,7 @@ concurrency and every write/owner/commit-marker boundary in both directions.
 ## Runtime version boundary
 
 `bootstrap-v2` freezes the runtime contract `0.1.0` as part of its
-independently reviewed authority. Every lock they render records that
+independently reviewed authority. Every lock it renders records that
 contract, so a catalog ID renders the same lock bytes on every patch release.
 
 A patch release keeps the contract. The running binary accepts a lock or ownership
