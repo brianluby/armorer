@@ -3,8 +3,9 @@
 Status: decision accepted by the owner, 2026-11-16. Removals are delivered as
 separately reviewed changes. Rows 1–2 (version-one provisioning commands,
 plan-v1 schema, v1 state/journal, guard_v1, LegacyV1 upgrade source) are
-implemented on branch `adr0012/remove-v1-provisioning`. The context-kind and
-compiled-catalog removals remain pending. This ADR authorizes no release, tag
+implemented on branch `adr0012/remove-v1-provisioning`. Row 3 (legacy-v1/native-v2
+context kinds, readers and standalone v1/v2 context schemas) is implemented on
+branch `adr0012/remove-legacy-contexts`. The compiled-catalog removal remains pending. This ADR authorizes no release, tag
 or publication.
 
 ## Context

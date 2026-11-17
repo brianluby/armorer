@@ -1,21 +1,22 @@
 # Explicit runtime and native tool identity migration
 
-The `native-catalog-v2`, `runtime-distribution-v1` and `verification-context-v2`
-schemas form an explicit migration for #5/#8/#9/#11. Catalog v1, context v1,
-config/lock v1, inventory/evidence v1 and Cargo graph v2 retain their previous
+The `native-catalog-v2`, `runtime-distribution-v1` and `verification-context-v3`
+schemas form the surviving native authority. Config/lock v1,
+inventory/evidence v1 and Cargo graph v2 retain their previous
 bytes and meaning. No failure selects another version automatically.
 
-`TrustedReleaseContext::open` reads `armorer-verification-context.json` and
-requires catalog v1. `TrustedReleaseContext::open_native_v2` reads
-`armorer-verification-context-v2.json`; its outer version is 2, its `release`
-field contains the frozen v1 expectation shape, and its independent
-`runtime_source` approves the runtime repository, immutable commit and ref.
-Both APIs check the independently approved context digest before JSON,
+`TrustedReleaseContext::open_native_v3` reads
+`armorer-verification-context-v3.json`; its outer version is 3, its `release`
+field contains the frozen v1 expectation shape, its independent
+`runtime_source` approves the runtime repository, immutable commit and ref,
+and its `root_features` approve exact resolved features per selection.
+It checks the independently approved context digest before JSON,
 then exact config, lock, Cargo.lock, catalog and policy bytes. The complete
-`AuthenticatedReleaseFiles::verify` consumer accepts either private context;
+`AuthenticatedReleaseFiles::verify` consumer accepts that private context;
 its inventory-first signature, whole SBOM, graph and evidence checks stay active.
 The CLI exposes complete verification through `armorer verify-release` with
-explicit `--context-kind native-v3`, `native-v2` or `legacy-v1`; see
+`--context-kind native-v3`; the removed `legacy-v1`/`native-v2` kinds are
+argument errors per ADR 0012. See
 [the CLI guide](verify-release-cli.md). Runtime approval and archive loading
 remain library operations; the CLI does not provide runtime approval.
 
@@ -46,7 +47,7 @@ independently approved source, exact compiler 1.95.0, runtime Cargo.lock,
 same-source build workflow and retained authentication record. Workflow helper
 code remains separately bound by the immutable workflow commit.
 
-`ApprovedRuntimeFiles::open` borrows the private v2 context. It snapshots and
+`ApprovedRuntimeFiles::open` borrows the private v3 context. It snapshots and
 rehashes the whole approved archive before decoding. All three members must
 match their approved bytes and native header architecture before the selected
 host member becomes executable. Members are capped at 128 MiB; total archive

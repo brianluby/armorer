@@ -32,8 +32,8 @@ The trusted directory contains `armorer.toml`, `armorer.lock`, `Cargo.lock`,
 | Mode | Context file | Meaning |
 | --- | --- | --- |
 | `native-v3` | `armorer-verification-context-v3.json` | Native v2 runtime authority plus an independently approved exact resolved root-feature set for every selection |
-| `native-v2` | `armorer-verification-context-v2.json` | Native runtime authority; defaults disabled and root features exactly equal to literal requests |
-| `legacy-v1` | `armorer-verification-context.json` | Frozen catalog v1 and exact distributions; the same literal feature restriction and genuine signatures still required |
+
+The removed `legacy-v1`/`native-v2` kinds are argument errors (ADR 0012); no fallback.
 
 The digest binds configuration/lock/catalog/policy, source/ref, caller and reusable
 signer pins, run/attempt, selected deliverables, native validator and evidence

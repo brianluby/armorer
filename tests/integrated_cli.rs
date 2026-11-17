@@ -358,17 +358,44 @@ fn integrated_verification_commands_preserve_context_first_rejection() {
     let zero = "0".repeat(64);
     let trusted = tempfile::tempdir().unwrap();
     let unapproved = b"unapproved bytes that are deliberately not JSON";
-    for name in [
-        armorer::verification::context::CONTEXT_NAME,
-        armorer::verification::context::NATIVE_CONTEXT_NAME,
-        armorer::verification::context::FEATURE_CONTEXT_NAME,
-    ] {
-        fs::write(trusted.path().join(name), unapproved).unwrap();
-    }
+    fs::write(
+        trusted
+            .path()
+            .join(armorer::verification::context::FEATURE_CONTEXT_NAME),
+        unapproved,
+    )
+    .unwrap();
     let trusted_before = snapshot(trusted.path());
     let policy = tempfile::NamedTempFile::new().unwrap();
     fs::write(policy.path(), unapproved).unwrap();
-    for kind in ["legacy-v1", "native-v2", "native-v3"] {
+    // ADR 0012: removed context kinds are argument errors, never a fallback.
+    for kind in ["legacy-v1", "native-v2"] {
+        let output = Command::new(env!("CARGO_BIN_EXE_armorer"))
+            .args([
+                "--repository",
+                root.path().to_str().unwrap(),
+                "verify-release",
+                "--directory",
+                "/nonexistent/offered-release",
+                "--trusted-inputs",
+                trusted.path().to_str().unwrap(),
+                "--expect-context-sha256",
+                &zero,
+                "--context-kind",
+                kind,
+                "--gh",
+                "/nonexistent/native-gh",
+                "--trusted-root",
+                "/nonexistent/root",
+                "--cyclonedx",
+                "/nonexistent/cyclonedx",
+            ])
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(2), "{kind}");
+    }
+    {
+        let kind = "native-v3";
         let result = cli(
             root.path(),
             &[

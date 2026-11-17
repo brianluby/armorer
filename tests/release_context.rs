@@ -2,7 +2,7 @@
 use armorer::{
     trust::ByteIdentity,
     verification::{
-        context::{CONTEXT_NAME, TrustedReleaseContext},
+        context::{FEATURE_CONTEXT_NAME, TrustedReleaseContext},
         cyclonedx::qualified_native_validator,
     },
 };
@@ -36,8 +36,9 @@ fn write(path: &Path, value: &Value) -> Value {
     fs::write(path, &bytes).unwrap();
     serde_json::to_value(ByteIdentity::from_bytes(&bytes)).unwrap()
 }
-/// Construct independent synthetic authorities, never a context learned from downloaded release JSON.
-fn fixture() -> (tempfile::TempDir, Value) {
+/// Build the inner release record and template catalog; native_fixture upgrades
+/// them to the surviving native catalog and v3 outer before any reader sees them.
+fn template_fixture() -> (tempfile::TempDir, Value) {
     // One clock sample per fixture: repeated now() calls can straddle a second tick
     // and make review windows inconsistent with each other.
     let now = now();
@@ -119,11 +120,40 @@ fn fixture() -> (tempfile::TempDir, Value) {
     let context = json!({"schema_version":1, "inputs":input, "caller_workflow":{"repository":"fixture/project", "path":".github/workflows/release.yml", "commit":"a".repeat(40)}, "trigger":"push", "catalog":catalog_identity, "verification_policy":policy_identity, "native_sbom_validator":native, "signers":signers, "selections":[{"selection":requirements["selection"], "root_component_name":"app", "evidence_requirements":requirements}], "review":review});
     (directory, context)
 }
-/// Approve the exact synthetic context bytes for a semantic check, separate from release trust.
+/// The surviving fixture: a complete native v3 context; tests mutate the inner release.
+fn fixture() -> (tempfile::TempDir, Value) {
+    let (directory, outer, _) = native_fixture();
+    (directory, outer["release"].clone())
+}
+/// Wrap an inner release record in the surviving v3 outer and write its exact bytes.
+fn write_v3(directory: &Path, context: &Value) -> ByteIdentity {
+    let keys = context["selections"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|selected| {
+            let selection = &selected["selection"];
+            format!(
+                "{}--{}--{}",
+                selection["deliverable_id"].as_str().unwrap(),
+                selection["target"].as_str().unwrap(),
+                selection["feature_set"].as_str().unwrap()
+            )
+        })
+        .map(|key| (key, json!([])))
+        .collect::<serde_json::Map<_, _>>();
+    let outer = json!({
+        "schema_version": 3,
+        "runtime_source": {"repository":"fixture/armorer","commit":"d".repeat(40),"git_ref":"refs/heads/main"},
+        "release": context,
+        "root_features": keys,
+    });
+    serde_json::from_value(write(&directory.join(FEATURE_CONTEXT_NAME), &outer)).unwrap()
+}
+/// Approve the exact synthetic v3 context bytes for a semantic check, separate from release trust.
 fn open(directory: &Path, context: &Value) -> armorer::Result<TrustedReleaseContext> {
-    let identity: ByteIdentity =
-        serde_json::from_value(write(&directory.join(CONTEXT_NAME), context)).unwrap();
-    TrustedReleaseContext::open(directory, &identity.sha256)
+    let identity = write_v3(directory, context);
+    TrustedReleaseContext::open_native_v3(directory, &identity.sha256)
 }
 /// Select positive or unsupported-host assertions; never skip a test silently.
 fn supported() -> bool {
@@ -160,10 +190,12 @@ fn approved_context_reads_exact_authorities_without_executing_repository_code() 
     if supported() {
         let trusted = result.unwrap();
         assert_eq!(trusted.inputs().source.commit, "a".repeat(40));
-        assert_eq!(trusted.selections().len(), 1);
+        assert_eq!(trusted.selections().len(), 3);
         assert_eq!(
             trusted.identity(),
-            &ByteIdentity::from_bytes(&fs::read(directory.path().join(CONTEXT_NAME)).unwrap())
+            &ByteIdentity::from_bytes(
+                &fs::read(directory.path().join(FEATURE_CONTEXT_NAME)).unwrap()
+            )
         );
     } else {
         assert!(matches!(
@@ -184,15 +216,15 @@ fn approved_context_reads_exact_authorities_without_executing_repository_code() 
 fn context_digest_is_checked_before_parsing_or_other_authorities() {
     let directory = tempfile::tempdir().unwrap();
     fs::write(
-        directory.path().join(CONTEXT_NAME),
+        directory.path().join(FEATURE_CONTEXT_NAME),
         b"not JSON and no other files",
     )
     .unwrap();
-    let error = TrustedReleaseContext::open(directory.path(), &"f".repeat(64))
+    let error = TrustedReleaseContext::open_native_v3(directory.path(), &"f".repeat(64))
         .err()
         .unwrap();
     assert!(error.to_string().contains("unapproved-release-context"));
-    assert!(TrustedReleaseContext::open(directory.path(), "moving-ref").is_err());
+    assert!(TrustedReleaseContext::open_native_v3(directory.path(), "moving-ref").is_err());
 }
 
 #[cfg_attr(
@@ -367,10 +399,13 @@ fn approved_duplicate_or_trailing_context_json_is_rejected() {
         br#"{"schema_version":1,"schema_version":1}"#.as_slice(),
         b"{} {}",
     ] {
-        fs::write(directory.path().join(CONTEXT_NAME), bytes).unwrap();
+        fs::write(directory.path().join(FEATURE_CONTEXT_NAME), bytes).unwrap();
         assert!(
-            TrustedReleaseContext::open(directory.path(), &ByteIdentity::from_bytes(bytes).sha256)
-                .is_err()
+            TrustedReleaseContext::open_native_v3(
+                directory.path(),
+                &ByteIdentity::from_bytes(bytes).sha256
+            )
+            .is_err()
         );
     }
 }
@@ -383,7 +418,7 @@ fn context_rejects_symlinked_authorities_and_directory() {
     // Pin the symlink/type rejection per case so unsupported hosts cannot pass
     // vacuously on the native-validator gate instead of the intended guard.
     for (name, expected) in [
-        (CONTEXT_NAME, "verification-input-type-or-size"),
+        (FEATURE_CONTEXT_NAME, "verification-input-type-or-size"),
         ("armorer.toml", "symlink input or parent"),
         ("armorer.lock", "symlink input or parent"),
         ("Cargo.lock", "verification-input-type-or-size"),
@@ -394,23 +429,22 @@ fn context_rejects_symlinked_authorities_and_directory() {
         ),
     ] {
         let (directory, context) = fixture();
-        let context_identity: ByteIdentity =
-            serde_json::from_value(write(&directory.path().join(CONTEXT_NAME), &context)).unwrap();
+        let context_identity = write_v3(directory.path(), &context);
         let outside = tempfile::NamedTempFile::new().unwrap();
         fs::copy(directory.path().join(name), outside.path()).unwrap();
         fs::remove_file(directory.path().join(name)).unwrap();
         symlink(outside.path(), directory.path().join(name)).unwrap();
-        let error = TrustedReleaseContext::open(directory.path(), &context_identity.sha256)
-            .err()
-            .unwrap();
+        let error =
+            TrustedReleaseContext::open_native_v3(directory.path(), &context_identity.sha256)
+                .err()
+                .unwrap();
         assert!(error.to_string().contains(expected), "{name}: {error}");
     }
     let (directory, context) = fixture();
-    let id: ByteIdentity =
-        serde_json::from_value(write(&directory.path().join(CONTEXT_NAME), &context)).unwrap();
+    let id = write_v3(directory.path(), &context);
     let parent = tempfile::tempdir().unwrap();
     symlink(directory.path(), parent.path().join("linked")).unwrap();
-    let error = TrustedReleaseContext::open(&parent.path().join("linked"), &id.sha256)
+    let error = TrustedReleaseContext::open_native_v3(&parent.path().join("linked"), &id.sha256)
         .err()
         .unwrap();
     assert!(
@@ -488,7 +522,7 @@ fn real_inventory_authentication_failure_precedes_json_and_asset_processing() {
             download.path(),
             directory.path(),
             &trusted.identity().sha256,
-            "legacy-v1",
+            "native-v3",
             &gh,
             &source.join("trusted_root.json"),
             &cdx,
@@ -604,7 +638,7 @@ fn assert_synthetic_tar_layout(archive: &[u8]) {
 /// Build an explicit three-target synthetic context with different archive and executable identities.
 fn native_fixture() -> (tempfile::TempDir, Value, Value) {
     use armorer::config::{Config, Lock, Profile, ToolPin};
-    let (directory, mut release) = fixture();
+    let (directory, mut release) = template_fixture();
     let archive = include_bytes!("fixtures/runtime/synthetic-runtime.tar");
     assert_synthetic_tar_layout(archive);
     let targets = [
@@ -697,9 +731,24 @@ fn native_fixture() -> (tempfile::TempDir, Value, Value) {
         .collect::<Vec<_>>()
         .into();
     fs::write(directory.path().join("runtime.tar"), archive).unwrap();
+    let keys = release["selections"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|selected| {
+            let selection = &selected["selection"];
+            format!(
+                "{}--{}--{}",
+                selection["deliverable_id"].as_str().unwrap(),
+                selection["target"].as_str().unwrap(),
+                selection["feature_set"].as_str().unwrap()
+            )
+        })
+        .map(|key| (key, json!([])))
+        .collect::<serde_json::Map<_, _>>();
     (
         directory,
-        json!({"schema_version":2,"runtime_source":runtime_source,"release":release}),
+        json!({"schema_version":3,"runtime_source":runtime_source,"release":release,"root_features":keys}),
         catalog,
     )
 }
@@ -713,12 +762,11 @@ fn bind_native_catalog(directory: &Path, outer: &mut Value, catalog: &Value) {
     }
 }
 
-/// Independently approve a synthetic outer v2 context for semantic tests only.
+/// Independently approve a synthetic outer v3 context for semantic tests only.
 fn open_native(directory: &Path, outer: &Value) -> armorer::Result<TrustedReleaseContext> {
-    use armorer::verification::context::NATIVE_CONTEXT_NAME;
     let identity: ByteIdentity =
-        serde_json::from_value(write(&directory.join(NATIVE_CONTEXT_NAME), outer)).unwrap();
-    TrustedReleaseContext::open_native_v2(directory, &identity.sha256)
+        serde_json::from_value(write(&directory.join(FEATURE_CONTEXT_NAME), outer)).unwrap();
+    TrustedReleaseContext::open_native_v3(directory, &identity.sha256)
 }
 
 #[cfg_attr(
@@ -786,11 +834,10 @@ fn native_context_selects_target_members_and_never_reinterprets_v1_catalogs() {
             assert_ne!(tool.bytes.sha256, context.lock().tools[&tool.name].sha256);
         }
     }
-    assert!(open(directory.path(), &outer["release"]).is_err());
-    let (legacy, context) = fixture();
+    let (other, context) = fixture();
     assert!(
         open_native(
-            legacy.path(),
+            other.path(),
             &json!({"schema_version":2,"runtime_source":outer["runtime_source"],"release":context})
         )
         .is_err()
@@ -910,11 +957,6 @@ fn native_runtime_snapshots_only_approved_members_and_never_runs_them() {
         fs::write(executable, b"changed private executable").unwrap();
         assert!(runtime.native_executable().is_err());
     }
-    let (legacy, context) = fixture();
-    let legacy_context = open(legacy.path(), &context).unwrap();
-    assert!(
-        ApprovedRuntimeFiles::open(&directory.path().join("runtime.tar"), &legacy_context).is_err()
-    );
 }
 
 #[cfg_attr(
@@ -1085,13 +1127,13 @@ fn release_cli(
 fn cli_rejects_unapproved_context_before_release_and_tools() {
     let directory = tempfile::tempdir().unwrap();
     let context = b"malformed offered context; reject its independent digest first";
-    fs::write(directory.path().join(CONTEXT_NAME), context).unwrap();
+    fs::write(directory.path().join(FEATURE_CONTEXT_NAME), context).unwrap();
     let absent = directory.path().join("never-open-this");
     let cli = release_cli(
         &absent,
         directory.path(),
         &"a".repeat(64),
-        "legacy-v1",
+        "native-v3",
         &absent,
         &absent,
         &absent,
@@ -1107,26 +1149,24 @@ fn cli_rejects_unapproved_context_before_release_and_tools() {
     assert!(error.get("provenance_verified").is_none());
     assert!(cli.stderr.is_empty());
     assert_eq!(
-        fs::read(directory.path().join(CONTEXT_NAME)).unwrap(),
+        fs::read(directory.path().join(FEATURE_CONTEXT_NAME)).unwrap(),
         context
     );
     assert_eq!(fs::read_dir(directory.path()).unwrap().count(), 1);
 }
 
 #[test]
-/// Selecting native v2 never falls back to an available legacy context when v2 bytes fail.
+/// The surviving reader rejects malformed v3 bytes; no other context version is consulted.
 fn cli_context_version_is_explicit_without_fallback() {
-    use armorer::verification::context::NATIVE_CONTEXT_NAME;
-    let (directory, context) = fixture();
-    let _ = write(&directory.path().join(CONTEXT_NAME), &context);
-    let malformed = b"invalid native v2 context";
-    fs::write(directory.path().join(NATIVE_CONTEXT_NAME), malformed).unwrap();
+    let (directory, _context) = fixture();
+    let malformed = b"invalid native v3 context";
+    fs::write(directory.path().join(FEATURE_CONTEXT_NAME), malformed).unwrap();
     let absent = directory.path().join("never-open-this");
     let cli = release_cli(
         &absent,
         directory.path(),
         &ByteIdentity::from_bytes(malformed).sha256,
-        "native-v2",
+        "native-v3",
         &absent,
         &absent,
         &absent,
@@ -1137,7 +1177,7 @@ fn cli_context_version_is_explicit_without_fallback() {
     assert!(error.get("provenance_verified").is_none());
     assert!(cli.stderr.is_empty());
     assert_eq!(
-        fs::read(directory.path().join(NATIVE_CONTEXT_NAME)).unwrap(),
+        fs::read(directory.path().join(FEATURE_CONTEXT_NAME)).unwrap(),
         malformed
     );
 }
@@ -1146,8 +1186,7 @@ fn cli_context_version_is_explicit_without_fallback() {
 /// Approved synthetic intent cannot execute a caller-selected fake native verifier or consume a release.
 fn cli_requires_compiled_native_tool_approval_before_release_processing() {
     let (directory, context) = fixture();
-    let digest: ByteIdentity =
-        serde_json::from_value(write(&directory.path().join(CONTEXT_NAME), &context)).unwrap();
+    let digest = write_v3(directory.path(), &context);
     let marker = directory.path().join("executed");
     let tool = directory.path().join("fake-gh");
     fs::write(&tool, b"#!/bin/sh\ntouch executed\n").unwrap();
@@ -1161,7 +1200,7 @@ fn cli_requires_compiled_native_tool_approval_before_release_processing() {
         &absent,
         directory.path(),
         &digest.sha256,
-        "legacy-v1",
+        "native-v3",
         &tool,
         &absent,
         &absent,
@@ -1242,7 +1281,6 @@ fn native_v3_requires_complete_independently_approved_root_features() {
     use armorer::verification::context::FEATURE_CONTEXT_NAME;
     qualified_native_validator().expect("required native identity on a supported host");
     let (directory, mut outer, _) = native_fixture();
-    outer["schema_version"] = 3.into();
     let keys = outer["release"]["selections"]
         .as_array()
         .unwrap()
@@ -1266,17 +1304,13 @@ fn native_v3_requires_complete_independently_approved_root_features() {
         serde_json::from_value(write(&directory.path().join(FEATURE_CONTEXT_NAME), &outer))
             .unwrap();
     TrustedReleaseContext::open_native_v3(directory.path(), &identity.sha256).unwrap();
-    // The same approved digest cannot select another format/name, even if a v2 file exists.
+    // The same approved digest cannot select the removed v2 format under the v3 name.
     let mut old = outer.clone();
     old["schema_version"] = 2.into();
     old.as_object_mut().unwrap().remove("root_features");
-    write(
-        &directory
-            .path()
-            .join(armorer::verification::context::NATIVE_CONTEXT_NAME),
-        &old,
-    );
-    assert!(TrustedReleaseContext::open_native_v2(directory.path(), &identity.sha256).is_err());
+    write(&directory.path().join(FEATURE_CONTEXT_NAME), &old);
+    assert!(TrustedReleaseContext::open_native_v3(directory.path(), &identity.sha256).is_err());
+    write(&directory.path().join(FEATURE_CONTEXT_NAME), &outer);
     for case in 0..6 {
         let mut changed = outer.clone();
         match case {
