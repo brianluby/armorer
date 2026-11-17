@@ -15,7 +15,8 @@ A trusted input directory contains `armorer-verification-context-v3.json`,
 `verification-policy.json`. The context conforms to
 `schemas/verification-context-v3.json`; obtain its structural schema with
 `armorer schema verification-context-v3`. Schema validity is only a structural
-check. No whole-release CLI or automatic context generator is supplied yet.
+check. The whole-release CLI is `armorer verify-release`; no automatic
+context generator is supplied.
 
 The approved context SHA-256 comes from a separate reviewed source. Never obtain
 it, the catalog or policy approval digest, source/ref/commit, invoking workflow,
