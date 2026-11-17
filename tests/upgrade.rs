@@ -619,7 +619,9 @@ fn all_profiles_apply_repeat_migrate_ownership_and_restore_exact_reviewed_previo
                     .iter()
                     .all(|c| c.decision == Decision::Unchanged)
             );
-            assert!(bootstrap::inspect(root.path(), &root.path().join(POLICY)).is_err());
+            // Read-only inspection stays usable; bootstrap writers refuse the upgrade owner.
+            let stale = bootstrap::inspect(root.path(), &root.path().join(POLICY)).unwrap();
+            assert!(bootstrap::apply(root.path(), &stale, &stale.plan_sha256).is_err());
             assert!(upgrade::inspect_rollback(root.path(), &p, &p.plan_sha256, false).is_err());
             assert_eq!(snapshot(root.path()), after);
             let reverse = upgrade::inspect_rollback(root.path(), &p, &p.plan_sha256, true).unwrap();

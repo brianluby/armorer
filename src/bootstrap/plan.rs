@@ -195,7 +195,9 @@ pub fn inspect(root: &Path, policy: &Path) -> Result<Plan> {
 
 /// The exact approved policy is self-contained; its external filename is not authority.
 pub(super) fn inspect_bytes(root: &Path, policy: &[u8]) -> Result<Plan> {
-    crate::upgrade::guard_previous(root)?;
+    // Read-only inspection stays usable under upgrade ownership (check reports
+    // drift); only writers refuse the upgrade owner via guard_previous.
+    crate::upgrade::reject_v1(root)?;
     ci_policy::parse_at(policy, ci_policy::today()?)?;
     let (intent, config) = load_config(root)?;
     // Compare normalized components: safe_path collapses `//`, `./` and trailing slashes.

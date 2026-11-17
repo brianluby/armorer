@@ -428,7 +428,6 @@ fn cli_check_fails_closed_plan_is_read_only_and_errors_are_json() {
 /// exit 0 in sync, exit 2 with stderr reasons on drift, never writes.
 #[test]
 fn cli_check_reads_the_bootstrap_contract() {
-    const POLICY: &str = "schema_version = 1\n[licenses]\nallow = [\"MIT\"]\n[advisories]\nexceptions = []\n[sources]\nallow_git = []\n[bans]\nmultiple_versions = \"warn\"\ndeny = []\n";
     let root = fixture();
     let run = || {
         Command::new(env!("CARGO_BIN_EXE_armorer"))
@@ -869,4 +868,55 @@ fn inherited_stdout_descendant_does_not_block_toolchain_lookup() {
             .contains("toolchain-path"),
         "{value}"
     );
+}
+
+/// After an upgrade owns the files, read-only check still reports drift;
+/// only writers refuse the upgrade owner. Leftover v1 ownership stays refused.
+#[cfg(unix)]
+#[test]
+fn check_reports_drift_under_upgrade_ownership_and_refuses_symlinked_policy() {
+    let root = fixture();
+    write(root.path(), "Cargo.lock", "version = 4\n");
+    let plan = inspect(root.path()).unwrap();
+    armorer::bootstrap::apply(root.path(), &plan, &plan.plan_sha256).unwrap();
+    let policy = root.path().join("ci-policy.reviewed.toml");
+    let up = armorer::upgrade::inspect(root.path(), &policy, "bootstrap-v2", &[], false).unwrap();
+    armorer::upgrade::apply(root.path(), &up, &up.plan_sha256).unwrap();
+    // Writers still refuse the upgrade owner; read-only inspection stays usable.
+    let stale = inspect(root.path()).unwrap();
+    let refusal = armorer::bootstrap::apply(root.path(), &stale, &stale.plan_sha256)
+        .unwrap_err()
+        .to_string();
+    assert!(refusal.contains("upgrade"), "{refusal}");
+    // Read-only check works: copy the reviewed policy to the managed path.
+    fs::copy(&policy, root.path().join(".armorer/ci-policy.toml")).unwrap();
+    let run = |repo: &Path| {
+        Command::new(env!("CARGO_BIN_EXE_armorer"))
+            .args(["--repository", repo.to_str().unwrap(), "check"])
+            .output()
+            .unwrap()
+    };
+    let synced = run(root.path());
+    assert_eq!(
+        synced.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&synced.stdout)
+    );
+    fs::write(
+        root.path().join("rust-toolchain.toml"),
+        "[toolchain]\nchannel = \"9.9.9\"\n",
+    )
+    .unwrap();
+    assert_eq!(run(root.path()).status.code(), Some(2));
+
+    // A symlinked .armorer parent must not redirect the managed policy read.
+    let root = fixture();
+    let outside = tempfile::tempdir().unwrap();
+    fs::write(outside.path().join("ci-policy.toml"), POLICY).unwrap();
+    std::os::unix::fs::symlink(outside.path(), root.path().join(".armorer")).unwrap();
+    let error = run(root.path());
+    assert_eq!(error.status.code(), Some(1));
+    let value: serde_json::Value = serde_json::from_slice(&error.stdout).unwrap();
+    assert_eq!(value["error"]["code"], "unsafe-path");
 }

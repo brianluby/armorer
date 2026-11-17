@@ -31,6 +31,8 @@ separate step.
 `check` runs the same inspection over the managed `.armorer/ci-policy.toml`.
 It exits 0 when provisioning is in sync and exits 2 with sorted drift reasons
 on stderr otherwise. Without a managed policy it fails closed with a JSON error.
+Check stays usable after an upgrade owns the files; only bootstrap writers refuse
+the upgrade owner. Leftover version-one ownership is always refused.
 
 ## Inspect the catalog
 

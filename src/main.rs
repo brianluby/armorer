@@ -706,7 +706,7 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
             // The surviving contract: bootstrap drift over the managed policy.
             let plan = armorer::bootstrap::inspect(
                 &cli.repository,
-                &cli.repository.join(".armorer/ci-policy.toml"),
+                &armorer::safe_path(&cli.repository, ".armorer/ci-policy.toml")?,
             )?;
             let drift = plan.drift();
             let status = if drift.is_empty() {
