@@ -149,8 +149,6 @@ enum PublicationOperation {
 /// Explicitly select frozen catalog semantics; failures never retry another version.
 #[derive(Clone, Copy, ValueEnum)]
 enum ContextKind {
-    LegacyV1,
-    NativeV2,
     NativeV3,
 }
 
@@ -233,9 +231,7 @@ enum SchemaKind {
     PublicationApproval,
     NativeCatalogV2,
     RuntimeDistributionV1,
-    VerificationContextV2,
     VerificationContextV3,
-    VerificationContext,
     CargoGraphV2,
     UpgradePlan,
     UpgradeRollback,
@@ -302,10 +298,6 @@ fn open_trusted_context(
 ) -> Result<armorer::verification::context::TrustedReleaseContext> {
     use armorer::verification::context::TrustedReleaseContext;
     match context_kind {
-        ContextKind::LegacyV1 => TrustedReleaseContext::open(trusted_inputs, expect_context_sha256),
-        ContextKind::NativeV2 => {
-            TrustedReleaseContext::open_native_v2(trusted_inputs, expect_context_sha256)
-        }
         ContextKind::NativeV3 => {
             TrustedReleaseContext::open_native_v3(trusted_inputs, expect_context_sha256)
         }
@@ -650,12 +642,6 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
                 }
                 SchemaKind::VerificationContextV3 => {
                     schemars::schema_for!(armorer::verification::context::ReleaseExpectationsV3)
-                }
-                SchemaKind::VerificationContextV2 => {
-                    schemars::schema_for!(armorer::verification::context::ReleaseExpectationsV2)
-                }
-                SchemaKind::VerificationContext => {
-                    schemars::schema_for!(armorer::verification::context::ReleaseExpectations)
                 }
                 SchemaKind::CargoGraphV2 => {
                     schemars::schema_for!(armorer::verification::graph::CargoGraphV2)

@@ -29,18 +29,12 @@ armorer verify-release --context-kind native-v3 --trusted-inputs /path/to/approv
 
 The trusted-input directory contains `armorer-verification-context-v3.json` and
 the same independently approved config, lock, Cargo.lock, catalog and policy
-files as native-v2. The library entry point is
+files as the native catalog guide. The library entry point is
 `TrustedReleaseContext::open_native_v3`. Missing/extra selection keys, unsorted or
 duplicate features, control characters, oversized sets and omitted requested
 features reject. Approval digest checking still precedes JSON decoding. A v3
-failure never retries v1/v2 or historical verification.
-
-Legacy-v1/native-v2 contain no independent resolved-feature expectation. They now
-support only disabled defaults and root features exactly equal to literal
-requests. Any expansion rejects; default-enabled selections report
-`cargo-graph-resolved-feature-expectation-required`. Migrate such selections by
-separately reviewing a v3 context, rather than changing their requested flags or
-silently reducing verification. Packages without a default feature may have an
+failure never retries another context version or historical verification;
+the legacy-v1/native-v2 readers were removed per ADR 0012. Packages without a default feature may have an
 empty approved resolved set with defaults enabled; a separately approved empty
 set is distinct from guessing that a default definition is absent.
 

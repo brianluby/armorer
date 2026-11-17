@@ -32,7 +32,7 @@ coverage, validation and the exact outstanding acceptance evidence.
 | Contribute in the creed | [Contributing](../CONTRIBUTING.md), [writing guide](writing-guide.md) | Pinned checks, all schemas and accurate Mandalorian prose |
 
 The [historical contributor repair](../reviews/2026-10-03-pr23-schema-guide.md)
-records #23's 24-schema fix. The accepted procedure now stages all 26 schemas;
+records #23's 24-schema fix. The accepted procedure now stages all 24 schemas;
 #23 is closed as superseded. Bootstrap, upgrade and complete verification are
 accepted implementations; their production/operational gates remain open.
 

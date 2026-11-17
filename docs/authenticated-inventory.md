@@ -10,11 +10,11 @@ platform-report semantics or SLSA Build L2.
 
 ## Approve expectations outside the download channel
 
-A trusted input directory contains `armorer-verification-context.json`,
+A trusted input directory contains `armorer-verification-context-v3.json`,
 `armorer.toml`, `armorer.lock`, `Cargo.lock`, `catalog.json` and
 `verification-policy.json`. The context conforms to
-`schemas/verification-context-v1.json`; obtain its structural schema with
-`armorer schema verification-context`. Schema validity is only a structural
+`schemas/verification-context-v3.json`; obtain its structural schema with
+`armorer schema verification-context-v3`. Schema validity is only a structural
 check. No whole-release CLI or automatic context generator is supplied yet.
 
 The approved context SHA-256 comes from a separate reviewed source. Never obtain

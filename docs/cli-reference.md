@@ -86,9 +86,9 @@ authentication are separate requirements.
 | Capability and catalog | `capability-config`, `catalog`, `capability-observation` |
 | Lifecycle and publication | `lifecycle-record`, `github-receipt`, `publish-set`, `registry-receipt`, `publication-policy`, `publication-plan`, `publication-approval` |
 | Bootstrap and upgrades | `ci-policy`, `bootstrap-plan`, `upgrade-plan`, `upgrade-rollback` |
-| Graph and native contexts | `cargo-graph-v2`, `verification-context`, `native-catalog-v2`, `runtime-distribution-v1`, `verification-context-v2`, `verification-context-v3` |
+| Graph and native contexts | `cargo-graph-v2`, `native-catalog-v2`, `runtime-distribution-v1`, `verification-context-v3` |
 
-There are 26 schema names on main. JSON examples under
+There are 24 schema names on main. JSON examples under
 [trust-v1](../examples/trust-v1/README.md) are synthetic contract fixtures.
 
 ## Read the exit status

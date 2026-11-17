@@ -11,7 +11,7 @@ fn unapproved_context_precedes_tools_credentials_and_state_for_all_actions() {
         let root = tempfile::tempdir().unwrap();
         let inputs = root.path().join("inputs");
         fs::create_dir(&inputs).unwrap();
-        fs::write(inputs.join("armorer-verification-context.json"), b"{}").unwrap();
+        fs::write(inputs.join("armorer-verification-context-v3.json"), b"{}").unwrap();
         let marker = root.path().join("unexpected-execution");
         let tool = root.path().join("offered-tool");
         fs::write(&tool, format!("#!/bin/sh\ntouch '{}'\n", marker.display())).unwrap();
@@ -31,7 +31,7 @@ fn unapproved_context_precedes_tools_credentials_and_state_for_all_actions() {
                 "--expect-context-sha256",
                 &zero,
                 "--context-kind",
-                "legacy-v1",
+                "native-v3",
             ])
             .arg("--gh")
             .arg(&tool)
@@ -71,7 +71,7 @@ fn unapproved_context_precedes_tools_credentials_and_state_for_all_actions() {
         assert!(!marker.exists());
         assert_eq!(fs::read_dir(&state).unwrap().count(), 0);
         assert_eq!(
-            fs::read(inputs.join("armorer-verification-context.json")).unwrap(),
+            fs::read(inputs.join("armorer-verification-context-v3.json")).unwrap(),
             b"{}"
         );
     }

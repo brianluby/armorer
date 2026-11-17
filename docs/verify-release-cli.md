@@ -18,7 +18,7 @@ armorer verify-release \
   --directory /path/to/downloaded-release \
   --trusted-inputs /path/to/independently-reviewed-inputs \
   --expect-context-sha256 '<independently approved 64-character SHA-256>' \
-  --context-kind native-v2 \
+  --context-kind native-v3 \
   --gh /path/to/qualified/gh \
   --trusted-root /path/to/approved/trusted-root.json \
   --cyclonedx /path/to/qualified/cyclonedx
@@ -33,8 +33,9 @@ selected context:
 
 | `--context-kind` | Context file | Catalog semantics |
 | --- | --- | --- |
-| `native-v2` | `armorer-verification-context-v2.json` | Reviewed runtime distribution and target-specific native members |
-| `legacy-v1` | `armorer-verification-context.json` | Frozen v1 catalog and exact distribution byte identities |
+| `native-v3` | `armorer-verification-context-v3.json` | Reviewed runtime distribution, target-specific native members and exact resolved root features |
+
+The removed `legacy-v1`/`native-v2` kinds are argument errors (ADR 0012); no fallback.
 
 The context digest binds exact config/lock/catalog/policy identities, source and
 ref, caller and reusable signer pins, run/attempt, native validator, selections
@@ -93,7 +94,7 @@ Apple CLI/service selections also require the [native Apple verification v1](app
 
 ## Explicit resolved features
 
-Use `--context-kind native-v3` and an independently approved
-`armorer-verification-context-v3.json` for complete default/implied feature sets.
-[The successor guide](resolved-root-features-v3.md) describes exact expectations
-and old-context rejection. No version fallback is attempted.
+`--context-kind native-v3` and an independently approved
+`armorer-verification-context-v3.json` carry complete default/implied feature sets.
+[The guide](resolved-root-features-v3.md) describes exact expectations.
+No version fallback is attempted.

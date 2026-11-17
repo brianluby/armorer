@@ -59,11 +59,11 @@ class ReviewGates(unittest.TestCase):
         for path in sorted((ROOT / "schemas").glob("*.json")):
             inspect(json.loads(path.read_text(encoding="utf-8")), path.name)
 
-    def test_frozen_native_catalog_bytes_still_match_both_contexts(self):
+    def test_frozen_native_catalog_bytes_still_match_the_v3_context(self):
         root = ROOT / "examples/runtime-native-v2"
         data = (root / "catalog.json").read_bytes()
         expected = {"sha256": hashlib.sha256(data).hexdigest(), "size": len(data)}
-        for name in ["context.json", "context-v3.json"]:
+        for name in ["context-v3.json"]:
             self.assertEqual(json.loads((root / name).read_bytes())["release"]["catalog"], expected)
 
     @unittest.skipUnless(os.name == "posix", "Unix staging permissions")

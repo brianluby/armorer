@@ -1,7 +1,7 @@
 """Validate native schema shapes; never authenticate or execute the examples."""
 from schema_checks import ROOT, coverage, document, positive, rejection, validator
 
-cases = [("native-catalog-v2", "catalog.json"), ("runtime-distribution-v1", "runtime-distribution.json"), ("verification-context-v2", "context.json"), ("verification-context-v3", "context-v3.json")]
+cases = [("native-catalog-v2", "catalog.json"), ("runtime-distribution-v1", "runtime-distribution.json"), ("verification-context-v3", "context-v3.json")]
 negative = 0
 for kind, filename in cases:
     check = validator(kind + ".json")
@@ -13,5 +13,5 @@ for kind, filename in cases:
 members = document(ROOT / "examples/runtime-native-v2/runtime-distribution.json")
 rejection(validator("runtime-distribution-v1.json"), members, "empty runtime members", lambda v: v.update(members={}), "minProperties", ["members"])
 negative += 1
-coverage("native examples", len(cases), negative, 4, 9)
-print(f"4 synthetic native schema examples; {negative} rejections; no runtime approval or provenance claim")
+coverage("native examples", len(cases), negative, 3, 7)
+print(f"3 synthetic native schema examples; {negative} rejections; no runtime approval or provenance claim")
