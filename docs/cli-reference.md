@@ -65,7 +65,11 @@ separate step.
 
 `check` runs the same inspection over the managed `.armorer/ci-policy.toml`.
 It exits 0 when provisioning is in sync and exits 2 with sorted drift reasons
-on stderr otherwise. Without a managed policy it fails closed with a JSON error.
+on stderr otherwise. A reason is `create:<path>`, `update:<path>`,
+`conflict:<path>` or `release:<path>` for a managed file, or a code such as
+`transaction-recovery-required` or `cargo-lock-missing`. `release:<path>` names
+an owned optional file the configuration has switched off; it clears once the
+plan that releases it is applied. Without a managed policy it fails closed with a JSON error.
 Check stays usable after an upgrade owns the files; only bootstrap writers refuse
 the upgrade owner. Leftover version-one ownership is always refused.
 
@@ -195,15 +199,10 @@ Stable error categories are `io`, `invalid-toml`, `invalid-config`, `unsafe-path
 input values. Armorer does not print arbitrary Cargo stderr or request secrets.
 
 When a repository owns an optional managed file that `armorer.toml` no longer
-selects, `check`, `bootstrap plan`, `bootstrap check` and `bootstrap apply` stop
-with this `transaction` error and change nothing:
-
-```json
-{"error":{"code":"transaction","message":"transaction blocked: an owned managed file is no longer selected by the configuration; releasing or removing it is not supported yet"}}
-```
-
-Switch the file back on. Releasing or removing an owned optional file has no
-approved behavior yet; see [optional repository files](bootstrap-v2.md#optional-repository-files).
+selects, the plan releases it. `check` and `bootstrap check` exit 2 with
+`release:<path>` among the drift reasons until the plan is applied. Applying it
+drops Armorer's ownership record and leaves the file as it is; see
+[optional repository files](bootstrap-v2.md#optional-repository-files).
 
 ## Read the findings
 

@@ -104,7 +104,8 @@ by default ([ADR 0015](adr/0015-optional-managed-repository-files.md)). Two sets
 come from the one table. `managed_paths` is the maximal set, every path the catalog
 can ever render (eight for `bootstrap-v2`). `selected_paths` is the set a given
 configuration selects (five with every switch off). A bootstrap plan lists exactly
-the selected set for its intent. Documents that carry no configuration, such as
+the selected set for its intent. An owned path in the maximal set but outside the
+selected set is released, never deleted. Documents that carry no configuration, such as
 bootstrap ownership and journal count bounds, are bounded by the maximal set.
 
 `SECURITY.md.tmpl` takes `%%REPOSITORY%%` and `dependabot.yml.tmpl` takes
