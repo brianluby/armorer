@@ -586,7 +586,10 @@ fn warns_on_stderr_when_rustup_directory_is_world_writable() {
         return;
     };
     let tools = tempfile::tempdir().unwrap();
-    fs::copy(installed, tools.path().join("rustup-init")).unwrap();
+    let copied = tools.path().join("rustup-init");
+    fs::copy(installed, &copied).unwrap();
+    // `fs::copy` preserves mode bits; pin them so only the directory varies.
+    fs::set_permissions(&copied, fs::Permissions::from_mode(0o755)).unwrap();
     std::os::unix::fs::symlink("rustup-init", tools.path().join("rustup")).unwrap();
     let run = || {
         Command::new(env!("CARGO_BIN_EXE_armorer"))

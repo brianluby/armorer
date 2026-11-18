@@ -43,9 +43,11 @@ on another host without cross-compiling. The verifier chooses its native binary
 identity from its **host**, not the artifact target. Unsupported hosts are rejected
 by that adapter. Initial local transaction validation is on Linux and macOS;
 Windows, musl and other release targets have no accepted adapter in this baseline.
-Armorer itself supports Linux and macOS hosts only: on any other host the binary
-refuses up front, after argument parsing, with the `unsupported-host` JSON error on
-stdout and exit status 1, because reads there would lack symlink protection.
+Armorer itself supports Linux and macOS hosts. Only non-Unix hosts are refused:
+there the binary exits up front, after argument parsing, with the `unsupported-host`
+JSON error on stdout and exit status 1, because reads on non-Unix hosts would lack
+symlink protection. Other Unix systems are not refused by that check and are not
+qualified; Unix reads use the protected path.
 Installed target components and a passing native build remain separate evidence.
 No minimum glibc/loader/system-library baseline or macOS deployment/OS version is
 qualified by this metadata matrix. Before promising executable compatibility,

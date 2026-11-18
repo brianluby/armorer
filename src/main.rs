@@ -719,11 +719,15 @@ fn main() {
             "code": "unsupported-host",
             "message": "Armorer supports Linux and macOS hosts only"
         }});
-        if let Ok(bytes) = serde_json::to_vec_pretty(&refusal) {
+        let written = serde_json::to_vec_pretty(&refusal).is_ok_and(|bytes| {
             let mut stdout = std::io::stdout().lock();
-            let _ = stdout
+            stdout
                 .write_all(&bytes)
-                .and_then(|()| stdout.write_all(b"\n"));
+                .and_then(|()| stdout.write_all(b"\n"))
+                .is_ok()
+        });
+        if !written {
+            eprintln!("armorer: failed to write JSON output to stdout");
         }
         std::process::exit(1);
     }
