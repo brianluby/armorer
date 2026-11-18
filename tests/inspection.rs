@@ -625,6 +625,64 @@ fn warns_on_stderr_when_rustup_directory_is_world_writable() {
 
 #[cfg(unix)]
 #[test]
+fn warns_once_when_symlinked_rustup_target_is_world_writable() {
+    use std::os::unix::fs::PermissionsExt;
+    const WARNING: &str = "armorer: warning: rustup was found in a world-writable location; another local user could replace it";
+    let root = fixture();
+    let Some(installed) = std::env::var_os("PATH").and_then(|path| {
+        std::env::split_paths(&path)
+            .map(|directory| directory.join("rustup"))
+            .find(|path| path.is_absolute() && path.is_file())
+    }) else {
+        eprintln!("rustup not on PATH; skipping symlinked world-writable warning test");
+        return;
+    };
+    let tools = tempfile::tempdir().unwrap();
+    let real = tools.path().join("real");
+    let bin = tools.path().join("bin");
+    fs::create_dir(&real).unwrap();
+    fs::create_dir(&bin).unwrap();
+    fs::set_permissions(&real, fs::Permissions::from_mode(0o755)).unwrap();
+    fs::set_permissions(&bin, fs::Permissions::from_mode(0o755)).unwrap();
+    let target = real.join("rustup-init");
+    fs::copy(installed, &target).unwrap();
+    std::os::unix::fs::symlink(&target, bin.join("rustup")).unwrap();
+    let run = || {
+        Command::new(env!("CARGO_BIN_EXE_armorer"))
+            .env("PATH", &bin)
+            .args([
+                "--repository",
+                root.path().to_str().unwrap(),
+                "bootstrap",
+                "plan",
+                "--policy",
+            ])
+            .arg(root.path().join("ci-policy.reviewed.toml"))
+            .output()
+            .unwrap()
+    };
+    fs::set_permissions(&target, fs::Permissions::from_mode(0o755)).unwrap();
+    let normal = run();
+    assert!(normal.status.success());
+    assert!(!String::from_utf8_lossy(&normal.stderr).contains(WARNING));
+
+    fs::set_permissions(&target, fs::Permissions::from_mode(0o777)).unwrap();
+    let warned = run();
+    assert!(
+        warned.status.success(),
+        "{}",
+        String::from_utf8_lossy(&warned.stdout)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&warned.stderr)
+            .matches(WARNING)
+            .count(),
+        1
+    );
+}
+
+#[cfg(unix)]
+#[test]
 fn rejects_repository_local_executable_on_path() {
     use std::os::unix::fs::PermissionsExt;
     let root = fixture();
