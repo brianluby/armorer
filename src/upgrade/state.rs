@@ -78,6 +78,7 @@ pub(super) fn decode_state(bytes: &[u8]) -> Result<State> {
         &state.toolchain,
         &state.generated_policy,
     )?;
+    let fixed = catalog.fixed_files()?;
     for (path, image) in &state.managed {
         if generated.get(path) != Some(&image.generated)
             || digest(image.generated.as_bytes()) != image.generated_sha256
@@ -97,7 +98,7 @@ pub(super) fn decode_state(bytes: &[u8]) -> Result<State> {
             }
             ".armorer/ci-policy.toml" => true,
             // A fixed catalog file admits no customization; every other path fails closed.
-            _ => catalog.fixed_files()?.contains_key(path) && image.applied == image.generated,
+            _ => fixed.contains_key(path) && image.applied == image.generated,
         };
         if !allowed {
             return Err(Error::Transaction(

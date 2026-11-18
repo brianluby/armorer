@@ -117,7 +117,7 @@ fn imports(files: &[String], target: &Authority) -> Result<()> {
         || files.iter().any(|path| !allowed.contains(&path.as_str()))
     {
         return Err(Error::Transaction(
-            "import decisions must be unique fixed bootstrap targets",
+            "import decisions must be unique paths in the target catalog's managed set",
         ));
     }
     Ok(())
