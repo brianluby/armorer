@@ -1,15 +1,14 @@
 # ADR 0012: consolidate superseded contracts before the first release
 
-Status: decision accepted by the owner, 2026-11-16. Removals are delivered as
-separately reviewed changes. Rows 1–2 (version-one provisioning commands,
-plan-v1 schema, v1 state/journal, guard_v1, LegacyV1 upgrade source) are
-implemented on branch `adr0012/remove-v1-provisioning`. Row 3 (legacy-v1/native-v2
-context kinds, readers and standalone v1/v2 context schemas) is implemented on
-branch `adr0012/remove-legacy-contexts`. Row 4 (bootstrap-v1 as production
-authority) is implemented on branch `adr0012/remove-bootstrap-v1-catalog`:
-the predecessor survives only behind the `test-predecessor` feature for
-migration tests (rule 3); production builds reject it as an unknown catalog. This ADR authorizes no release, tag
-or publication.
+Status: decision accepted by the owner, 2026-11-16, and implemented on main.
+Rows 1–2 (version-one provisioning commands, plan-v1 schema, v1 state/journal,
+guard_v1, LegacyV1 upgrade source) merged in PR #46 (`33ce192`). Row 3
+(legacy-v1/native-v2 context kinds, readers and standalone v1/v2 context
+schemas) merged in PR #47 (`00c44a7`). Row 4 (bootstrap-v1 as production
+authority) merged in PR #48 (`6a3b45a`): the predecessor survives only behind
+the `test-predecessor` feature for migration tests (rule 3); production builds
+reject it as an unknown catalog. This ADR authorizes no release, tag or
+publication.
 
 ## Context
 
