@@ -182,6 +182,7 @@ pub fn propose(root: &Path, repository: &str, toolchain: Option<&str>) -> Result
     let workspace = discovery::discover_workspace(&root, &toolchain)?;
     let selection = select_deliverables(&workspace.packages)?;
     let license = license_file(&root)?;
+    let repository_files = propose_repository_files(&root)?;
     let proposed = Config {
         schema_version: config::VERSION,
         repository: repository.to_owned(),
@@ -199,7 +200,11 @@ pub fn propose(root: &Path, repository: &str, toolchain: Option<&str>) -> Result
             license_file: license.unwrap_or(LICENSE_CANDIDATES[0]).to_owned(),
             attestations: Attestations::Required,
         },
-        repository_files: RepositoryFiles::default(),
+        repository_files: RepositoryFiles {
+            security_policy: repository_files.security_policy,
+            dependabot: repository_files.dependabot,
+            code_owners: Vec::new(),
+        },
     };
     let config_text = render_config(&proposed)?;
     // Valid by construction; re-check with the loader and discovery selection rules anyway.
@@ -265,6 +270,10 @@ pub fn propose(root: &Path, repository: &str, toolchain: Option<&str>) -> Result
             "An existing rust-toolchain.toml or legacy rust-toolchain file does not pin the proposed toolchain; bootstrap plan will report it as a conflict until the owner resolves it.",
         ));
     }
+    findings.push(finding(
+        "repository-files-review",
+        repository_files.detail(),
+    ));
     if exists(&root, POLICY_DRAFT_PATH)? {
         findings.push(finding(
             "policy-draft-exists",
@@ -432,6 +441,56 @@ fn proposed_file(path: &str, content: String) -> ProposedFile {
 /// Report whether a plain relative path exists, refusing symlinks in it.
 fn exists(root: &Path, relative: &str) -> Result<bool> {
     crate::filesystem::exists(root, relative)
+}
+
+/// Existing security policies GitHub recognizes. Any of them keeps `security_policy` off,
+/// so Armorer never proposes a second, competing policy.
+const SECURITY_POLICY_PATHS: [&str; 3] = ["SECURITY.md", ".github/SECURITY.md", "docs/SECURITY.md"];
+/// Existing Dependabot configurations; either keeps `dependabot` off.
+const DEPENDABOT_PATHS: [&str; 2] = [".github/dependabot.yml", ".github/dependabot.yaml"];
+
+/// Which optional repository files `init` switches on: each only where no such file
+/// exists yet, so a proposal never makes bootstrap conflict with a hand-written file.
+/// Code owners cannot be inferred and are never proposed.
+struct ProposedRepositoryFiles {
+    security_policy: bool,
+    dependabot: bool,
+}
+
+impl ProposedRepositoryFiles {
+    /// Fixed finding text naming what was enabled and what was left off; no value echoed.
+    fn detail(&self) -> &'static str {
+        match (self.security_policy, self.dependabot) {
+            (true, true) => {
+                "Optional managed files enabled in [repository_files]: SECURITY.md (security_policy) and .github/dependabot.yml (dependabot). None was left off. Set code_owners to manage .github/CODEOWNERS; owners cannot be inferred."
+            }
+            (true, false) => {
+                "Optional managed files enabled in [repository_files]: SECURITY.md (security_policy). Left off because the file already exists: .github/dependabot.yml (dependabot). Set code_owners to manage .github/CODEOWNERS; owners cannot be inferred."
+            }
+            (false, true) => {
+                "Optional managed files enabled in [repository_files]: .github/dependabot.yml (dependabot). Left off because the file already exists: SECURITY.md (security_policy). Set code_owners to manage .github/CODEOWNERS; owners cannot be inferred."
+            }
+            (false, false) => {
+                "No optional managed file was enabled. Left off because the file already exists: SECURITY.md (security_policy) and .github/dependabot.yml (dependabot). Set code_owners in [repository_files] to manage .github/CODEOWNERS; owners cannot be inferred."
+            }
+        }
+    }
+}
+
+/// Probe the existing files through held directory handles; a symlink is refused.
+fn propose_repository_files(root: &Path) -> Result<ProposedRepositoryFiles> {
+    let any = |paths: &[&str]| -> Result<bool> {
+        for path in paths {
+            if exists(root, path)? {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    };
+    Ok(ProposedRepositoryFiles {
+        security_policy: !any(&SECURITY_POLICY_PATHS)?,
+        dependabot: !any(&DEPENDABOT_PATHS)?,
+    })
 }
 
 /// Refuse an existing (or symlinked) `armorer.toml`.
@@ -841,9 +900,17 @@ mod tests {
                 license_file: "LICENSE".into(),
                 attestations: Attestations::Required,
             },
-            repository_files: RepositoryFiles::default(),
+            repository_files: RepositoryFiles {
+                security_policy: true,
+                dependabot: false,
+                code_owners: Vec::new(),
+            },
         };
         let text = render_config(&config).unwrap();
+        assert!(
+            text.contains("\n[repository_files]\nsecurity_policy = true\ndependabot = false\n")
+        );
+        assert!(!text.contains("code_owners"));
         assert!(text.starts_with("# Proposed by `armorer init`"));
         let parsed = config::parse_config(text.as_bytes(), root.path()).unwrap();
         assert_eq!(

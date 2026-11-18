@@ -215,8 +215,14 @@ fn single_binary_crate_is_proposed_read_only() {
         [
             "policy-draft-incomplete",
             "profile-review",
+            "repository-files-review",
             "targets-review"
         ]
+    );
+    // Neither optional file exists, so both switches are proposed; owners never are.
+    assert!(
+        file(&proposal, init::CONFIG_PATH)
+            .ends_with("\n[repository_files]\nsecurity_policy = true\ndependabot = true\n")
     );
     let config = proposed_config(&proposal);
     assert_eq!(
@@ -272,6 +278,7 @@ fn library_only_crate_without_license() {
         [
             "license-file-missing",
             "policy-draft-incomplete",
+            "repository-files-review",
             "targets-review"
         ]
     );
@@ -817,4 +824,96 @@ fn discover_workspace_refuses_inexact_toolchains_first() {
         );
     }
     assert_inert(root.path());
+}
+
+/// The `repository-files-review` finding's detail.
+fn repository_files_detail(proposal: &Value) -> &str {
+    proposal["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["code"] == "repository-files-review")
+        .unwrap()["detail"]
+        .as_str()
+        .unwrap()
+}
+
+#[test]
+/// An optional file is switched on only where no such file exists, so the proposal never
+/// makes bootstrap conflict with a hand-written file; code owners are never proposed.
+fn optional_repository_files_are_proposed_only_where_absent() {
+    let root = single_binary();
+    let proposal = propose(root.path(), "example/pilot");
+    let config = proposed_config(&proposal);
+    assert!(config.repository_files.security_policy);
+    assert!(config.repository_files.dependabot);
+    assert!(config.repository_files.code_owners.is_empty());
+    let detail = repository_files_detail(&proposal);
+    assert!(
+        detail.contains("SECURITY.md (security_policy) and .github/dependabot.yml (dependabot)")
+    );
+    assert!(detail.contains("None was left off") && detail.contains("code_owners"));
+
+    for existing in ["SECURITY.md", ".github/SECURITY.md", "docs/SECURITY.md"] {
+        let root = single_binary();
+        let path = root.path().join(existing);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, "hand-written\n").unwrap();
+        let before = snapshot(root.path());
+        let proposal = propose(root.path(), "example/pilot");
+        assert_eq!(snapshot(root.path()), before);
+        let config = proposed_config(&proposal);
+        assert!(!config.repository_files.security_policy, "{existing}");
+        assert!(config.repository_files.dependabot, "{existing}");
+        assert!(
+            file(&proposal, init::CONFIG_PATH)
+                .ends_with("\n[repository_files]\nsecurity_policy = false\ndependabot = true\n")
+        );
+        let detail = repository_files_detail(&proposal);
+        assert!(
+            detail.contains("Left off because the file already exists: SECURITY.md"),
+            "{detail}"
+        );
+    }
+
+    for existing in [".github/dependabot.yml", ".github/dependabot.yaml"] {
+        let root = single_binary();
+        fs::create_dir_all(root.path().join(".github")).unwrap();
+        fs::write(root.path().join(existing), "version: 2\n").unwrap();
+        fs::write(root.path().join("SECURITY.md"), "hand-written\n").unwrap();
+        let proposal = propose(root.path(), "example/pilot");
+        let config = proposed_config(&proposal);
+        assert_eq!(
+            config.repository_files,
+            armorer::config::RepositoryFiles::default()
+        );
+        // With every switch off the table is omitted entirely.
+        assert!(!file(&proposal, init::CONFIG_PATH).contains("repository_files"));
+        let detail = repository_files_detail(&proposal);
+        assert!(
+            detail.starts_with("No optional managed file was enabled."),
+            "{detail}"
+        );
+        assert!(detail.contains(".github/dependabot.yml (dependabot)"));
+    }
+
+    // The handle-based probe refuses a symlinked policy instead of following it.
+    #[cfg(unix)]
+    {
+        let root = single_binary();
+        std::os::unix::fs::symlink("LICENSE", root.path().join("SECURITY.md")).unwrap();
+        let before = snapshot(root.path());
+        cli(
+            root.path(),
+            &[
+                "init",
+                "--repo-name",
+                "example/pilot",
+                "--toolchain",
+                TOOLCHAIN,
+            ],
+            1,
+        );
+        assert_eq!(snapshot(root.path()), before);
+    }
 }
