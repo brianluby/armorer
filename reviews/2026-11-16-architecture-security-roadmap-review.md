@@ -3,17 +3,23 @@
 Reviewed at `caf7b89` (branch `claude/rust-setup-architecture-review-c722d8`).
 This is guidance for continued development, not a release qualification.
 
-## Follow-up status (origin/main `6a3b45a`, 2026-11-17)
+## Follow-up status (origin/main `292e9b6`, 2026-11-18)
 
-- **Done:** S1, S2, S3, S7 and the CI-cancellation part of S8 (PR #39); A4
-  (ADR 0012; PRs #46, #47 and #48). Schemas went from 27 to 24. Top-level
-  `check` now reads the bootstrap contract and exits 0 in sync or 2 on drift.
-- **In progress:** A1 (PR #49 shares the journaled write and restore core;
-  commit and cleanup logic stay per contract).
-- **Not started at this snapshot:** S4, S5, S6, the two remaining S8 items
-  (`trusted_rustup` directory check, non-Unix startup message), A2, A3, A5, A6,
-  A7, F1–F3, F5–F8, and the Go and Python adapters. F4 is partly done: the
-  drift check exists, but nothing runs it on a schedule.
+- **Done:** S1, S2, S3 and S7 (PR #39); A4 (ADR 0012; PRs #46, #47 and #48);
+  A1, the shared journaled write and restore core (PR #49); S8 (PR #51); S4 and
+  F5 (PR #52); A3 (PR #53); S5 (PR #54); F1 (PR #56); A2 (PR #58, ADR 0013);
+  the `sha2` 0.11 bump (PRs #59 and #45). There are now 25 schemas.
+- **Partly done:** S6 (PR #55 covers `lock`, `replace` and managed reads;
+  directory creation, file removal and the configuration readers are still
+  path-based). A6 (PR #57 adds `--format text`; the manifest file for the
+  `verify-release` and `publication` flags is not built). F4 (the drift check
+  runs in Armorer's own CI; adopters get no scheduled caller).
+- **Not started:** A5, A7, F2, F3, F6, F7, F8, and the Go and Python adapters.
+- **Gaps found while landing the above:** a CI run for a commit on `main` can be
+  cancelled when merges arrive faster than CI finishes; the live-GitHub
+  publication test fails if a merge to `main` lands while it runs; a downgrade
+  to a catalog with a narrower file set is a blocking conflict with no
+  supported path except rollback.
 - **Repository settings:** private vulnerability reporting, Dependabot security
   updates and secret scanning with push protection are enabled.
 
