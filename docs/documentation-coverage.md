@@ -51,5 +51,5 @@ Earn the last column. **This is the way.**
 
 The [accepted source map](development-status.md) and [live acceptance ledger](v01-acceptance.md)
 separate merged implementation from the remaining operational gates. Preserve the
-[preceding documentation snapshot](../reviews/2026-10-03-documentation-coverage-before-reconciliation.txt)
+preceding documentation snapshot (`reviews/2026-10-03-documentation-coverage-before-reconciliation.txt`)
 and existing dated review receipts. PR #26 remains under separate human review.

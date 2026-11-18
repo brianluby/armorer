@@ -120,7 +120,7 @@ or library subset cannot supply missing Apple parity or complete own-release
 acceptance. Publication, owned draft retry, served-byte checks and pilots still
 need their separately qualified adapters and evidence.
 
-The preceding `e88e25fc46c1` [integration review](../reviews/2026-10-03-workflow-integration.md) records
+The preceding `e88e25fc46c1` integration review (`reviews/2026-10-03-workflow-integration.md`) records
 19 passing local assembly tests, including exact byte transformations, inventory
 ordering, mutation, limits, cleanup and synthetic layout completion. It also
 retains the separate intake/policy/collector and hosted validation boundaries.
