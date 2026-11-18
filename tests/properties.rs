@@ -83,6 +83,30 @@ fn as_days(value: u64) -> i64 {
     i64::try_from(value).expect("day count fits")
 }
 
+/// Random years almost never hit the century rules or the range ends, so walk
+/// every day of those years against the independent oracle.
+#[test]
+fn utc_day_is_exact_for_every_day_of_boundary_years() {
+    for year in [1970, 1972, 1999, 2000, 2023, 2024, 2100, 2400, 9996, 9999] {
+        for month in 1..=12 {
+            for day in 1..=days_in_month(year, month) {
+                let actual = utc_day(&iso((year, month, day))).expect("valid date");
+                assert_eq!(
+                    as_days(actual),
+                    days_from_civil(year, month, day),
+                    "{year}-{month}-{day}"
+                );
+            }
+            let past = iso((year, month, days_in_month(year, month) + 1));
+            assert!(utc_day(&past).is_err(), "{past}");
+            assert!(
+                utc_day(&iso((year, month, 0))).is_err(),
+                "day zero in {year}-{month}"
+            );
+        }
+    }
+}
+
 proptest! {
     #[test]
     fn utc_day_never_panics(

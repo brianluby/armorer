@@ -89,6 +89,18 @@ mod tests {
             }
         }
 
+        /// Independent oracle: same major and minor, and a recorded patch that is
+        /// not newer than the running one. Pins the direction of the patch rule.
+        #[test]
+        fn same_line_with_an_older_or_equal_patch_is_compatible(
+            recorded in (0_u64..3, 0_u64..3, 0_u64..6),
+            running in (0_u64..3, 0_u64..3, 0_u64..6),
+        ) {
+            let expected = recorded.0 == running.0 && recorded.1 == running.1 && recorded.2 <= running.2;
+            let fmt = |(a, b, c): (u64, u64, u64)| format!("{a}.{b}.{c}");
+            prop_assert_eq!(compatible_with(&fmt(recorded), &fmt(running)), expected);
+        }
+
         #[test]
         fn never_panics(a in any::<String>(), b in any::<String>()) {
             let _ = compatible_with(&a, &b);

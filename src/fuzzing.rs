@@ -7,6 +7,9 @@
 /// Fixed trusted day for policy parsing: 2026-11-17 in days since the Unix epoch.
 const POLICY_TODAY: u64 = 20_774;
 
+/// Stdout cap the production GitHub CLI call applies before parsing a response.
+const HTTP_RESPONSE_LIMIT: usize = 4 * 1024 * 1024;
+
 /// The strict, duplicate-key-rejecting verification JSON reader.
 pub fn verification_json(bytes: &[u8]) -> bool {
     crate::verification::fuzz_strict_json(bytes)
@@ -14,6 +17,10 @@ pub fn verification_json(bytes: &[u8]) -> bool {
 
 /// The native CLI HTTP response parser, with both exit-status flags.
 pub fn http_response(bytes: &[u8]) -> bool {
+    // The production capture rejects output over 4 MiB before parsing.
+    if bytes.len() > HTTP_RESPONSE_LIMIT {
+        return false;
+    }
     let success = crate::verification::publication::fuzz_response(true, bytes);
     let failure = crate::verification::publication::fuzz_response(false, bytes);
     success || failure
@@ -51,4 +58,19 @@ pub fn lock_toml(bytes: &[u8]) -> bool {
 /// The unverified Sigstore bundle transport reader.
 pub fn sigstore_bundle(bytes: &[u8]) -> bool {
     crate::verification::bundle::fuzz_bare(bytes)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A response the parser accepts is still rejected once it exceeds the production cap.
+    #[test]
+    fn http_response_applies_the_production_size_cap() {
+        let mut bytes = b"HTTP/2.0 200 OK\r\nContent-Type: application/json\r\n\r\n".to_vec();
+        bytes.resize(HTTP_RESPONSE_LIMIT, b' ');
+        assert!(http_response(&bytes));
+        bytes.push(b' ');
+        assert!(!http_response(&bytes));
+    }
 }

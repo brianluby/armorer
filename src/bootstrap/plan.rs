@@ -416,6 +416,10 @@ mod diff_properties {
                 }
                 continue;
             }
+            assert!(
+                line.ends_with('\n'),
+                "body line not newline-terminated {line:?}"
+            );
             let mut chars = line.chars();
             let side = chars.next().expect("non-empty body line");
             assert!(side == '-' || side == '+', "unexpected body line {line:?}");
