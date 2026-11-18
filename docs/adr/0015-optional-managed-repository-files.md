@@ -33,11 +33,20 @@ bases are bounded and self-hashed like the policy file, and an upgrade accepts
 them only in their rendered shape. ADR 0012 lets the pre-release `bootstrap-v2`
 entry gain these entries in place, because no existing configuration renders them.
 
-Turning a switch off after Armorer owns the file has no approved behavior yet.
-It fails closed: bootstrap planning refuses with an explicit transaction error,
-and an upgrade shows a blocking conflict. Nothing is deleted and ownership is never
-silently released. Releasing, deleting or an explicit per-file decision is a
-separate owner decision.
+Turning a switch off after Armorer owns the file releases it (owner decision,
+2026-11-18). Armorer drops its ownership record for that path and never writes
+or removes the file, whether it is unmodified, edited or missing. The decision
+depends on ownership and configuration alone, never on the file's bytes; only an
+upgrade plan reads them, to show the reviewer the image it keeps. Nothing is ever
+deleted. The release is part of the plan and of its approval digest: a
+bootstrap plan lists it in `released` and `check` reports `release:<path>` drift
+until it is applied; an upgrade plan shows a `release` change whose proposed image
+is the current file and whose diffs are empty. Apply rewrites only the ownership
+state in the usual journaled transaction, and rollback or recovery restores the
+prior ownership. Afterwards the file is an ordinary unowned file; switching it on
+again follows the existing rules for unowned files. An owned file that a catalog
+successor drops entirely is different: it stays a blocking upgrade conflict, and
+its outcome is a separate, undecided owner decision.
 
 Consequences: an existing hand-written file at one of these paths conflicts until
 the owner removes it or leaves the switch off; `armorer init` switches a file on

@@ -116,12 +116,18 @@ while you keep a hand-written file, or remove that file through your own reviewe
 change before switching it on. The content is fixed: there is no template input,
 and `dependabot.yml` cannot carry extra ecosystems. Customizations conflict.
 
-Turning a switch off after Armorer owns the file has no approved behavior yet.
-`check`, `bootstrap plan`, `bootstrap check` and `bootstrap apply` refuse with
-`an owned managed file is no longer selected by the configuration; releasing or
-removing it is not supported yet`, and an upgrade plan shows the file as a
-blocking conflict. Nothing is deleted and ownership is never dropped silently.
-Switch the file back on to continue. See [ADR 0015](adr/0015-optional-managed-repository-files.md).
+Turning a switch off after Armorer owns the file releases it. The plan lists the
+path in `released`, and the text view says the file is kept and no longer
+managed. `check` and `bootstrap check` exit 2 with `release:<path>` until you
+apply. Apply drops the path from `.armorer/bootstrap-state-v2.json` and never
+reads, writes or removes the file, whether you left it, edited it or deleted it.
+Nothing is deleted. The switch is part of `armorer.toml`, so the same plan also
+updates `armorer.lock`, which is bound to the configuration digest. An
+interrupted apply recovers or rolls back like any other, and rollback brings the
+ownership back. After the release the file is yours: Armorer treats it like any
+unowned file. If you switch it on again, identical bytes stay unowned and
+different bytes conflict. An upgrade plan shows the same release as a `release`
+change. See [ADR 0015](adr/0015-optional-managed-repository-files.md).
 
 Opt in deliberately. Keep the hand-written file until you choose to hand it over.
 **This is the way.**

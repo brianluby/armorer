@@ -61,8 +61,10 @@
     },
     "Change": {
       "additionalProperties": false,
+      "description": "One governed path. For a `release` change (an owned optional file the configuration\nhas switched off, ADR 0015) nothing is proposed to be written: `proposed_content`\nand `after_sha256` repeat the current file (`before_content`, `before_sha256`), or\nare absent when the file is absent; the target renders no candidate, so\n`candidate_content` is empty; and `candidate_diff` is empty and `proposed_diff` is\nempty (or absent with the file), never a `/dev/null` deletion.",
       "properties": {
         "after_sha256": {
+          "description": "Digest of `proposed_content`; for a `release`, equal to `before_sha256`.",
           "pattern": "^[0-9a-f]{64}$(?![\\s\\S])",
           "type": [
             "string",
@@ -96,9 +98,11 @@
           ]
         },
         "candidate_content": {
+          "description": "The target's rendered bytes; empty when the target renders nothing for this path\n(a `conflict` on a file the target catalog dropped, or a `release`).",
           "type": "string"
         },
         "candidate_diff": {
+          "description": "Current-to-candidate diff; empty for a `release`.",
           "type": "string"
         },
         "candidate_sha256": {
@@ -115,12 +119,14 @@
           "type": "string"
         },
         "proposed_content": {
+          "description": "The approved after image; absent for a `conflict`. For a `release` it is the\ncurrent file unchanged (absent when the file is absent): nothing is written.",
           "type": [
             "string",
             "null"
           ]
         },
         "proposed_diff": {
+          "description": "Current-to-proposed diff; empty for a `release` (absent with the file).",
           "type": [
             "string",
             "null"
@@ -223,7 +229,8 @@
         "update",
         "preserve-customization",
         "import",
-        "conflict"
+        "conflict",
+        "release"
       ],
       "type": "string"
     },

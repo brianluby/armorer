@@ -432,6 +432,13 @@
     "recovery_required": {
       "type": "boolean"
     },
+    "released": {
+      "description": "Owned managed files the configuration has switched off (ADR 0015), sorted and\nunique. Applying the plan drops Armorer's ownership record for each path; the\nfile itself is kept exactly as it is and is never read, written or removed.\nEach path is in the plan catalog's maximal set and outside the set its intent\nselects. Omitted when empty.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
     "runtime_version": {
       "type": "string"
     },

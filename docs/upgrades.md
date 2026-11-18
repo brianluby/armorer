@@ -78,8 +78,14 @@ the repository name and the `[repository_files]` switches beside the configurati
 digest, only when any switch is on, and every optional base must equal the bytes
 re-derived from those recorded inputs; a state that lists an optional file without
 them is rejected. Optional files admit no customization and cannot be named with
-`--import` yet. An owned optional file that the configuration no longer selects is
-a blocking conflict, never a deletion. Leftover version-one ownership
+`--import` yet. An owned optional file that the configuration no longer selects,
+but that the target catalog can still render, is released: its change has the
+`release` decision, its proposed image is the current file (absent if it is
+absent), `after_sha256` equals `before_sha256`, and both diffs are empty. Apply
+writes nothing to that file and the next upgrade state omits it; rollback
+restores the prior ownership. An owned file that the target catalog cannot render
+at all, because a successor dropped it, is still a blocking conflict, never a
+deletion. Leftover version-one ownership
 (`.armorer/state.json`/`journal.json`) is refused explicitly and requires owner
 removal review; it is never imported (ADR 0012). New
 upgrade ownership retains generated and approved customized images separately, so
