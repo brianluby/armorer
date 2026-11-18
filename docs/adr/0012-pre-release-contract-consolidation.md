@@ -5,7 +5,10 @@ separately reviewed changes. Rows 1–2 (version-one provisioning commands,
 plan-v1 schema, v1 state/journal, guard_v1, LegacyV1 upgrade source) are
 implemented on branch `adr0012/remove-v1-provisioning`. Row 3 (legacy-v1/native-v2
 context kinds, readers and standalone v1/v2 context schemas) is implemented on
-branch `adr0012/remove-legacy-contexts`. The compiled-catalog removal remains pending. This ADR authorizes no release, tag
+branch `adr0012/remove-legacy-contexts`. Row 4 (bootstrap-v1 as production
+authority) is implemented on branch `adr0012/remove-bootstrap-v1-catalog`:
+the predecessor survives only behind the `test-predecessor` feature for
+migration tests (rule 3); production builds reject it as an unknown catalog. This ADR authorizes no release, tag
 or publication.
 
 ## Context

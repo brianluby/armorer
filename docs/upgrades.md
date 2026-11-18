@@ -17,17 +17,18 @@ consuming files. The examples use the installed Rust 1.95.0 toolchain.
 armorer --repository /path/to/project upgrade plan --policy /path/to/reviewed-policy.toml --catalog bootstrap-v2 > /path/outside-project/upgrade.json
 ```
 
-The catalog ID is mandatory. Two immutable entries are compiled: `bootstrap-v1`
-(frozen) pins workflow commit `772ca83e386c883c88cc3b936d69f8cb3216c91e`, and
-`bootstrap-v2` (the current successor) pins workflows main
-`e5e9c0d31baff87e357046d81068b646a39a9f23`, both in repository
+The catalog ID is mandatory. One production entry is compiled: `bootstrap-v2`
+pins workflows main `e5e9c0d31baff87e357046d81068b646a39a9f23` in repository
 `brianluby/armorer-workflows` with independently compiled tool-catalog SHA-256
-`e21e6cbd2cdd1125dbb9817116b1f46d043807b4d92128abc9dc07256dbb4b13`. The tool bytes
-are byte-identical between the entries; only the workflow pin moves. Every
-embedded catalog is authenticated before parsing. A future reviewed source update
-must add a new stable catalog ID and preserve each entry's meaning; no accepted
-catalog is invented from Git ancestry. The v1 -> v2 cross-revision upgrade is
-proven by deterministic tests, but operational migration between two accepted
+`e21e6cbd2cdd1125dbb9817116b1f46d043807b4d92128abc9dc07256dbb4b13`. The
+`bootstrap-v1` predecessor (workflow commit
+`772ca83e386c883c88cc3b936d69f8cb3216c91e`, identical tool bytes) was removed from
+production builds before 0.1.0 per ADR 0012; production selection of it is an
+unknown-catalog error. Every embedded catalog is authenticated before parsing.
+A future reviewed source update must add a new stable catalog ID and preserve
+each entry's meaning; no accepted catalog is invented from Git ancestry. The
+v1 -> v2 cross-revision upgrade stays proven by deterministic tests behind the
+`test-predecessor` feature; operational migration between two accepted
 workflow/catalog revisions on a real consumer remains an integration gate (#5).
 Unknown IDs, moving branches/tags, source substitution and failed catalog
 authentication never trigger import or downgrade fallback; `--allow-downgrade`
@@ -165,8 +166,8 @@ concurrency and every write/owner/commit-marker boundary in both directions.
 
 ## Runtime version boundary
 
-Both `bootstrap-v1` and `bootstrap-v2` freeze the runtime contract `0.1.0` as part
-of their independently reviewed authority. Every lock they render records that
+`bootstrap-v2` freezes the runtime contract `0.1.0` as part of its
+independently reviewed authority. Every lock it renders records that
 contract, so a catalog ID renders the same lock bytes on every patch release.
 
 A patch release keeps the contract. The running binary accepts a lock or ownership
