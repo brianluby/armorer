@@ -181,10 +181,20 @@ fn closing(out: &mut Out, hint: &str) {
     );
 }
 
+/// Say plainly when an interrupted transaction blocks applying this plan.
+fn recovery_notice(out: &mut Out, plan: &Value) {
+    if plan.get("recovery_required").and_then(Value::as_bool) == Some(true) {
+        out.line(
+            "Recovery required: an interrupted transaction must be recovered before this plan can be applied.",
+        );
+    }
+}
+
 fn bootstrap_plan(out: &mut Out, plan: &Value) {
     let digest = text(plan, "plan_sha256");
     out.line(&format!("Bootstrap plan {digest}"));
     out.line(&format!("Catalog: {}", text(plan, "catalog_id")));
+    recovery_notice(out, plan);
     out.blank();
     out.line("Changes:");
     let changes = array(plan, "changes");
@@ -260,6 +270,7 @@ fn upgrade_plan(out: &mut Out, plan: &Value) {
     let digest = text(plan, "plan_sha256");
     out.line(&format!("Upgrade plan {digest}"));
     out.line(&format!("Direction: {}", text(plan, "direction")));
+    recovery_notice(out, plan);
     out.line(&format!(
         "Source catalog: {}",
         authority(plan.get("source_catalog"))
@@ -493,6 +504,14 @@ mod tests {
         });
         let text = render(&value).unwrap();
         assert!(text.starts_with("Bootstrap plan d1\nCatalog: bootstrap-v2\n"));
+        assert!(!text.contains("Recovery required"));
+        let mut pending = value.clone();
+        pending["recovery_required"] = json!(true);
+        assert!(
+            render(&pending)
+                .unwrap()
+                .starts_with("Bootstrap plan d1\nCatalog: bootstrap-v2\nRecovery required: ")
+        );
         assert!(text.contains("  unchanged  owned    a.yml\n"));
         assert!(text.contains("  conflict   unowned  b.yml\n"));
         assert!(text.contains("-old\\x1b\n+new\n"));
@@ -535,6 +554,14 @@ mod tests {
         });
         let text = render(&value).unwrap();
         assert!(text.contains("Direction: upgrade"));
+        assert!(!text.contains("Recovery required"));
+        let mut pending = value.clone();
+        pending["recovery_required"] = json!(true);
+        assert!(
+            render(&pending)
+                .unwrap()
+                .contains("Direction: upgrade\nRecovery required: ")
+        );
         assert!(text.contains("Source catalog: bootstrap-v1 (revision 1)"));
         assert!(text.contains("Target catalog: bootstrap-v2 (revision 2)"));
         assert!(text.contains("  update     w.yml\n"));
