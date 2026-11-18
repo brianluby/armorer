@@ -24,7 +24,22 @@ rustup run 1.95.0 cargo build --locked
 
 The owner's workstation prefixes shell commands with `rtk`; use `rtk proxy rustup run 1.95.0 cargo build --locked` there. If an unavailable compiler wrapper blocks the build, follow [the contributor setup](CONTRIBUTING.md).
 
-Bring a consuming workspace. Author `armorer.toml` using [the CLI example](examples/armorer.toml). Name the repository, packages, binaries, targets and feature sets explicitly. Libraries omit `binary`; CLI and service deliverables require it.
+Bring a consuming workspace. Let `init` propose its `armorer.toml` and a policy draft from read-only discovery. Pass an exact toolchain unless `rust-toolchain.toml` pins one:
+
+```sh
+./target/debug/armorer --repository /path/to/workspace init \
+  --repo-name owner/name --toolchain 1.95.0 > /path/outside-workspace/init-proposal.json
+```
+
+Inspect every proposed byte and finding. Retain the reviewed `proposal_sha256`, then create both files. The write recomputes the original proposal, so edit the created files afterwards, not the saved JSON:
+
+```sh
+./target/debug/armorer --repository /path/to/workspace init \
+  --repo-name owner/name --toolchain 1.95.0 \
+  --write --expect-proposal-sha256 REVIEWED_PROPOSAL_SHA256
+```
+
+`init` never overwrites a file. Then edit the created `armorer.toml` where your intent differs (prune the targets you do not ship; change a long-running binary's profile to `service`); [the CLI example](examples/armorer.toml) shows the format. Complete `armorer-policy.draft.toml`: list the dependency licenses you accept, review every other section, and save the reviewed policy. Armorer has no default dependency policy, and `bootstrap plan` rejects the draft until you finish it.
 
 ```sh
 ./target/debug/armorer --repository /path/to/workspace bootstrap plan \
@@ -32,7 +47,7 @@ Bring a consuming workspace. Author `armorer.toml` using [the CLI example](examp
 ./target/debug/armorer --repository /path/to/workspace check
 ```
 
-Read the JSON. `bootstrap plan` exits 0 for valid inspection, including unmet setup requirements. `check` reads the managed `.armorer/ci-policy.toml`: exit 0 when provisioning is in sync, exit 2 with reasons on stderr on drift, and a JSON error when no managed policy exists yet. Invalid input/discovery exits 1 with a JSON error. Argument errors use Clap's stderr diagnostics. Check and plan preserve consuming files, contact no GitHub service, and run no repository build scripts.
+Read the JSON. `init` exits 0 for a proposal or completed write. `bootstrap plan` exits 0 for valid inspection, including unmet setup requirements. `check` reads the managed `.armorer/ci-policy.toml`: exit 0 when provisioning is in sync, exit 2 with reasons on stderr on drift, and a JSON error when no managed policy exists yet. Invalid input/discovery exits 1 with a JSON error. Argument errors use Clap's stderr diagnostics. Init proposals, check and plan preserve consuming files, contact no GitHub service, and run no repository build scripts.
 
 Follow [your first inspection](docs/onboarding.md) for a complete local exercise. Before changing a real project, read [reviewed bootstrap and recovery](docs/bootstrap-v2.md). Inspect the plan. Retain the approved digest. Apply the exact intent.
 

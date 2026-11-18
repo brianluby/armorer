@@ -15,6 +15,7 @@ pub mod ci_policy;
 pub mod config;
 pub mod discovery;
 mod filesystem;
+pub mod init;
 pub mod plan;
 mod runtime;
 mod schema_bounds;

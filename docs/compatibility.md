@@ -26,7 +26,7 @@ ownership or intent changes. Reformatting plan JSON does not alter its typed
 digest, but changes to fields do. Duplicate JSON keys are rejected. Editing the
 stored digest is not a migration or approval.
 
-All 27 CLI schema names are in [the command reference](cli-reference.md).
+All 25 CLI schema names are in [the command reference](cli-reference.md).
 Schemas establish structure. Semantic validation, upstream authentication and
 hosted execution have separate gates.
 

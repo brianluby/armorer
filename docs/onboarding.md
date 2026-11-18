@@ -8,6 +8,46 @@ marked in [the development map](development-status.md).
 
 **This is the way.**
 
+## Initialize
+
+A new workspace has no `armorer.toml`. Let `init` propose one, with an unreviewed
+CI policy draft, from the same read-only discovery that inspection uses:
+
+```sh
+armorer --repository /path/to/workspace init --repo-name owner/name \
+  --toolchain 1.95.0 > /path/outside-workspace/init-proposal.json
+```
+
+`--repo-name` is the GitHub `owner/name`. Omit `--toolchain` only when the
+workspace's `rust-toolchain.toml` pins an exact `x.y.z` channel; Armorer never
+guesses `stable` or its own toolchain. The proposal changes no file. It lists
+`files[]` (`armorer-policy.draft.toml` and `armorer.toml`, exact content and
+SHA-256), the discovered `workspace`, `findings` and `proposal_sha256`.
+
+Read what it proposes. Each binary target that default features enable becomes a
+`cli` deliverable named after the binary; a package with a library and no binary
+becomes a `library` deliverable. Every supported target and one `default` feature
+set are selected. Then create both files with the digest you reviewed. The write
+recomputes the original proposal, so edit the created `armorer.toml` afterwards,
+not the saved JSON:
+
+```sh
+armorer --repository /path/to/workspace init --repo-name owner/name \
+  --toolchain 1.95.0 --write --expect-proposal-sha256 REVIEWED_PROPOSAL_SHA256
+```
+
+The write recomputes the proposal; a changed workspace needs a fresh review. It
+creates the draft, then `armorer.toml`, and never overwrites either. Once
+`armorer.toml` exists, `init` refuses to run. Now edit the created config where your
+intent differs: prune targets you do not ship and change a long-running binary to
+`service`. Complete the draft: list the dependency licenses you accept in
+`licenses.allow` and review every other section. `bootstrap plan` rejects the
+draft until `licenses.allow` names at least one license. The receipt keeps
+`configured` and `policy_reviewed` false: these files are owner input, not
+provisioning.
+
+Your workspace, your decisions. **This is the way.**
+
 ## Train on a small workspace
 
 Run this from the Armorer checkout in a POSIX shell. It creates a new temporary
@@ -75,7 +115,7 @@ intent. Approval still requires your review. The training source stays inert.
 ## Bring your own repository
 
 1. Install rustup and the exact toolchain declared in `armorer.toml`. Armorer never installs consuming tools during check/plan. The CLI builds with Rust 1.95.0.
-2. Author configuration using [the example](../examples/armorer.toml) and [contracts](contracts-v1.md). Select packages, binaries, targets and features explicitly; omit binary for libraries.
+2. [Initialize](#initialize) configuration and a policy draft, or author it using [the example](../examples/armorer.toml) and [contracts](contracts-v1.md). Either way, the selected packages, binaries, targets and features are your explicit decisions; omit binary for libraries.
 3. Run `armorer --repository /path/to/workspace bootstrap plan --policy /path/to/reviewed-policy.toml` and review findings and proposed content. After provisioning, `check` reports drift over the managed policy; it exits 2 while drift remains.
 4. Review and retain a plan digest, then use [version-two bootstrap](bootstrap-v2.md) to provision callers, catalog-backed lock and explicit policy. Check/plan stay read-only. Track missing settings, credentials and reviewed pins as setup work; this slice does not contact GitHub, request secrets or configure GitHub settings.
 
