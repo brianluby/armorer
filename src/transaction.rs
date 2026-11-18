@@ -59,16 +59,18 @@ pub(crate) fn write_image(
     root: &Path,
     path: &str,
     image: Option<&str>,
+    absent: bool,
     parent_msg: &'static str,
 ) -> Result<()> {
-    let current = optional_bytes(root, path)?;
     match image {
         Some(image) => {
             ensure_parent(root, path)?;
-            replace(root, path, image.as_bytes(), current.is_none())
+            // No-clobber binds the caller's approved absence, never a fresh read:
+            // a file created after the preimage check must fail, not be overwritten.
+            replace(root, path, image.as_bytes(), absent)
         }
         None => {
-            if current.is_some() {
+            if optional_bytes(root, path)?.is_some() {
                 let path = safe_path(root, path)?;
                 fs::remove_file(&path)?;
                 sync_directory(path.parent().ok_or(Error::Transaction(parent_msg))?)?;
@@ -94,7 +96,13 @@ pub(crate) fn apply_writes(
         ) {
             return Err(Error::Transaction(target_changed));
         }
-        write_image(root, &w.path, w.after.as_deref(), parent_msg)?;
+        write_image(
+            root,
+            &w.path,
+            w.after.as_deref(),
+            w.before.is_none(),
+            parent_msg,
+        )?;
         after_write(index)?;
     }
     Ok(())
@@ -104,13 +112,17 @@ pub(crate) fn apply_writes(
 /// edits. Files already at their approved before image are left untouched.
 pub(crate) fn restore(root: &Path, operations: &[Write], parent_msg: &'static str) -> Result<()> {
     for w in operations.iter().rev() {
-        if matches(
-            optional_bytes(root, &w.path)?.as_deref(),
-            w.before.as_deref(),
-        ) {
+        let current = optional_bytes(root, &w.path)?;
+        if matches(current.as_deref(), w.before.as_deref()) {
             continue;
         }
-        write_image(root, &w.path, w.before.as_deref(), parent_msg)?;
+        write_image(
+            root,
+            &w.path,
+            w.before.as_deref(),
+            current.is_none(),
+            parent_msg,
+        )?;
     }
     Ok(())
 }
@@ -141,6 +153,33 @@ mod tests {
         assert_eq!(
             crate::filesystem::json(&deletion).unwrap(),
             b"{\n  \"path\": \".armorer/bootstrap-state-v2.json\",\n  \"before\": \"{}\",\n  \"after\": null\n}"
+        );
+    }
+}
+
+#[cfg(test)]
+mod absence_tests {
+    use super::*;
+
+    /// Approved absence pins no-clobber: a file created after the preimage
+    /// check must fail the write, never be overwritten.
+    #[test]
+    fn approved_absent_write_refuses_an_intervening_file() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(root.path().join("target"), "intervening").unwrap();
+        assert!(
+            write_image(
+                root.path(),
+                "target",
+                Some("approved"),
+                true,
+                "invalid parent"
+            )
+            .is_err()
+        );
+        assert_eq!(
+            std::fs::read_to_string(root.path().join("target")).unwrap(),
+            "intervening"
         );
     }
 }
