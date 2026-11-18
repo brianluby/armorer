@@ -27,8 +27,9 @@ SHA-256), the discovered `workspace`, `findings` and `proposal_sha256`.
 Read what it proposes. Each binary target that default features enable becomes a
 `cli` deliverable named after the binary; a package with a library and no binary
 becomes a `library` deliverable. Every supported target and one `default` feature
-set are selected. Prune targets you do not ship. Change a long-running binary to
-`service`. Then create both files with the digest you reviewed:
+set are selected. Then create both files with the digest you reviewed. The write
+recomputes the original proposal, so edit the created `armorer.toml` afterwards,
+not the saved JSON:
 
 ```sh
 armorer --repository /path/to/workspace init --repo-name owner/name \
@@ -37,8 +38,9 @@ armorer --repository /path/to/workspace init --repo-name owner/name \
 
 The write recomputes the proposal; a changed workspace needs a fresh review. It
 creates the draft, then `armorer.toml`, and never overwrites either. Once
-`armorer.toml` exists, `init` refuses to run. Edit the created config where your
-intent differs. Complete the draft: list the dependency licenses you accept in
+`armorer.toml` exists, `init` refuses to run. Now edit the created config where your
+intent differs: prune targets you do not ship and change a long-running binary to
+`service`. Complete the draft: list the dependency licenses you accept in
 `licenses.allow` and review every other section. `bootstrap plan` rejects the
 draft until `licenses.allow` names at least one license. The receipt keeps
 `configured` and `policy_reviewed` false: these files are owner input, not

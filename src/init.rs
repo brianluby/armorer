@@ -349,12 +349,29 @@ pub fn write(
             .map(|file| file.content.as_bytes())
             .ok_or(Error::Transaction("init proposal file is missing"))
     };
-    replace(&root, POLICY_DRAFT_PATH, content(POLICY_DRAFT_PATH)?, true)?;
+    if let Err(cause) = replace(&root, POLICY_DRAFT_PATH, content(POLICY_DRAFT_PATH)?, true) {
+        return Err(failed_creation(
+            &root,
+            POLICY_DRAFT_PATH,
+            [
+                "armorer-policy.draft.toml was not created; nothing was written or deleted",
+                "armorer-policy.draft.toml exists but its directory sync failed, so it may not be durable; nothing was deleted, so inspect it and move it aside before rerunning init",
+                "armorer-policy.draft.toml may or may not exist; nothing was deleted, so inspect the workspace and move any draft aside before rerunning init",
+            ],
+            cause,
+        ));
+    }
     if let Err(cause) = replace(&root, CONFIG_PATH, content(CONFIG_PATH)?, true) {
-        return Err(Error::TransactionCause {
-            message: "armorer-policy.draft.toml was created but armorer.toml was not; nothing was deleted, so move the draft aside before rerunning init",
-            cause: Box::new(cause),
-        });
+        return Err(failed_creation(
+            &root,
+            CONFIG_PATH,
+            [
+                "armorer-policy.draft.toml was created but armorer.toml was not; nothing was deleted, so move the draft aside before rerunning init",
+                "armorer-policy.draft.toml and armorer.toml exist but the directory sync failed, so armorer.toml may not be durable; nothing was deleted, so inspect both files before any recovery",
+                "armorer-policy.draft.toml was created and armorer.toml may or may not exist; nothing was deleted, so inspect both files before any recovery",
+            ],
+            cause,
+        ));
     }
     Ok(Receipt {
         contract: "armorer-init-receipt",
@@ -369,6 +386,27 @@ pub fn write(
         published: false,
         provenance_verified: false,
     })
+}
+
+/// Classify a failed `replace` by checking whether the destination now exists.
+///
+/// `replace` renames the file into place and only then syncs the directory, so an
+/// error can leave `relative` behind. `messages` is `[absent, present, unknown]`.
+fn failed_creation(
+    root: &Path,
+    relative: &str,
+    messages: [&'static str; 3],
+    cause: Error,
+) -> Error {
+    let message = match exists(root, relative) {
+        Ok(false) => messages[0],
+        Ok(true) => messages[1],
+        Err(_) => messages[2],
+    };
+    Error::TransactionCause {
+        message,
+        cause: Box::new(cause),
+    }
 }
 
 fn defect() -> Error {
@@ -646,6 +684,26 @@ mod tests {
                 .collect(),
             targets,
         }
+    }
+
+    #[test]
+    /// A failed creation reports whether the file is absent, present or unknowable.
+    fn failed_creation_reports_the_actual_file_state() {
+        let root = tempfile::tempdir().unwrap();
+        let messages = ["absent", "present", "unknown"];
+        let message = |relative: &str| match failed_creation(
+            root.path(),
+            relative,
+            messages,
+            Error::Transaction("simulated"),
+        ) {
+            Error::TransactionCause { message, .. } => message,
+            _ => panic!("expected a transaction cause"),
+        };
+        assert_eq!(message("armorer.toml"), "absent");
+        std::fs::write(root.path().join("armorer.toml"), "x").unwrap();
+        assert_eq!(message("armorer.toml"), "present");
+        assert_eq!(message("../escape"), "unknown");
     }
 
     #[test]
