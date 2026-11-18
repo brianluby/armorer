@@ -1368,8 +1368,10 @@ mod tests {
     const LIVE_OBSERVATION_ATTEMPTS: u32 = 3;
     const LIVE_OBSERVATION_PAUSE: Duration = Duration::from_secs(5);
 
-    /// Run a complete observation up to `attempts` times, retrying only the exact change error
-    /// with a fixed pause. Any other error, or success, returns immediately.
+    /// Run a complete observation, retrying only the exact change error with a fixed pause.
+    /// It always observes once, even when `attempts` is 0, and makes at most `attempts`
+    /// observations in total when `attempts` is 1 or more. Any other error, or success,
+    /// returns immediately.
     fn retry_when_capabilities_change<T>(
         attempts: u32,
         pause: Duration,
