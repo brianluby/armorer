@@ -6,6 +6,8 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 use serde_json::json;
 use std::{io::Write, path::PathBuf};
 
+mod render;
+
 #[derive(Parser)]
 #[command(
     version,
@@ -14,8 +16,18 @@ use std::{io::Write, path::PathBuf};
 struct Cli {
     #[arg(long, default_value = ".", global = true)]
     repository: PathBuf,
+    /// Output format: json (default, the machine contract) or text (reviewer summary).
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json, global = true)]
+    format: OutputFormat,
     #[command(subcommand)]
     command: Operation,
+}
+
+/// Selects how stdout is rendered; exit statuses and stderr never depend on it.
+#[derive(Clone, Copy, ValueEnum)]
+enum OutputFormat {
+    Json,
+    Text,
 }
 
 #[derive(Subcommand)]
@@ -760,6 +772,7 @@ fn main() {
         }
         std::process::exit(1);
     }
+    let format = cli.format;
     let (value, code) = match run(cli) {
         Ok(result) => result,
         Err(error) => (
@@ -767,7 +780,16 @@ fn main() {
             1,
         ),
     };
-    let output = serde_json::to_vec_pretty(&value);
+    let output = match format {
+        OutputFormat::Json => serde_json::to_vec_pretty(&value),
+        OutputFormat::Text => match render::render(&value) {
+            Some(text) => Ok(text.into_bytes()),
+            None => {
+                eprintln!("armorer: no text view for this output; showing JSON");
+                serde_json::to_vec_pretty(&value)
+            }
+        },
+    };
     let mut stdout = std::io::stdout().lock();
     match output {
         Ok(bytes)
