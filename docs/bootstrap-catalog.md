@@ -84,6 +84,14 @@ contents read. Neither exposes shell, inputs, custom provenance, OIDC, signing
 credentials, environments or inherited secrets. Existing custom workflows/jobs
 stay separate; this renderer does not write or adopt files.
 
+Both callers key their concurrency group by `github.ref` for pull requests and by
+`github.sha` for every other event. GitHub keeps at most one pending run per group
+and cancels the older pending run when a newer one queues, even with
+`cancel-in-progress: false`; a per-ref group therefore dropped queued push runs
+during bursts of merges. With one group per commit, a queued run for one commit is
+never replaced by another commit's run. Pull requests keep one group per ref and
+cancel superseded runs. The build caller also keeps `cancel-in-progress: false`.
+
 ## Managed file set
 
 Each compiled catalog entry declares its own managed file set as one ordered table

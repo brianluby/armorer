@@ -121,6 +121,20 @@ A change to anything under `catalogs/templates/` alters the bytes rendered into 
 consumer repository, so it requires regenerating the example packets and updating the
 golden digests in `src/catalog.rs` deliberately.
 
+Regenerate the committed packets with the built binary, then rerun the tests:
+
+```sh
+cargo build --locked
+python3 scripts/regenerate-example-packets.py . target/debug/armorer
+```
+
+The script (standard library, Python 3.11+) rewrites the bootstrap plans, the literal
+example callers and the upgrade and rollback packets, rebuilding each upgrade scenario
+from its existing packet in a temporary copy outside the repository. It asserts that the
+scenario shape is unchanged, that replay is a no-op, that rollback restores the original
+bytes and that no build ran. A second run on the same UTC day changes nothing; the
+packets' `policy_review_day` and the digests derived from it move with the review day.
+
 ## Write in the creed
 
 Follow [the writing guide](docs/writing-guide.md). Use the Mandalorian voice in
