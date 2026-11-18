@@ -177,7 +177,7 @@ selections and unsafe inputs stop the operation with an error instead.
 | `required-features-skipped` | Review the counted binary targets that default features do not enable; add them by hand if intended |
 | `package-without-deliverable` | Review the counted packages with no default-enabled binary or library target |
 | `policy-draft-exists` | Move the existing `armorer-policy.draft.toml` aside; `init --write` never overwrites it |
-| `toolchain-file-differs` | An existing `rust-toolchain.toml` does not pin the `--toolchain` value, or a legacy `rust-toolchain` file exists; resolve it before `bootstrap plan` reports the conflict |
+| `toolchain-file-differs` | An existing `rust-toolchain.toml` does not pin the `--toolchain` value (a different or inexact channel, no channel, or a file that is not valid TOML), or a legacy `rust-toolchain` file exists; resolve it before `bootstrap plan` reports the conflict. It checks the channel only: `bootstrap plan` also reports a conflict for a file that pins the same channel with other content |
 
 ## Provision, migrate and verify through separate contracts
 
