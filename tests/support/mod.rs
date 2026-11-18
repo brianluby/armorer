@@ -15,8 +15,11 @@ pub fn gnu_patch_available() -> bool {
 /// Lowercase SHA-256 hex of `bytes`, independent of the sha2 digest type's formatting traits.
 pub fn sha256_hex(bytes: impl AsRef<[u8]>) -> String {
     use sha2::{Digest, Sha256};
-    Sha256::digest(bytes.as_ref())
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect()
+    use std::fmt::Write;
+    let digest = Sha256::digest(bytes.as_ref());
+    let mut hex = String::with_capacity(digest.len() * 2);
+    for byte in digest {
+        write!(hex, "{byte:02x}").expect("writing to a String cannot fail");
+    }
+    hex
 }
