@@ -336,6 +336,64 @@ mod tests {
         assert_eq!(fs::metadata(&created).unwrap().mode() & 0o7777, 0o600);
     }
 
+    /// Journals are the only new files created private; every journal constant must match.
+    #[test]
+    fn journal_paths_are_private_and_constants_are_covered() {
+        for journal in [
+            crate::bootstrap::JOURNAL,
+            crate::upgrade::JOURNAL,
+            ".armorer/journal.json",
+        ] {
+            assert!(is_journal(journal), "{journal}");
+        }
+        for committed in [
+            ".armorer/state.json",
+            ".armorer/ci-policy.toml",
+            ".armorer/sub/upgrade-journal-v1.json",
+            "upgrade-journal-v1.json",
+            "other/.armorer/journal.json",
+            ".github/workflows/ci.yml",
+        ] {
+            assert!(!is_journal(committed), "{committed}");
+        }
+    }
+
+    /// A new journal requests 0600 and a new workflow 0644, both under the process umask.
+    #[test]
+    fn replace_creates_journals_private_and_workflows_shared() {
+        use std::os::unix::fs::OpenOptionsExt;
+        let root = tempfile::tempdir().unwrap();
+        fs::create_dir_all(root.path().join(".armorer")).unwrap();
+        fs::create_dir_all(root.path().join(".github/workflows")).unwrap();
+        let umask_applied = |relative: &str, requested: u32| {
+            let reference = root
+                .path()
+                .join(format!("reference-{}", relative.replace('/', "_")));
+            fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .mode(requested)
+                .open(&reference)
+                .unwrap();
+            fs::metadata(&reference).unwrap().mode() & 0o7777
+        };
+        for (relative, requested) in [
+            (crate::upgrade::JOURNAL, 0o600),
+            (crate::bootstrap::JOURNAL, 0o600),
+            (".github/workflows/ci.yml", 0o644),
+            (".armorer/ci-policy.toml", 0o644),
+        ] {
+            replace(root.path(), relative, b"new", true).unwrap();
+            let mode = fs::metadata(root.path().join(relative)).unwrap().mode() & 0o7777;
+            assert_eq!(mode, umask_applied(relative, requested), "{relative}");
+            assert_eq!(
+                mode & !requested,
+                0,
+                "{relative} never wider than requested"
+            );
+        }
+    }
+
     /// Creation never clobbers a destination that already exists.
     #[test]
     fn replace_absent_refuses_existing_destination() {
@@ -478,8 +536,9 @@ mod tests {
         fs::rename(root.path().join("managed"), root.path().join("original")).unwrap();
         symlink(outside.path(), root.path().join("managed")).unwrap();
 
-        handles::replace_at(&parent.directory, &parent.leaf, b"after", false).unwrap();
-        handles::replace_at(&parent.directory, OsStr::new("created"), b"new", true).unwrap();
+        const NEW: rustix::fs::RawMode = handles::NEW_FILE_MODE;
+        handles::replace_at(&parent.directory, &parent.leaf, b"after", false, NEW).unwrap();
+        handles::replace_at(&parent.directory, OsStr::new("created"), b"new", true, NEW).unwrap();
         assert_eq!(
             handles::read_at(&parent.directory, &parent.leaf)
                 .unwrap()
@@ -790,7 +849,13 @@ pub(crate) fn replace(root: &Path, relative: &str, bytes: &[u8], absent: bool) -
     {
         let parent = handles::open_parent(root, relative)?
             .ok_or_else(|| Error::Io(rustix::io::Errno::NOENT.into()))?;
-        handles::replace_at(&parent.directory, &parent.leaf, bytes, absent)
+        handles::replace_at(
+            &parent.directory,
+            &parent.leaf,
+            bytes,
+            absent,
+            new_file_mode(relative),
+        )
     }
     #[cfg(not(unix))]
     {
@@ -818,6 +883,28 @@ pub(crate) fn replace(root: &Path, relative: &str, bytes: &[u8], absent: bool) -
     }
 }
 
+/// Whether `relative` names a transaction journal under `.armorer/`. A journal embeds
+/// the full approved plan and is transient, so unlike committed managed files it stays private.
+#[cfg(unix)]
+fn is_journal(relative: &str) -> bool {
+    relative.strip_prefix(".armorer/").is_some_and(|name| {
+        !name.contains('/')
+            && (name == "journal.json"
+                || name.ends_with("-journal-v1.json")
+                || name.ends_with("-journal-v2.json"))
+    })
+}
+
+/// Mode requested for a newly created managed file: private for journals, shareable otherwise.
+#[cfg(unix)]
+fn new_file_mode(relative: &str) -> rustix::fs::RawMode {
+    if is_journal(relative) {
+        handles::PRIVATE_NEW_FILE_MODE
+    } else {
+        handles::NEW_FILE_MODE
+    }
+}
+
 /// Directory-handle primitives behind every managed read and write on Unix.
 #[cfg(unix)]
 mod handles {
@@ -842,6 +929,8 @@ mod handles {
     /// Mode requested for a newly created managed file, subject to the process umask.
     /// Managed files (workflow YAML, lock, policy) are meant to be committed and shared.
     pub(super) const NEW_FILE_MODE: RawMode = 0o644;
+    /// Mode requested for a newly created transaction journal, subject to the process umask.
+    pub(super) const PRIVATE_NEW_FILE_MODE: RawMode = 0o600;
     /// Prefix of staging entries created next to a destination.
     pub(super) const STAGING_PREFIX: &str = ".armorer-tmp-";
     /// Bounded retries when a random staging name is already taken.
@@ -1074,12 +1163,14 @@ mod handles {
     ///
     /// The staging file is created, written and fsynced in `directory`, renamed
     /// within `directory`, and `directory` is then fsynced. With `absent` the
-    /// destination is never clobbered; otherwise its mode is preserved.
+    /// destination is never clobbered and a new file is requested with `new_mode`;
+    /// otherwise its mode is preserved.
     pub(crate) fn replace_at(
         directory: &File,
         leaf: &OsStr,
         bytes: &[u8],
         absent: bool,
+        new_mode: RawMode,
     ) -> Result<()> {
         let held = directory.as_fd();
         let current = entry(held, leaf)?;
@@ -1088,7 +1179,7 @@ mod handles {
         } else {
             Some(current.ok_or_else(|| os(Errno::NOENT))?.st_mode)
         };
-        let staged = Staged::create(held, if absent { NEW_FILE_MODE } else { STAGING_MODE })?;
+        let staged = Staged::create(held, if absent { new_mode } else { STAGING_MODE })?;
         (&staged.file).write_all(bytes)?;
         if let Some(mode) = preserved {
             rustix::fs::fchmod(&staged.file, Mode::from_raw_mode(mode)).map_err(os)?;
