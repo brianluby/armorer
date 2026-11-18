@@ -145,6 +145,10 @@ pub(super) fn next(plan: &Plan) -> Result<State> {
         if c.decision == Decision::Conflict {
             return Err(Error::Transaction("unresolved upgrade conflict"));
         }
+        // A released file leaves ownership; its bytes are not recorded anywhere.
+        if c.decision == Decision::Release {
+            continue;
+        }
         let owned = source.bases.contains_key(&c.path)
             || c.imported
             || matches!(c.decision, Decision::Create | Decision::Update);

@@ -281,6 +281,26 @@ impl AuthenticatedCatalog {
             .collect()
     }
 
+    /// The RELEASABLE paths among `owned`: sorted, unique paths in this catalog's maximal
+    /// set that the configuration with these switches does not select (ADR 0015). Only an
+    /// optional entry switched off can qualify; an unconditional entry is always selected,
+    /// and an owned path outside the maximal set is never releasable.
+    pub(crate) fn releasable<'a>(
+        &self,
+        files: &RepositoryFiles,
+        owned: impl IntoIterator<Item = &'a str>,
+    ) -> Vec<String> {
+        let maximal = self.managed_paths();
+        let selected = self.selected_paths(files);
+        owned
+            .into_iter()
+            .filter(|path| maximal.contains(path) && !selected.contains(path))
+            .map(str::to_owned)
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect()
+    }
+
     /// Read the embedded catalog tool entries after the catalog authority has been authenticated.
     pub fn tools(&self) -> &BTreeMap<String, Tool> {
         &self.tools

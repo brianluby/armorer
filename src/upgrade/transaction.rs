@@ -134,6 +134,10 @@ fn operations(p: &Plan) -> Result<Vec<Write>> {
         if c.decision == Decision::Conflict {
             return Err(Error::Transaction("unresolved three-way conflict"));
         }
+        // A release drops ownership in the next state only; it is never a file operation.
+        if c.decision == Decision::Release {
+            continue;
+        }
         let after = c
             .proposed_content
             .as_deref()
@@ -191,12 +195,19 @@ pub(super) fn eligible(p: &Plan) -> Result<()> {
     }
     Ok(())
 }
+/// Changes whose file images the transaction governs. A released file is never
+/// written and is not managed on either side of the release, so its bytes neither
+/// block nor complete a transaction: the user may edit or delete it freely.
+fn managed_images(p: &Plan) -> impl Iterator<Item = &super::Change> {
+    p.changes.iter().filter(|c| c.decision != Decision::Release)
+}
+
 /// Capture the exact prior file and ownership images for bounded recovery.
 fn before_images(root: &Path, p: &Plan) -> Result<bool> {
     if !before_owner(root, p)? {
         return Ok(false);
     }
-    for c in &p.changes {
+    for c in managed_images(p) {
         if !matches(
             optional_bytes(root, &c.path)?.as_deref(),
             c.before_content.as_deref(),
@@ -295,7 +306,7 @@ fn after_images(root: &Path, p: &Plan) -> Result<bool> {
     if optional_bytes(root, bootstrap::STATE)?.is_some() {
         return Ok(false);
     }
-    for c in &p.changes {
+    for c in managed_images(p) {
         if !matches(
             optional_bytes(root, &c.path)?.as_deref(),
             c.proposed_content.as_deref(),
@@ -330,7 +341,7 @@ fn rollback(root: &Path, j: &Journal, bytes: &[u8]) -> Result<()> {
     // Include unchanged targets and every supported ownership slot, so a
     // cooperative intervening edit blocks the whole restoration before writes.
     let original = j.approval.original();
-    for c in &original.changes {
+    for c in managed_images(original) {
         let current = optional_bytes(root, &c.path)?;
         if !matches(current.as_deref(), c.before_content.as_deref())
             && !matches(current.as_deref(), c.proposed_content.as_deref())

@@ -11,6 +11,11 @@ pub enum Decision {
     PreserveCustomization,
     Import,
     Conflict,
+    // An owned optional file the configuration has switched off (ADR 0015). Ownership
+    // is dropped and the file is kept exactly as it is: nothing is written or removed.
+    // Never produced by `decide`; planning assigns it from ownership alone. A plain
+    // comment keeps the schema a single string enum; `Change` documents the shape.
+    Release,
 }
 
 /// Absence is distinct from empty text. An edited/deleted base conflicts when the
@@ -106,6 +111,8 @@ mod tests {
                 }
                 // `decide` has no import path; imports come from `caller_extension`.
                 Decision::Import => prop_assert!(false, "decide never returns Import"),
+                // A release comes from ownership and configuration, never from bytes.
+                Decision::Release => prop_assert!(false, "decide never returns Release"),
                 Decision::Conflict => {
                     // Conflict is the residue: none of the specific cases applies.
                     let same_as_base = base.is_some() && base == current;

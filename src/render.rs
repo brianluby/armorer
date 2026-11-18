@@ -208,6 +208,13 @@ fn recovery_notice(out: &mut Out, plan: &Value) {
     }
 }
 
+/// Name one released path and say plainly what applying the release does to it.
+fn release_line(out: &mut Out, path: &str) {
+    out.line(&format!(
+        "Release {path}: the file is kept as it is and is no longer managed by Armorer."
+    ));
+}
+
 fn bootstrap_plan(out: &mut Out, plan: &Value) {
     let digest = text(plan, "plan_sha256");
     out.line(&format!("Bootstrap plan {digest}"));
@@ -231,6 +238,14 @@ fn bootstrap_plan(out: &mut Out, plan: &Value) {
         })
         .collect();
     out.table("  ", &rows);
+    let released = array(plan, "released");
+    if !released.is_empty() {
+        out.blank();
+        out.line("Released:");
+        for path in released {
+            release_line(out, path.as_str().unwrap_or(""));
+        }
+    }
     for change in changes {
         if text(change, "disposition") == "unchanged" {
             continue;
@@ -306,8 +321,15 @@ fn upgrade_plan(out: &mut Out, plan: &Value) {
         .collect();
     out.table("  ", &rows);
     for change in changes {
-        if text(change, "decision") == "unchanged" {
-            continue;
+        match text(change, "decision") {
+            "unchanged" => continue,
+            "release" => {
+                // Nothing is written: the proposed image is the current file.
+                out.blank();
+                release_line(out, text(change, "path"));
+                continue;
+            }
+            _ => {}
         }
         let diff = text(change, "proposed_diff");
         if !diff.is_empty() {
@@ -616,6 +638,15 @@ mod tests {
         assert!(text.contains("bootstrap apply --plan <file> --expect-plan-sha256 d1\n"));
         assert!(text.ends_with("not this text."));
         assert!(!text.contains('\x1b'));
+        assert!(!text.contains("Released:"));
+        let mut release = value.clone();
+        release["released"] = json!(["SECURITY.md", "x\x1b\nRelease forged.md"]);
+        let text = render(&release).unwrap();
+        assert!(text.contains(
+            "Released:\nRelease SECURITY.md: the file is kept as it is and is no longer managed by Armorer.\n"
+        ));
+        assert!(text.contains("Release x\\x1b\\nRelease forged.md: the file is kept"));
+        assert!(!text.contains('\x1b'));
     }
 
     #[test]
@@ -684,6 +715,20 @@ mod tests {
             "Candidate diff for ci.yml (preserve-customization); the current file is kept, so this is not applied:\n"
         ));
         assert!(!text.contains("Unresolved"));
+        let mut released = value.clone();
+        released["changes"] = json!([
+            {"path": "SECURITY\x1b.md", "decision": "release", "proposed_diff": "",
+             "candidate_diff": ""}
+        ]);
+        let released = render(&released).unwrap();
+        assert!(
+            released.contains("  release  SECURITY\\x1b.md\n"),
+            "{released}"
+        );
+        assert!(released.contains(
+            "\nRelease SECURITY\\x1b.md: the file is kept as it is and is no longer managed by Armorer.\n"
+        ));
+        assert!(!released.contains("diff for SECURITY"));
         assert!(text.contains("  t: 1.0.0 -> none\n"));
         assert!(text.contains("  c1 [ok]: d1\n"));
         assert!(text.contains("upgrade apply --plan <file> --expect-plan-sha256 u1\n"));

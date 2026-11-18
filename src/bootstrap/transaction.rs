@@ -148,6 +148,14 @@ fn operations(plan: &Plan, state_bytes: Option<&str>) -> Result<Vec<Write>> {
         validate_state(state)?;
     }
     let mut managed = state.map(|state| state.managed).unwrap_or_default();
+    // A release drops only the ownership record; it is never a file operation.
+    for path in &plan.released {
+        if managed.remove(path).is_none() {
+            return Err(Error::Transaction(
+                "bootstrap release names a file this ownership state does not record",
+            ));
+        }
+    }
     let mut writes = Vec::new();
     for change in &plan.changes {
         let base = managed.get(&change.path);
@@ -232,6 +240,13 @@ fn rollback(root: &Path, journal: &Journal) -> Result<()> {
 
 /// Require the successful plan, final target bytes and ownership receipt to match before a no-op replay.
 fn replay_matches(root: &Path, plan: &Plan, state: &State) -> Result<bool> {
+    if plan
+        .released
+        .iter()
+        .any(|path| state.managed.contains_key(path))
+    {
+        return Ok(false);
+    }
     for change in &plan.changes {
         let base = state.managed.get(&change.path);
         let required = change.owned || change.disposition != crate::plan::Disposition::Unchanged;
@@ -788,6 +803,228 @@ mod tests {
             );
         }
     }
+    const SECURITY: &str = "SECURITY.md";
+
+    /// Rewrite the fixture configuration with or without `SECURITY.md` switched on.
+    fn security_switch(root: &Path, on: bool) {
+        let config = root.join("armorer.toml");
+        let text = fs::read_to_string(&config).unwrap();
+        let (base, _) = text
+            .split_once("[repository_files]")
+            .unwrap_or((text.as_str(), ""));
+        let mut next = base.to_owned();
+        if on {
+            next.push_str("[repository_files]\nsecurity_policy = true\n");
+        }
+        fs::write(config, next).unwrap();
+    }
+
+    /// A repository whose bootstrap state owns `SECURITY.md` while the configuration no
+    /// longer selects it. With `release_only`, the configuration never selected it, so
+    /// the plan's only effect is the release; otherwise the switch-off also updates the
+    /// lock, which is bound to the configuration digest. Returns the plan.
+    fn released_fixture(release_only: bool) -> (tempfile::TempDir, Plan) {
+        let root = fixture();
+        security_switch(root.path(), true);
+        let on = inspect(root.path());
+        if release_only {
+            // Record the rendered file in ownership exactly as an apply would have.
+            security_switch(root.path(), false);
+            let off = inspect(root.path());
+            apply(root.path(), &off, &off.plan_sha256).unwrap();
+            let content = on
+                .changes
+                .iter()
+                .find(|c| c.path == SECURITY)
+                .unwrap()
+                .proposed_content
+                .clone();
+            fs::write(root.path().join(SECURITY), &content).unwrap();
+            let (mut state, _) = load_state(root.path()).unwrap().unwrap();
+            state.managed.insert(
+                SECURITY.into(),
+                Base {
+                    sha256: digest(content.as_bytes()),
+                    content,
+                },
+            );
+            fs::write(root.path().join(STATE), json(&state).unwrap()).unwrap();
+        } else {
+            apply(root.path(), &on, &on.plan_sha256).unwrap();
+            security_switch(root.path(), false);
+        }
+        let plan = inspect(root.path());
+        assert_eq!(plan.released, [SECURITY]);
+        let mut drift = vec![format!("release:{SECURITY}")];
+        if !release_only {
+            drift.push("update:armorer.lock".into());
+        }
+        assert_eq!(file_drift(&plan), drift);
+        (root, plan)
+    }
+
+    /// Drift over managed files only; the fixture has no Cargo.lock.
+    fn file_drift(plan: &Plan) -> Vec<String> {
+        plan.drift()
+            .into_iter()
+            .filter(|reason| reason.contains(':'))
+            .collect()
+    }
+
+    /// Exact bytes of every managed file, the released file and ownership.
+    fn images(root: &Path) -> Vec<Option<Vec<u8>>> {
+        managed()
+            .into_iter()
+            .chain([SECURITY, STATE, JOURNAL])
+            .map(|path| fs::read(root.join(path)).ok())
+            .collect()
+    }
+
+    /// The release is applied: ownership no longer records the file, its bytes are
+    /// untouched, and every other managed file holds the plan's bytes.
+    fn released(root: &Path, plan: &Plan, security: &[u8]) {
+        let (state, _) = load_state(root).unwrap().unwrap();
+        assert!(!state.managed.contains_key(SECURITY));
+        assert_eq!(state.managed.len(), managed().len());
+        assert_eq!(state.last_plan_sha256, plan.plan_sha256);
+        assert_eq!(fs::read(root.join(SECURITY)).unwrap(), security);
+        for change in &plan.changes {
+            assert_eq!(
+                fs::read(root.join(&change.path)).unwrap(),
+                change.proposed_content.as_bytes()
+            );
+        }
+        assert!(!root.join(JOURNAL).exists());
+        assert!(file_drift(&inspect(root)).is_empty());
+    }
+
+    /// A release runs a real transaction that rewrites ownership, even when it is the
+    /// plan's only effect. Every interruption boundary restores the prior bytes exactly,
+    /// so ownership comes back, and the released file is never touched.
+    #[test]
+    fn release_apply_restores_prior_ownership_at_every_boundary() {
+        for release_only in [true, false] {
+            let (root, plan) = released_fixture(release_only);
+            let state_text = text(&fs::read(root.path().join(STATE)).unwrap()).unwrap();
+            let writes = operations(&plan, Some(&state_text)).unwrap();
+            assert_eq!(writes.len(), if release_only { 1 } else { 2 });
+            assert_eq!(writes.last().unwrap().path, STATE);
+            assert!(writes.iter().all(|write| write.path != SECURITY));
+
+            // An injected failure after each write rolls back before commit.
+            for index in 0..writes.len() {
+                let (root, plan) = released_fixture(release_only);
+                let prior = images(root.path());
+                let security = fs::read(root.path().join(SECURITY)).unwrap();
+                assert!(
+                    transaction(
+                        root.path(),
+                        &plan,
+                        &plan.plan_sha256,
+                        |written| {
+                            if written == index {
+                                return Err(Error::Transaction("injected I/O failure"));
+                            }
+                            Ok(())
+                        },
+                        |root, bytes| replace(root, JOURNAL, bytes, false),
+                    )
+                    .is_err()
+                );
+                assert_eq!(images(root.path()), prior, "{release_only} {index}");
+                assert_eq!(
+                    apply(root.path(), &plan, &plan.plan_sha256)
+                        .unwrap()
+                        .outcome,
+                    "applied"
+                );
+                released(root.path(), &plan, &security);
+            }
+
+            // A crash with the journal persisted: before the first write (emulated by
+            // putting its before image back) and after each write.
+            for index in [None].into_iter().chain((0..writes.len()).map(Some)) {
+                let (root, plan) = released_fixture(release_only);
+                let prior = images(root.path());
+                let security = fs::read(root.path().join(SECURITY)).unwrap();
+                interrupt(root.path(), &plan, index.unwrap_or(0));
+                if index.is_none() {
+                    let first = &writes[0];
+                    fs::write(
+                        root.path().join(&first.path),
+                        first.before.as_deref().unwrap(),
+                    )
+                    .unwrap();
+                }
+                assert!(root.path().join(JOURNAL).exists());
+                assert!(apply(root.path(), &plan, &plan.plan_sha256).is_err());
+                assert!(recover(root.path(), &"a".repeat(64)).is_err());
+                assert_eq!(
+                    recover(root.path(), &plan.plan_sha256).unwrap().outcome,
+                    "rolled-back"
+                );
+                assert_eq!(images(root.path()), prior, "{release_only} {index:?}");
+                assert_eq!(
+                    apply(root.path(), &plan, &plan.plan_sha256)
+                        .unwrap()
+                        .outcome,
+                    "applied"
+                );
+                released(root.path(), &plan, &security);
+            }
+
+            // A commit marker failure before and after it persists.
+            for persisted in [false, true] {
+                let (root, plan) = released_fixture(release_only);
+                let prior = images(root.path());
+                let security = fs::read(root.path().join(SECURITY)).unwrap();
+                assert!(
+                    transaction(
+                        root.path(),
+                        &plan,
+                        &plan.plan_sha256,
+                        |_| Ok(()),
+                        |root, bytes| {
+                            if persisted {
+                                replace(root, JOURNAL, bytes, false)?;
+                            }
+                            Err(Error::Transaction("commit marker sync failed"))
+                        },
+                    )
+                    .unwrap_err()
+                    .to_string()
+                    .contains("recovery required")
+                );
+                assert_eq!(fs::read(root.path().join(SECURITY)).unwrap(), security);
+                let recovered = recover(root.path(), &plan.plan_sha256).unwrap();
+                assert_eq!(recovered.configured, persisted);
+                if persisted {
+                    assert_eq!(recovered.outcome, "commit-recovered");
+                    released(root.path(), &plan, &security);
+                } else {
+                    assert_eq!(recovered.outcome, "rolled-back");
+                    assert_eq!(images(root.path()), prior);
+                }
+                assert_eq!(
+                    apply(root.path(), &plan, &plan.plan_sha256)
+                        .unwrap()
+                        .outcome,
+                    if persisted { "unchanged" } else { "applied" }
+                );
+                released(root.path(), &plan, &security);
+            }
+        }
+    }
+
+    /// A release the ownership state does not record cannot build a transaction inventory.
+    #[test]
+    fn release_of_an_unrecorded_path_has_no_inventory() {
+        let (root, mut plan) = released_fixture(true);
+        let state_text = text(&fs::read(root.path().join(STATE)).unwrap()).unwrap();
+        plan.released = vec![".github/dependabot.yml".into()];
+        assert!(operations(&plan, Some(&state_text)).is_err());
+    }
+
     /// Verify that committed recovery also rechecks unchanged unowned targets.
     #[test]
     fn committed_recovery_also_rechecks_unchanged_unowned_targets() {

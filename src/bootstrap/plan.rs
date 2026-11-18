@@ -40,6 +40,13 @@ pub struct Plan {
     pub capability_state: String,
     pub findings: Vec<Finding>,
     pub changes: Vec<Change>,
+    /// Owned managed files the configuration has switched off (ADR 0015), sorted and
+    /// unique. Applying the plan drops Armorer's ownership record for each path; the
+    /// file itself is kept exactly as it is and is never read, written or removed.
+    /// Each path is in the plan catalog's maximal set and outside the set its intent
+    /// selects. Omitted when empty.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub released: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -104,22 +111,26 @@ pub(super) fn generated(plan: &Plan) -> Result<BTreeMap<String, String>> {
     )
 }
 
-/// Refuse an owned managed file that the configuration no longer selects. Releasing
-/// or removing it has no approved behavior yet, so the plan fails closed rather than
-/// silently dropping ownership or deleting bytes.
-fn require_owned_selected<'a>(
-    owned: impl IntoIterator<Item = &'a String>,
-    selected: &[&str],
-) -> Result<()> {
+/// Owned managed files the configuration no longer selects, to be released (ADR 0015).
+/// A releasable path is an optional entry of the plan catalog that is switched off. An
+/// owned path the catalog cannot render at all has no approved outcome and still fails
+/// closed rather than silently dropping ownership or deleting bytes.
+fn releasable<'a>(
+    owned: impl IntoIterator<Item = &'a String> + Clone,
+    catalog: &catalog::AuthenticatedCatalog,
+    files: &crate::config::RepositoryFiles,
+) -> Result<Vec<String>> {
+    let maximal = catalog.managed_paths();
     if owned
+        .clone()
         .into_iter()
-        .any(|path| !selected.contains(&path.as_str()))
+        .any(|path| !maximal.contains(&path.as_str()))
     {
         return Err(Error::Transaction(
-            "an owned managed file is no longer selected by the configuration; releasing or removing it is not supported yet",
+            "an owned managed file is not part of the bootstrap catalog; review migration explicitly",
         ));
     }
-    Ok(())
+    Ok(catalog.releasable(files, owned.into_iter().map(String::as_str)))
 }
 
 /// Ownership is checked before comparing the new candidate: deletion or an edit
@@ -167,6 +178,7 @@ impl Plan {
                 Some(format!("{label}:{}", change.path))
             })
             .collect();
+        reasons.extend(self.released.iter().map(|path| format!("release:{path}")));
         if self.recovery_required {
             reasons.push("transaction-recovery-required".into());
         }
@@ -259,12 +271,14 @@ pub(super) fn inspect_bytes(root: &Path, policy: &[u8]) -> Result<Plan> {
         .or(upgrade_owner.as_ref().map(|(id, _)| id.clone()))
         .unwrap_or_else(|| "bootstrap-v2".into());
     // Either owner may hold an optional file the configuration has since switched off.
-    require_owned_selected(
+    // Only ownership decides a release; the released file's bytes are never read.
+    let released = releasable(
         state
             .iter()
             .flat_map(|(state, _)| state.managed.keys())
             .chain(upgrade_owner.iter().flat_map(|(_, owned)| owned)),
-        &catalog::reviewed_for(&catalog_id)?.selected_paths(&intent.repository_files),
+        &catalog::reviewed_for(&catalog_id)?,
+        &intent.repository_files,
     )?;
     let mut input_preimages = BTreeMap::new();
     input_preimages.insert(
@@ -302,6 +316,7 @@ pub(super) fn inspect_bytes(root: &Path, policy: &[u8]) -> Result<Plan> {
             Finding { code: "release-runtime-unavailable".into(), detail: "Callers provide CI and manual unsigned builds; secure publication, final-byte attestations and Apple finalization remain required.".into() },
         ],
         changes: Vec::new(),
+        released,
     };
     if !plan.workspace.cargo_lock_present {
         plan.findings.push(Finding { code: "cargo-lock-missing".into(), detail: "CI and builds require a committed Cargo.lock; discovery and provisioning never generate it.".into() });
@@ -381,6 +396,16 @@ pub(super) fn validate(plan: &Plan, expected: &str) -> Result<()> {
         || !catalog::reviewed_for(&plan.catalog_id).is_ok_and(|catalog| {
             catalog.selected_paths(&plan.intent.repository_files).len() == plan.changes.len()
         })
+        // Releases name only optional entries of the plan catalog that its own intent
+        // switches off, sorted and unique (`releasable` yields that canonical form).
+        // Ownership itself is checked by fresh inspection at apply and by the
+        // transaction inventory.
+        || !catalog::reviewed_for(&plan.catalog_id).is_ok_and(|catalog| {
+            catalog.releasable(
+                &plan.intent.repository_files,
+                plan.released.iter().map(String::as_str),
+            ) == plan.released
+        })
         || plan
             .state_sha256
             .as_ref()
@@ -425,6 +450,8 @@ pub(super) fn same_intent(original: &Plan, fresh: &Plan) -> Result<bool> {
         let mut value = plan.clone();
         value.state_sha256 = None;
         value.recovery_required = false;
+        // Ownership-derived, like `owned`: the release is gone once ownership is written.
+        value.released.clear();
         for change in &mut value.changes {
             change.before_content = None;
             change.before_sha256 = None;

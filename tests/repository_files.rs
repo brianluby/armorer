@@ -31,7 +31,6 @@ const BOOTSTRAP_STATE: &str = ".armorer/bootstrap-state-v2.json";
 const UPGRADE_STATE: &str = ".armorer/upgrade-state-v1.json";
 const OWNERS: &str = "code_owners = [\"@brianluby\", \"@example-org/platform\"]\n";
 const ALL: &str = "security_policy = true\ndependabot = true\ncode_owners = [\"@brianluby\", \"@example-org/platform\"]\n";
-const TURNED_OFF: &str = "an owned managed file is no longer selected by the configuration; releasing or removing it is not supported yet";
 
 /// Lowercase hex SHA-256, independent of the digest type's formatting traits.
 fn sha256_hex(bytes: &[u8]) -> String {
@@ -449,86 +448,642 @@ fn plans_must_list_exactly_the_selected_set_for_their_intent() {
     }
 }
 
-#[test]
-fn turning_a_switch_off_after_bootstrap_ownership_fails_closed() {
-    let root = fixture(ALL);
-    provision(root.path());
-    for table in [
-        "dependabot = true\ncode_owners = [\"@brianluby\", \"@example-org/platform\"]\n",
-        "security_policy = true\ncode_owners = [\"@brianluby\", \"@example-org/platform\"]\n",
-        "security_policy = true\ndependabot = true\n",
-        "",
-    ] {
-        configure(root.path(), table);
-        let before = snapshot(root.path());
-        let error = inspect(root.path()).unwrap_err();
-        assert!(matches!(error, Error::Transaction(_)), "{error}");
-        assert!(error.to_string().contains(TURNED_OFF), "{error}");
-        let output = check(root.path());
-        assert_eq!(output.status.code(), Some(1));
-        assert!(String::from_utf8_lossy(&output.stdout).contains(TURNED_OFF));
-        let bootstrap_cli = run(
-            root.path(),
-            &[
-                "bootstrap",
-                "check",
-                "--policy",
-                root.path().join(POLICY).to_str().unwrap(),
-            ],
-        );
-        assert_eq!(bootstrap_cli.status.code(), Some(1));
-        // The upgrade path shows the owned file as a blocking conflict and deletes nothing.
-        let up = preview(root.path(), "bootstrap-v2").unwrap();
-        let blocked: Vec<_> = up
-            .changes
-            .iter()
-            .filter(|c| c.decision == Decision::Conflict)
-            .collect();
-        assert!(!blocked.is_empty());
-        for c in &blocked {
-            assert!(OPTIONAL.contains(&c.path.as_str()), "{}", c.path);
-            assert!(c.proposed_content.is_none() && c.candidate_content.is_empty());
-            assert!(c.before_content.is_some());
-        }
-        assert!(upgrade::apply(root.path(), &up, &up.plan_sha256).is_err());
-        assert_eq!(snapshot(root.path()), before, "{table}");
-        for path in OPTIONAL {
-            assert!(root.path().join(path).exists(), "{path}");
+/// A `[repository_files]` body that switches on exactly `on`.
+fn table(on: &[&str]) -> String {
+    let mut text = String::new();
+    if on.contains(&SECURITY) {
+        text.push_str("security_policy = true\n");
+    }
+    if on.contains(&DEPENDABOT) {
+        text.push_str("dependabot = true\n");
+    }
+    if on.contains(&CODEOWNERS) {
+        text.push_str(OWNERS);
+    }
+    text
+}
+
+/// The optional paths other than `off`, sorted.
+fn others(off: &[&str]) -> Vec<&'static str> {
+    OPTIONAL
+        .into_iter()
+        .filter(|path| !off.contains(path))
+        .collect()
+}
+
+/// What happens to a released file before the release is planned.
+#[derive(Debug, Clone, Copy)]
+enum Condition {
+    Unmodified,
+    Edited,
+    Deleted,
+}
+
+const CONDITIONS: [Condition; 3] = [Condition::Unmodified, Condition::Edited, Condition::Deleted];
+const EDITED: &str = "# Edited by the repository owner\n";
+
+impl Condition {
+    fn apply(self, root: &Path, path: &str) {
+        match self {
+            Self::Unmodified => {}
+            Self::Edited => fs::write(root.join(path), EDITED).unwrap(),
+            Self::Deleted => fs::remove_file(root.join(path)).unwrap(),
         }
     }
-    // Switching it back on restores a clean, in-sync plan.
-    configure(root.path(), ALL);
-    assert!(inspect(root.path()).unwrap().drift().is_empty());
+}
+
+/// Paths whose bytes differ between two snapshots, including added and removed files.
+fn changed(before: &BTreeMap<String, Vec<u8>>, after: &BTreeMap<String, Vec<u8>>) -> Vec<String> {
+    before
+        .keys()
+        .chain(after.keys())
+        .filter(|path| before.get(*path) != after.get(*path))
+        .cloned()
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect()
+}
+
+/// The text a reviewer sees for each released path.
+fn release_text(path: &str) -> String {
+    format!("Release {path}: the file is kept as it is and is no longer managed by Armorer.")
 }
 
 #[test]
-fn turning_a_switch_off_after_upgrade_ownership_fails_closed() {
+fn switching_a_file_off_releases_bootstrap_ownership_and_keeps_the_file() {
+    for path in OPTIONAL {
+        for condition in CONDITIONS {
+            let root = fixture(ALL);
+            provision(root.path());
+            condition.apply(root.path(), path);
+            let kept = fs::read(root.path().join(path)).ok();
+            configure(root.path(), &table(&others(&[path])));
+
+            let p = inspect(root.path()).unwrap();
+            assert_eq!(p.released, [path], "{path} {condition:?}");
+            assert_eq!(paths(&p), expected_paths(&others(&[path])));
+            // The switch changes the configuration digest the lock is bound to, so the
+            // lock is updated; every other selected file is unchanged.
+            for change in &p.changes {
+                let expected = if change.path == "armorer.lock" {
+                    Disposition::Update
+                } else {
+                    Disposition::Unchanged
+                };
+                assert_eq!(change.disposition, expected, "{}", change.path);
+                assert!(change.owned);
+            }
+            assert_eq!(
+                p.drift(),
+                [format!("release:{path}"), "update:armorer.lock".into()]
+            );
+            // A saved packet reloads against its independently supplied digest.
+            let file = tempfile::NamedTempFile::new().unwrap();
+            fs::write(file.path(), serde_json::to_vec(&p).unwrap()).unwrap();
+            bootstrap::load_plan(file.path(), &p.plan_sha256).unwrap();
+
+            let before = snapshot(root.path());
+            let output = check(root.path());
+            assert_eq!(output.status.code(), Some(2));
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            assert!(stderr.contains(&format!("release:{path}")), "{stderr}");
+            if matches!(condition, Condition::Unmodified) {
+                let text = run(root.path(), &["--format", "text", "check"]);
+                assert_eq!(text.status.code(), Some(2));
+                let text = String::from_utf8_lossy(&text.stdout);
+                assert!(text.contains(&release_text(path)), "{text}");
+            }
+            assert_eq!(snapshot(root.path()), before);
+
+            assert_eq!(
+                bootstrap::apply(root.path(), &p, &p.plan_sha256)
+                    .unwrap()
+                    .outcome,
+                "applied"
+            );
+            // Only ownership and the approved lock update change; the released file
+            // keeps its exact bytes, or stays absent.
+            let after = snapshot(root.path());
+            assert_eq!(
+                changed(&before, &after),
+                [BOOTSTRAP_STATE.to_owned(), "armorer.lock".into()]
+            );
+            assert_eq!(fs::read(root.path().join(path)).ok(), kept);
+            assert_eq!(
+                owned(root.path(), BOOTSTRAP_STATE),
+                expected_paths(&others(&[path]))
+            );
+            let output = check(root.path());
+            assert_eq!(
+                output.status.code(),
+                Some(0),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            let again = inspect(root.path()).unwrap();
+            assert!(again.released.is_empty());
+            assert!(again.drift().is_empty(), "{:?}", again.drift());
+            // A plan without releases serializes no `released` key.
+            assert!(!serde_json::to_string(&again).unwrap().contains("released"));
+            assert!(!root.path().join("BUILD_EXECUTED").exists());
+        }
+    }
+}
+
+#[test]
+fn switching_every_file_off_releases_all_three_at_once() {
+    let root = fixture(ALL);
+    provision(root.path());
+    let files: Vec<Vec<u8>> = OPTIONAL
+        .iter()
+        .map(|path| fs::read(root.path().join(path)).unwrap())
+        .collect();
+    configure(root.path(), "");
+    let p = inspect(root.path()).unwrap();
+    assert_eq!(p.released, OPTIONAL);
+    assert_eq!(paths(&p), expected_paths(&[]));
+    let output = check(root.path());
+    assert_eq!(output.status.code(), Some(2));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    for path in OPTIONAL {
+        assert!(stderr.contains(&format!("release:{path}")), "{stderr}");
+    }
+    let text = run(root.path(), &["--format", "text", "check"]);
+    let text = String::from_utf8_lossy(&text.stdout);
+    for path in OPTIONAL {
+        assert!(text.contains(&release_text(path)), "{text}");
+    }
+    let before = snapshot(root.path());
+    bootstrap::apply(root.path(), &p, &p.plan_sha256).unwrap();
+    assert_eq!(
+        changed(&before, &snapshot(root.path())),
+        [BOOTSTRAP_STATE.to_owned(), "armorer.lock".into()]
+    );
+    for (path, bytes) in OPTIONAL.iter().zip(files) {
+        assert_eq!(fs::read(root.path().join(path)).unwrap(), bytes, "{path}");
+    }
+    assert_eq!(owned(root.path(), BOOTSTRAP_STATE), expected_paths(&[]));
+    assert_eq!(check(root.path()).status.code(), Some(0));
+    assert!(inspect(root.path()).unwrap().released.is_empty());
+}
+
+#[test]
+fn forged_or_stale_bootstrap_releases_are_rejected() {
+    const MISMATCH: &str = "bootstrap plan does not match approved digest, catalog or runtime";
+    const STALE: &str = "approved bootstrap inputs or preimages changed; review a new plan";
+    let root = fixture(ALL);
+    provision(root.path());
+    // Code owners only: the security policy and Dependabot files are released.
+    configure(root.path(), OWNERS);
+    let genuine = inspect(root.path()).unwrap();
+    assert_eq!(genuine.released, [DEPENDABOT, SECURITY]);
+
+    for (label, released) in [
+        ("selected", vec![CODEOWNERS]),
+        (
+            "selected beside a genuine release",
+            vec![CODEOWNERS, SECURITY],
+        ),
+        ("unconditional", vec!["armorer.lock"]),
+        ("unknown", vec!["README.md"]),
+        ("outside the repository", vec!["../SECURITY.md"]),
+        ("unsorted", vec![SECURITY, DEPENDABOT]),
+        ("duplicated", vec![SECURITY, SECURITY]),
+    ] {
+        let mut forged = genuine.clone();
+        forged.released = released.into_iter().map(str::to_owned).collect();
+        let error = load_forged(&mut forged).unwrap_err();
+        assert!(error.to_string().contains(MISMATCH), "{label}: {error}");
+    }
+
+    // Well-formed lists that differ from fresh inspection load, but cannot be applied.
+    let before = snapshot(root.path());
+    for released in [vec![], vec![SECURITY], vec![DEPENDABOT]] {
+        let mut forged = genuine.clone();
+        forged.released = released.iter().map(|path| (*path).to_owned()).collect();
+        let forged = load_forged(&mut forged).unwrap();
+        let error = bootstrap::apply(root.path(), &forged, &forged.plan_sha256).unwrap_err();
+        assert!(error.to_string().contains(STALE), "{released:?}: {error}");
+        assert_eq!(snapshot(root.path()), before);
+    }
+    // A release in a repository that owns nothing loads, but cannot be applied.
+    let fresh = fixture(&table(&[CODEOWNERS]));
+    let mut forged = inspect(fresh.path()).unwrap();
+    assert!(forged.released.is_empty());
+    forged.released = vec![SECURITY.into()];
+    let forged = load_forged(&mut forged).unwrap();
+    let untouched = snapshot(fresh.path());
+    assert!(bootstrap::apply(fresh.path(), &forged, &forged.plan_sha256).is_err());
+    assert_eq!(snapshot(fresh.path()), untouched);
+
+    // The genuine plan still applies.
+    bootstrap::apply(root.path(), &genuine, &genuine.plan_sha256).unwrap();
+    assert_eq!(
+        owned(root.path(), BOOTSTRAP_STATE),
+        expected_paths(&[CODEOWNERS])
+    );
+}
+
+/// Recompute a forged upgrade packet's digest and load it through the approval boundary.
+fn load_forged_upgrade(plan: &mut upgrade::Plan) -> armorer::Result<upgrade::Plan> {
+    plan.plan_sha256 = plan.digest().unwrap();
+    let file = tempfile::NamedTempFile::new().unwrap();
+    fs::write(file.path(), serde_json::to_vec(&*plan).unwrap()).unwrap();
+    upgrade::load_plan(file.path(), &plan.plan_sha256)
+}
+
+/// A release proposes nothing: the current file is the after image and no diff is shown.
+fn assert_release_shape(change: &upgrade::Change, kept: Option<&[u8]>) {
+    assert_eq!(change.decision, Decision::Release, "{}", change.path);
+    assert!(!change.imported);
+    assert!(change.base_content.is_some());
+    let current = kept.map(|bytes| String::from_utf8(bytes.to_vec()).unwrap());
+    assert_eq!(change.before_content, current);
+    assert_eq!(change.proposed_content, current);
+    assert_eq!(change.after_sha256, change.before_sha256);
+    assert_eq!(change.after_sha256, kept.map(sha256_hex), "{}", change.path);
+    assert!(change.candidate_content.is_empty());
+    assert!(change.candidate_diff.is_empty());
+    assert_eq!(change.proposed_diff, kept.map(|_| String::new()));
+}
+
+#[test]
+fn switching_a_file_off_releases_it_through_an_upgrade_and_rollback_restores_ownership() {
+    for condition in CONDITIONS {
+        let root = fixture(ALL);
+        provision(root.path());
+        condition.apply(root.path(), SECURITY);
+        let kept = fs::read(root.path().join(SECURITY)).ok();
+        configure(root.path(), &table(&[CODEOWNERS, DEPENDABOT]));
+        let before = snapshot(root.path());
+
+        let up = preview(root.path(), "bootstrap-v2").unwrap();
+        let release: Vec<_> = up
+            .changes
+            .iter()
+            .filter(|c| c.decision == Decision::Release)
+            .collect();
+        assert_eq!(release.len(), 1);
+        assert_eq!(release[0].path, SECURITY);
+        assert_release_shape(release[0], kept.as_deref());
+        assert!(up.changes.iter().all(|c| c.decision != Decision::Conflict));
+        assert!(up.compatibility.iter().all(|c| c.state != "blocked"));
+        let file = tempfile::NamedTempFile::new().unwrap();
+        fs::write(file.path(), serde_json::to_vec(&up).unwrap()).unwrap();
+        upgrade::load_plan(file.path(), &up.plan_sha256).unwrap();
+        let text = run(
+            root.path(),
+            &[
+                "--format",
+                "text",
+                "upgrade",
+                "plan",
+                "--policy",
+                root.path().join(POLICY).to_str().unwrap(),
+                "--catalog",
+                "bootstrap-v2",
+            ],
+        );
+        let text = String::from_utf8_lossy(&text.stdout);
+        assert!(text.contains(&release_text(SECURITY)), "{text}");
+        assert!(!text.contains("/dev/null"), "{text}");
+        assert_eq!(snapshot(root.path()), before);
+
+        assert_eq!(
+            upgrade::apply(root.path(), &up, &up.plan_sha256)
+                .unwrap()
+                .outcome,
+            "applied"
+        );
+        let after = snapshot(root.path());
+        assert_eq!(
+            changed(&before, &after),
+            [
+                BOOTSTRAP_STATE.to_owned(),
+                UPGRADE_STATE.into(),
+                "armorer.lock".into()
+            ],
+            "{condition:?}"
+        );
+        assert_eq!(fs::read(root.path().join(SECURITY)).ok(), kept);
+        assert_eq!(
+            owned(root.path(), UPGRADE_STATE),
+            expected_paths(&[CODEOWNERS, DEPENDABOT])
+        );
+        let value: serde_json::Value =
+            serde_json::from_slice(&fs::read(root.path().join(UPGRADE_STATE)).unwrap()).unwrap();
+        assert_ne!(value["repository_files"]["security_policy"], true);
+        assert_eq!(value["repository_files"]["dependabot"], true);
+        assert_eq!(check(root.path()).status.code(), Some(0));
+        let refresh = preview(root.path(), "bootstrap-v2").unwrap();
+        assert!(
+            refresh
+                .changes
+                .iter()
+                .all(|c| c.decision == Decision::Unchanged)
+        );
+        // Replaying the applied packet changes nothing.
+        assert_eq!(
+            upgrade::apply(root.path(), &up, &up.plan_sha256)
+                .unwrap()
+                .outcome,
+            "unchanged"
+        );
+        assert_eq!(snapshot(root.path()), after);
+
+        // Rollback restores the exact prior ownership and never touches the file.
+        let rollback = upgrade::inspect_rollback(root.path(), &up, &up.plan_sha256, true).unwrap();
+        assert!(rollback.changes.iter().all(|c| c.path != SECURITY));
+        assert_eq!(
+            upgrade::apply_rollback(root.path(), &rollback, &rollback.plan_sha256)
+                .unwrap()
+                .outcome,
+            "rolled-back"
+        );
+        assert_eq!(snapshot(root.path()), before, "{condition:?}");
+        assert_eq!(fs::read(root.path().join(SECURITY)).ok(), kept);
+        assert_eq!(
+            inspect(root.path()).unwrap().released,
+            [SECURITY],
+            "ownership is back"
+        );
+    }
+}
+
+#[test]
+fn upgrade_ownership_releases_switched_off_files_and_rolls_back() {
     let root = fixture(ALL);
     provision(root.path());
     let p = preview(root.path(), "bootstrap-v2").unwrap();
     upgrade::apply(root.path(), &p, &p.plan_sha256).unwrap();
     assert!(!root.path().join(BOOTSTRAP_STATE).exists());
-    configure(root.path(), "dependabot = true\n");
+    configure(root.path(), &table(&[DEPENDABOT]));
     let before = snapshot(root.path());
-    // Read-only bootstrap inspection follows the upgrade owner and refuses as well.
-    let error = inspect(root.path()).unwrap_err();
-    assert!(error.to_string().contains(TURNED_OFF), "{error}");
-    assert_eq!(check(root.path()).status.code(), Some(1));
+
+    // Read-only bootstrap inspection reports the release; its writer refuses the owner.
+    let bootstrap_plan = inspect(root.path()).unwrap();
+    assert_eq!(bootstrap_plan.released, [CODEOWNERS, SECURITY]);
+    let output = check(root.path());
+    assert_eq!(output.status.code(), Some(2));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains(&format!("release:{CODEOWNERS}")),
+        "{stderr}"
+    );
+    assert!(stderr.contains(&format!("release:{SECURITY}")), "{stderr}");
+    assert!(bootstrap::apply(root.path(), &bootstrap_plan, &bootstrap_plan.plan_sha256).is_err());
+    assert_eq!(snapshot(root.path()), before);
+
     let up = preview(root.path(), "bootstrap-v2").unwrap();
-    let conflicts: Vec<_> = up
+    let released: Vec<_> = up
         .changes
         .iter()
-        .filter(|c| c.decision == Decision::Conflict)
+        .filter(|c| c.decision == Decision::Release)
         .map(|c| c.path.as_str())
         .collect();
-    assert_eq!(conflicts, [CODEOWNERS, SECURITY]);
+    assert_eq!(released, [CODEOWNERS, SECURITY]);
+    for c in up
+        .changes
+        .iter()
+        .filter(|c| c.decision == Decision::Release)
+    {
+        assert_release_shape(c, before.get(&c.path).map(Vec::as_slice));
+    }
+    upgrade::apply(root.path(), &up, &up.plan_sha256).unwrap();
+    let after = snapshot(root.path());
+    assert_eq!(
+        changed(&before, &after),
+        [UPGRADE_STATE.to_owned(), "armorer.lock".into()]
+    );
+    assert_eq!(
+        owned(root.path(), UPGRADE_STATE),
+        expected_paths(&[DEPENDABOT])
+    );
+    let value: serde_json::Value =
+        serde_json::from_slice(&fs::read(root.path().join(UPGRADE_STATE)).unwrap()).unwrap();
+    assert_eq!(value["repository_files"]["dependabot"], true);
+    assert_ne!(value["repository_files"]["security_policy"], true);
+    assert_eq!(check(root.path()).status.code(), Some(0));
+
+    let rollback = upgrade::inspect_rollback(root.path(), &up, &up.plan_sha256, true).unwrap();
+    upgrade::apply_rollback(root.path(), &rollback, &rollback.plan_sha256).unwrap();
+    assert_eq!(snapshot(root.path()), before);
+    assert_eq!(owned(root.path(), UPGRADE_STATE), expected_paths(&OPTIONAL));
+}
+
+#[test]
+fn a_file_dropped_by_the_target_catalog_still_blocks_while_a_switched_off_file_is_released() {
+    let root = fixture(ALL);
+    provision(root.path());
+    let wide = preview(root.path(), WIDE).unwrap();
+    upgrade::apply(root.path(), &wide, &wide.plan_sha256).unwrap();
+    assert_eq!(owned(root.path(), UPGRADE_STATE).len(), 9);
+    configure(root.path(), &table(&[CODEOWNERS, SECURITY]));
+    let before = snapshot(root.path());
+
+    // Downgrading to bootstrap-v2 drops the wide catalog's extra file: still a conflict.
+    let down = upgrade::inspect(
+        root.path(),
+        &root.path().join(POLICY),
+        "bootstrap-v2",
+        &[],
+        true,
+    )
+    .unwrap();
+    let extra = down
+        .changes
+        .iter()
+        .find(|c| c.path == ".github/armorer-managed.md")
+        .unwrap();
+    assert_eq!(extra.decision, Decision::Conflict);
+    assert!(extra.proposed_content.is_none());
+    assert!(extra.candidate_diff.contains("+++ /dev/null\n"));
+    let dependabot = down.changes.iter().find(|c| c.path == DEPENDABOT).unwrap();
+    assert_release_shape(dependabot, before.get(DEPENDABOT).map(Vec::as_slice));
     assert!(
-        up.compatibility
+        down.compatibility
             .iter()
             .any(|c| c.state == "blocked" && c.code == "three-way-conflict")
     );
-    assert!(upgrade::apply(root.path(), &up, &up.plan_sha256).is_err());
+    assert!(upgrade::apply(root.path(), &down, &down.plan_sha256).is_err());
     assert_eq!(snapshot(root.path()), before);
+    // A forged release of the dropped file is rejected at the approval boundary.
+    let mut forged = down.clone();
+    let at = forged
+        .changes
+        .iter()
+        .position(|c| c.path == ".github/armorer-managed.md")
+        .unwrap();
+    forged.changes[at] = upgrade::Change {
+        path: ".github/armorer-managed.md".into(),
+        ..dependabot.clone()
+    };
+    let c = &mut forged.changes[at];
+    c.base_content.clone_from(&extra.base_content);
+    c.base_sha256.clone_from(&extra.base_sha256);
+    c.before_content.clone_from(&extra.before_content);
+    c.before_sha256.clone_from(&extra.before_sha256);
+    c.proposed_content.clone_from(&extra.before_content);
+    c.after_sha256.clone_from(&extra.before_sha256);
+    assert!(load_forged_upgrade(&mut forged).is_err());
+
+    // Staying on the wide catalog, the switched-off file alone is released.
+    let stay = preview(root.path(), WIDE).unwrap();
+    let decisions: Vec<_> = stay
+        .changes
+        .iter()
+        .filter(|c| c.decision != Decision::Unchanged && c.decision != Decision::Update)
+        .map(|c| (c.path.as_str(), c.decision))
+        .collect();
+    assert_eq!(decisions, [(DEPENDABOT, Decision::Release)]);
+    upgrade::apply(root.path(), &stay, &stay.plan_sha256).unwrap();
+    assert_eq!(
+        fs::read(root.path().join(DEPENDABOT)).unwrap(),
+        before[DEPENDABOT]
+    );
+    assert!(!owned(root.path(), UPGRADE_STATE).contains(&DEPENDABOT.to_owned()));
+}
+
+/// One forged edit of an upgrade plan.
+type PlanMutation = Box<dyn Fn(&mut upgrade::Plan)>;
+
+#[test]
+fn forged_upgrade_releases_are_rejected() {
+    let root = fixture(ALL);
+    provision(root.path());
+    configure(root.path(), &table(&[CODEOWNERS, DEPENDABOT]));
+    let genuine = preview(root.path(), "bootstrap-v2").unwrap();
+    let at = |plan: &upgrade::Plan, path: &str| {
+        plan.changes.iter().position(|c| c.path == path).unwrap()
+    };
+    let (sec, dep) = (at(&genuine, SECURITY), at(&genuine, DEPENDABOT));
+    let security = genuine.changes[sec].clone();
+    assert_eq!(security.decision, Decision::Release);
+    let mutations: Vec<(&str, PlanMutation)> = vec![
+        (
+            "release on a selected path",
+            Box::new(move |p| p.changes[dep].decision = Decision::Release),
+        ),
+        (
+            "proposed image other than the current file",
+            Box::new(move |p| {
+                let c = &mut p.changes[sec];
+                c.proposed_content = Some("rewritten\n".into());
+                c.after_sha256 = Some(sha256_hex(b"rewritten\n"));
+                c.proposed_diff = Some(armorer_diff(SECURITY, c.before_content.as_deref()));
+            }),
+        ),
+        (
+            "deletion",
+            Box::new(move |p| {
+                let c = &mut p.changes[sec];
+                c.proposed_content = None;
+                c.after_sha256 = None;
+                c.proposed_diff = None;
+            }),
+        ),
+        (
+            "deletion diff",
+            Box::new(move |p| {
+                p.changes[sec].candidate_diff = format!("--- a/{SECURITY}\n+++ /dev/null\n");
+            }),
+        ),
+        (
+            "no ownership base",
+            Box::new(move |p| {
+                let c = &mut p.changes[sec];
+                c.base_content = None;
+                c.base_sha256 = None;
+            }),
+        ),
+        (
+            "rendered candidate",
+            Box::new(move |p| {
+                let c = &mut p.changes[sec];
+                c.candidate_content = "x\n".into();
+                c.candidate_sha256 = sha256_hex(b"x\n");
+            }),
+        ),
+        (
+            "release turned back into a conflict",
+            Box::new(move |p| p.changes[sec].decision = Decision::Conflict),
+        ),
+    ];
+    for (label, mutate) in &mutations {
+        let mut forged = genuine.clone();
+        mutate(&mut forged);
+        assert!(load_forged_upgrade(&mut forged).is_err(), "{label}");
+    }
+    // A release of a file nobody owns is outside the plan's scope.
+    let unowned = fixture(&table(&[CODEOWNERS, DEPENDABOT]));
+    provision(unowned.path());
+    let mut forged = preview(unowned.path(), "bootstrap-v2").unwrap();
+    let position = forged
+        .changes
+        .iter()
+        .position(|c| c.path.as_str() > SECURITY)
+        .unwrap();
+    forged.changes.insert(position, security.clone());
+    assert!(load_forged_upgrade(&mut forged).is_err());
+    // The genuine packet reloads.
+    load_forged_upgrade(&mut genuine.clone()).unwrap();
+}
+
+/// A one-line replacement diff of `before`, used to keep a forged packet self-consistent.
+fn armorer_diff(path: &str, before: Option<&str>) -> String {
+    format!(
+        "--- a/{path}\n+++ b/{path}\n@@ -1,{} +1,1 @@\n{}+rewritten\n",
+        before.unwrap_or_default().lines().count(),
+        before
+            .unwrap_or_default()
+            .lines()
+            .map(|line| format!("-{line}\n"))
+            .collect::<String>()
+    )
+}
+
+#[test]
+fn switching_a_released_file_back_on_follows_the_unowned_file_rules() {
+    for edited in [false, true] {
+        let root = fixture(ALL);
+        provision(root.path());
+        let rendered = fs::read_to_string(root.path().join(SECURITY)).unwrap();
+        configure(root.path(), &table(&[CODEOWNERS, DEPENDABOT]));
+        let p = inspect(root.path()).unwrap();
+        bootstrap::apply(root.path(), &p, &p.plan_sha256).unwrap();
+        if edited {
+            fs::write(root.path().join(SECURITY), EDITED).unwrap();
+        }
+        configure(root.path(), ALL);
+        let before = snapshot(root.path());
+
+        let p = inspect(root.path()).unwrap();
+        assert!(p.released.is_empty());
+        let change = p.changes.iter().find(|c| c.path == SECURITY).unwrap();
+        assert!(!change.owned);
+        let up = preview(root.path(), "bootstrap-v2").unwrap();
+        let upgrade_change = up.changes.iter().find(|c| c.path == SECURITY).unwrap();
+        assert!(upgrade_change.base_content.is_none());
+        if edited {
+            // Different bytes: an unowned conflict that is never overwritten.
+            assert_eq!(change.disposition, Disposition::Conflict);
+            assert_eq!(upgrade_change.decision, Decision::Conflict);
+            assert!(bootstrap::apply(root.path(), &p, &p.plan_sha256).is_err());
+            assert!(upgrade::apply(root.path(), &up, &up.plan_sha256).is_err());
+            assert_eq!(snapshot(root.path()), before);
+        } else {
+            // Identical bytes: unchanged, and Armorer does not take ownership back.
+            assert_eq!(change.disposition, Disposition::Unchanged);
+            assert_eq!(upgrade_change.decision, Decision::Unchanged);
+            bootstrap::apply(root.path(), &p, &p.plan_sha256).unwrap();
+            assert!(!owned(root.path(), BOOTSTRAP_STATE).contains(&SECURITY.to_owned()));
+            assert_eq!(
+                fs::read_to_string(root.path().join(SECURITY)).unwrap(),
+                rendered
+            );
+            assert_eq!(check(root.path()).status.code(), Some(0));
+        }
+    }
 }
 
 /// One forged edit of an upgrade ownership state document.

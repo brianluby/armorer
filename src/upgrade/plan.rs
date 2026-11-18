@@ -44,6 +44,12 @@ pub struct PinChange {
     pub before: Option<ToolPin>,
     pub after: Option<ToolPin>,
 }
+/// One governed path. For a `release` change (an owned optional file the configuration
+/// has switched off, ADR 0015) nothing is proposed to be written: `proposed_content`
+/// and `after_sha256` repeat the current file (`before_content`, `before_sha256`), or
+/// are absent when the file is absent; the target renders no candidate, so
+/// `candidate_content` is empty; and `candidate_diff` is empty and `proposed_diff` is
+/// empty (or absent with the file), never a `/dev/null` deletion.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Change {
@@ -58,11 +64,18 @@ pub struct Change {
     pub before_content: Option<String>,
     #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub candidate_sha256: String,
+    /// The target's rendered bytes; empty when the target renders nothing for this path
+    /// (a `conflict` on a file the target catalog dropped, or a `release`).
     pub candidate_content: String,
+    /// Digest of `proposed_content`; for a `release`, equal to `before_sha256`.
     #[schemars(regex(pattern = "^[0-9a-f]{64}$(?![\\s\\S])"))]
     pub after_sha256: Option<String>,
+    /// The approved after image; absent for a `conflict`. For a `release` it is the
+    /// current file unchanged (absent when the file is absent): nothing is written.
     pub proposed_content: Option<String>,
+    /// Current-to-candidate diff; empty for a `release`.
     pub candidate_diff: String,
+    /// Current-to-proposed diff; empty for a `release` (absent with the file).
     pub proposed_diff: Option<String>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -367,7 +380,8 @@ fn change(
     }
 }
 
-/// An owned file that the target catalog does not render. No merge rule defines
+/// An owned file that the target catalog cannot render for any configuration (a
+/// catalog successor dropped it). No merge rule defines
 /// that outcome, so it is a blocking conflict: never a silent delete and never a
 /// silent release of ownership. The candidate is shown as absent (empty, with a
 /// `/dev/null` diff) and nothing is proposed.
@@ -378,6 +392,46 @@ fn unrendered(path: String, base: Option<String>, current: Option<String>) -> Ch
     c.after_sha256 = None;
     c.proposed_diff = None;
     c
+}
+
+/// An owned optional file of the target catalog that the configuration switches off
+/// (ADR 0015). Ownership is released and nothing is written: the proposed image is the
+/// current file (or absent), the target renders no candidate, and no diff is shown.
+fn released(path: String, base: Option<String>, current: Option<String>) -> Change {
+    Change {
+        base_sha256: hash(base.as_deref()),
+        before_sha256: hash(current.as_deref()),
+        candidate_sha256: digest(b""),
+        after_sha256: hash(current.as_deref()),
+        candidate_diff: String::new(),
+        proposed_diff: current.as_ref().map(|_| String::new()),
+        path,
+        decision: Decision::Release,
+        imported: false,
+        base_content: base,
+        before_content: current.clone(),
+        candidate_content: String::new(),
+        proposed_content: current,
+    }
+}
+
+/// The change for one scoped path. A rendered candidate is merged. Without one, an
+/// owned path in the target's maximal set is an optional entry switched off and is
+/// released; any other owned path (a file the target catalog dropped) is a blocking
+/// conflict, a separate owner decision.
+fn scoped(
+    path: String,
+    candidate: Option<String>,
+    base: Option<String>,
+    current: Option<String>,
+    imported: bool,
+    maximal: &[&str],
+) -> Change {
+    match candidate {
+        Some(candidate) => change(path, base, current, candidate, imported),
+        None if maximal.contains(&path.as_str()) => released(path, base, current),
+        None => unrendered(path, base, current),
+    }
 }
 
 /// Every path one upgrade governs, in sorted path order: the target catalog's
@@ -489,6 +543,7 @@ pub(super) fn inspect_bytes(
     let direction =
         authority::direction(current_revision, target.revision, allow_downgrade)?.into();
     let config_sha256 = digest(&config);
+    let maximal = catalog::reviewed_for(&target.id)?.managed_paths();
     let generated = catalog::reviewed_for(&target.id)?.bootstrap_files(
         &config_sha256,
         &intent.toolchain,
@@ -511,16 +566,14 @@ pub(super) fn inspect_bytes(
                 "already-owned files cannot be reclassified as imports",
             ));
         }
-        let mut c = match candidate {
-            Some(candidate) => change(
-                path.clone(),
-                bases.get(&path).cloned(),
-                current,
-                candidate,
-                requested,
-            ),
-            None => unrendered(path.clone(), bases.get(&path).cloned(), current),
-        };
+        let mut c = scoped(
+            path.clone(),
+            candidate,
+            bases.get(&path).cloned(),
+            current,
+            requested,
+            &maximal,
+        );
         if path == "rust-toolchain.toml" && input_preimages["rust-toolchain"].is_some() {
             c.decision = Decision::Conflict;
             c.proposed_content = None;
@@ -768,7 +821,9 @@ pub(super) fn validate(plan: &Plan, expected: &str) -> Result<()> {
             "upgrade ownership, direction or input inventory differs from contract",
         ));
     }
-    let generated = catalog::reviewed_for(&plan.target_catalog.id)?.bootstrap_files(
+    let target = catalog::reviewed_for(&plan.target_catalog.id)?;
+    let maximal = target.managed_paths();
+    let generated = target.bootstrap_files(
         &plan.config_sha256,
         &plan.intent.toolchain,
         &plan.policy_content,
@@ -787,22 +842,20 @@ pub(super) fn validate(plan: &Plan, expected: &str) -> Result<()> {
                 "owned target cannot be reclassified as an import",
             ));
         }
-        let mut derived = match &candidate {
-            Some(candidate) => change(
-                path.clone(),
-                origin.bases.get(&path).cloned(),
-                c.before_content.clone(),
-                candidate.clone(),
-                requested,
-            ),
-            None => unrendered(
-                path.clone(),
-                origin.bases.get(&path).cloned(),
-                c.before_content.clone(),
-            ),
-        };
+        // A release is derived from ownership and the target's sets alone, so a
+        // `release` on a selected path, on an unowned path or with a proposed image
+        // other than the current one differs from this reconstruction.
+        let mut derived = scoped(
+            path.clone(),
+            candidate.clone(),
+            origin.bases.get(&path).cloned(),
+            c.before_content.clone(),
+            requested,
+            &maximal,
+        );
         let candidate = candidate.unwrap_or_default();
         if path == "rust-toolchain.toml" && plan.input_preimages["rust-toolchain"].is_some() {
+            // Always selected, so never a release.
             derived.decision = Decision::Conflict;
             derived.proposed_content = None;
             derived.after_sha256 = None;
@@ -822,7 +875,12 @@ pub(super) fn validate(plan: &Plan, expected: &str) -> Result<()> {
             || c.base_sha256 != hash(c.base_content.as_deref())
             || c.after_sha256 != hash(c.proposed_content.as_deref())
             || c.candidate_diff
-                != bootstrap::plan::diff(&path, c.before_content.as_deref(), &candidate)
+                != if derived.decision == Decision::Release {
+                    // Nothing is proposed for a release; no deletion diff is shown.
+                    String::new()
+                } else {
+                    bootstrap::plan::diff(&path, c.before_content.as_deref(), &candidate)
+                }
             || c.proposed_diff
                 != c.proposed_content
                     .as_deref()
@@ -885,4 +943,57 @@ pub fn validate_fresh(root: &Path, plan: &Plan) -> Result<()> {
         ));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const MAXIMAL: [&str; 2] = ["SECURITY.md", "armorer.lock"];
+
+    /// A switched-off optional file is released with no write and no diff; a file the
+    /// target cannot render at all stays a blocking conflict shown as a deletion.
+    #[test]
+    fn scoped_releases_switched_off_entries_and_blocks_dropped_files() {
+        for current in [Some("kept\n"), Some("edited\n"), None] {
+            let c = scoped(
+                "SECURITY.md".into(),
+                None,
+                Some("kept\n".into()),
+                current.map(str::to_owned),
+                false,
+                &MAXIMAL,
+            );
+            assert_eq!(c.decision, Decision::Release);
+            assert_eq!(c.proposed_content.as_deref(), current);
+            assert_eq!(c.after_sha256, c.before_sha256);
+            assert_eq!(c.after_sha256, hash(current));
+            assert!(c.candidate_content.is_empty());
+            assert_eq!(c.candidate_sha256, digest(b""));
+            assert!(c.candidate_diff.is_empty());
+            assert_eq!(c.proposed_diff, current.map(|_| String::new()));
+            assert!(!c.imported);
+        }
+        let dropped = scoped(
+            "gone.md".into(),
+            None,
+            Some("base\n".into()),
+            Some("base\n".into()),
+            false,
+            &MAXIMAL,
+        );
+        assert_eq!(dropped.decision, Decision::Conflict);
+        assert!(dropped.proposed_content.is_none() && dropped.after_sha256.is_none());
+        assert!(dropped.candidate_diff.contains("+++ /dev/null\n"));
+        // A rendered candidate always follows the ordinary merge rules.
+        let rendered = scoped(
+            "SECURITY.md".into(),
+            Some("next\n".into()),
+            Some("kept\n".into()),
+            Some("kept\n".into()),
+            false,
+            &MAXIMAL,
+        );
+        assert_eq!(rendered.decision, Decision::Update);
+    }
 }
