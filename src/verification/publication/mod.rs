@@ -1,6 +1,8 @@
 //! Owned release transitions over authenticated files and independently approved intent.
 //! Serialized plans and journals do not authenticate release bytes or grant a provider permit.
 mod github;
+#[cfg(feature = "fuzzing")]
+pub(crate) use github::fuzz_response;
 #[cfg(test)]
 mod tests;
 

@@ -19,9 +19,14 @@ pub mod init;
 pub mod plan;
 mod runtime;
 mod schema_bounds;
+mod transaction;
 pub mod trust;
 pub mod upgrade;
 pub mod verification;
+// Kept last and out of alphabetical order so it never collides with a new module line.
+#[cfg(feature = "fuzzing")]
+#[doc(hidden)]
+pub mod fuzzing;
 
 use std::path::{Component, Path, PathBuf};
 
@@ -83,6 +88,42 @@ impl Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
+/// Refusal for a symlink at any component below a repository root.
+pub(crate) const SYMLINK_COMPONENT: &str = "symlink input or parent";
+/// Refusal for a managed input that is not a regular file.
+pub(crate) const REGULAR_INPUT: &str = "expected a regular input file";
+/// Refusal when the opened inode differs from the one inspected before opening.
+#[cfg(unix)]
+pub(crate) const INPUT_CHANGED: &str = "input changed during read";
+
+/// Split a relative repository path into its plain components.
+///
+/// This is the only lexical gate for managed paths: [`safe_path`] and the
+/// directory-handle walk used for managed reads and writes both call it, so
+/// they cannot disagree about which inputs are refused or how `a//b`, `a/./b`
+/// and trailing separators normalize.
+///
+/// # Errors
+/// Returns `Error::Path` for an empty path, backslashes, control characters or
+/// any non-normal component (root, prefix, `.` or `..`).
+pub(crate) fn plain_components(relative: &str) -> Result<Vec<&std::ffi::OsStr>> {
+    let refuse = || Error::Path("expected a plain relative path".into());
+    if relative.is_empty() || relative.contains('\\') || relative.chars().any(char::is_control) {
+        return Err(refuse());
+    }
+    let components = Path::new(relative)
+        .components()
+        .map(|component| match component {
+            Component::Normal(name) => Ok(name),
+            _ => Err(refuse()),
+        })
+        .collect::<Result<Vec<_>>>()?;
+    if components.is_empty() {
+        return Err(refuse());
+    }
+    Ok(components)
+}
+
 /// Relative configuration paths never allow parent/absolute components or symlinks.
 ///
 /// Returns the path joined to `root`, allowing missing components. The supplied
@@ -93,22 +134,12 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// non-normal path components, or symlinks below `root`. Filesystem inspection
 /// errors other than not-found propagate as `Error::Io`.
 pub fn safe_path(root: &Path, relative: &str) -> Result<PathBuf> {
-    let path = Path::new(relative);
-    if relative.is_empty()
-        || relative.contains('\\')
-        || relative.chars().any(char::is_control)
-        || path
-            .components()
-            .any(|c| !matches!(c, Component::Normal(_)))
-    {
-        return Err(Error::Path("expected a plain relative path".into()));
-    }
     let mut joined = root.to_path_buf();
-    for component in path.components() {
+    for component in plain_components(relative)? {
         joined.push(component);
         match std::fs::symlink_metadata(&joined) {
             Ok(metadata) if metadata.file_type().is_symlink() => {
-                return Err(Error::Path("symlink input or parent".into()));
+                return Err(Error::Path(SYMLINK_COMPONENT.into()));
             }
             Ok(_) => {}
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
@@ -124,13 +155,12 @@ pub fn safe_path(root: &Path, relative: &str) -> Result<PathBuf> {
 /// open and read failures as `Error::Io`. Rejects special files and symlinks
 /// with `Error::Path` before opening; inspection assumes a stable filesystem.
 pub(crate) fn read_small(path: &Path) -> Result<Vec<u8>> {
-    use std::io::Read;
     // Pre-stat rejects FIFOs; the open itself is nonblocking and refuses symlinks so a
     // FIFO/symlink swapped in after the stat cannot block or redirect the read. The
     // opened inode is then bound to the stat.
     let before = std::fs::symlink_metadata(path)?;
     if !before.file_type().is_file() {
-        return Err(Error::Path("expected a regular input file".into()));
+        return Err(Error::Path(REGULAR_INPUT.into()));
     }
     #[cfg(unix)]
     let file = {
@@ -147,15 +177,21 @@ pub(crate) fn read_small(path: &Path) -> Result<Vec<u8>> {
     let file = std::fs::File::open(path)?;
     let opened = file.metadata()?;
     if !opened.is_file() {
-        return Err(Error::Path("expected a regular input file".into()));
+        return Err(Error::Path(REGULAR_INPUT.into()));
     }
     #[cfg(unix)]
     {
         use std::os::unix::fs::MetadataExt;
         if before.dev() != opened.dev() || before.ino() != opened.ino() {
-            return Err(Error::Path("input changed during read".into()));
+            return Err(Error::Path(INPUT_CHANGED.into()));
         }
     }
+    read_limited(file)
+}
+
+/// Read an already opened and validated input, refusing more than 1 MiB.
+pub(crate) fn read_limited(file: std::fs::File) -> Result<Vec<u8>> {
+    use std::io::Read;
     let mut bytes = Vec::new();
     file.take(1_048_577).read_to_end(&mut bytes)?;
     if bytes.len() > 1_048_576 {

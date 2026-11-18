@@ -41,6 +41,13 @@ metadata observations are review evidence, never a replacement root at runtime.
 The accepted workflow installer rehashes actual downloaded bytes before
 extraction/execution. No upstream download is initiated by `catalog` or rendering.
 
+Review freshness: `CATALOG_REVIEWED_ON` in `src/catalog.rs` records the UTC date the
+bootstrap-v2 pins were last reviewed (2026-10-02, from the source receipt's `verified_on`),
+and `REVIEW_WINDOW_DAYS` is 180. Once the catalog is older than the window, `catalog`,
+`check` and `bootstrap check` warn on stderr and `bootstrap check --release-ready` reports
+the `catalog-review-stale` blocker. Updating the catalog requires updating the date in the
+same reviewed change. The date never enters a plan, lock or digest.
+
 Stable IDs have immutable meanings: a future source update retains these entries
 and adds a separately reviewed successor rather than moving an ID. Unknown IDs
 never fall back. The tool versions remain cargo-deny 0.20.2, actionlint 1.7.12,
@@ -65,6 +72,12 @@ Review the pins. Preserve existing locks until a migration is approved.
 **This is the way.**
 
 `caller_workflows` renders two fixed files shown in [examples](../examples/bootstrap-catalog/README.md).
+The file text lives in `catalogs/templates/*.tmpl` (compiled in with `include_str!`),
+so reviewers read real YAML and TOML. Templates use only the fixed placeholders
+`%%WORKFLOW_REPOSITORY%%`, `%%WORKFLOW_COMMIT%%` and `%%TOOLCHAIN%%`. The renderer
+substitutes in a single pass, rejects unknown or unused placeholders, and rejects values
+containing `%%`, newlines or control characters. The rendered bytes are frozen by
+golden SHA-256 tests in `src/catalog.rs`.
 CI supports ordinary PR/push/manual events; the build caller is explicitly manual
 and unsigned. Both jobs pin the reviewed full workflow commit and grant only
 contents read. Neither exposes shell, inputs, custom provenance, OIDC, signing

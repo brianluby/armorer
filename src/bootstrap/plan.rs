@@ -392,3 +392,73 @@ pub(super) fn same_intent(original: &Plan, fresh: &Plan) -> Result<bool> {
     }
     Ok(normalized(original)? == normalized(fresh)?)
 }
+
+#[cfg(test)]
+mod diff_properties {
+    use super::diff;
+    use proptest::prelude::*;
+
+    const MARKER: &str = "\\ No newline at end of file\n";
+
+    /// Rebuild one side of a rendered diff from its hunk body.
+    fn reconstruct(rendered: &str, prefix: char) -> String {
+        let mut lines = rendered.split_inclusive('\n');
+        for _ in 0..3 {
+            lines.next().expect("three header lines");
+        }
+        let mut out = String::new();
+        // The marker annotates the line just before it, whichever side that was.
+        let mut last_side = None;
+        for line in lines {
+            if line == MARKER {
+                if last_side == Some(prefix) {
+                    assert_eq!(out.pop(), Some('\n'));
+                }
+                continue;
+            }
+            assert!(
+                line.ends_with('\n'),
+                "body line not newline-terminated {line:?}"
+            );
+            let mut chars = line.chars();
+            let side = chars.next().expect("non-empty body line");
+            assert!(side == '-' || side == '+', "unexpected body line {line:?}");
+            last_side = Some(side);
+            if side == prefix {
+                out.push_str(chars.as_str());
+            }
+        }
+        out
+    }
+
+    /// Text biased toward the shapes the renderer must keep exact.
+    fn text() -> impl Strategy<Value = String> {
+        prop_oneof![
+            3 => "[ab+\\- \r\n\\\\λ😀]{0,24}",
+            1 => any::<String>(),
+            1 => Just(String::new()),
+        ]
+    }
+
+    proptest! {
+        #[test]
+        fn minus_and_plus_lines_reconstruct_before_and_after(
+            before in prop::option::of(text()),
+            after in text(),
+        ) {
+            let rendered = diff("path/file.txt", before.as_deref(), &after);
+            if before.as_deref() == Some(after.as_str()) {
+                prop_assert_eq!(rendered, "");
+            } else {
+                prop_assert_eq!(reconstruct(&rendered, '-'), before.unwrap_or_default());
+                prop_assert_eq!(reconstruct(&rendered, '+'), after);
+            }
+        }
+
+        #[test]
+        fn empty_iff_identical(before in prop::option::of(text()), after in text()) {
+            let rendered = diff("p", before.as_deref(), &after);
+            prop_assert_eq!(rendered.is_empty(), before.as_deref() == Some(after.as_str()));
+        }
+    }
+}

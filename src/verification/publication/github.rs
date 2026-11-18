@@ -871,6 +871,11 @@ impl Response {
         })
     }
 }
+/// Fuzz-only hook: `Response::parse` is private to this module.
+#[cfg(feature = "fuzzing")]
+pub(crate) fn fuzz_response(success: bool, bytes: &[u8]) -> bool {
+    Response::parse(success, bytes).is_ok()
+}
 /// Preserve ambiguous 403 authorization/throttle semantics instead of reflecting provider messages.
 fn unavailable(status: u16) -> GateState {
     match status {

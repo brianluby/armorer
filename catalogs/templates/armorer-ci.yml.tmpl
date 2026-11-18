@@ -1,0 +1,17 @@
+name: Armorer CI
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: armorer-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  verify:
+    uses: %%WORKFLOW_REPOSITORY%%/.github/workflows/rust-ci.yml@%%WORKFLOW_COMMIT%%

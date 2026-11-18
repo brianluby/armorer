@@ -40,6 +40,11 @@ jobs:
         run: cargo clippy --locked --all-targets --all-features -- -D warnings
       - name: Test
         run: cargo test --locked
+      - name: Compile-check fuzz targets
+        # Not --locked: fuzz/ has its own lockfile, which no update bot maintains. With
+        # --locked, every root dependency bump would fail here until that file is
+        # refreshed by hand. Cargo still honors every committed pin that remains valid.
+        run: cargo check --manifest-path fuzz/Cargo.toml
       - name: Reject genuine hardened ad-hoc Apple signatures
         if: runner.os == 'macOS'
         run: cargo test --locked real_hardened_adhoc_signature_cannot_satisfy_developer_id -- --ignored --test-threads=1

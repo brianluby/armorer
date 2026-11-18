@@ -64,6 +64,83 @@ pub(super) fn caller_extension(current: &str, candidate: &str, protected: &str) 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
+
+    /// Small alphabet so equal values (base == current == candidate) occur often,
+    /// plus arbitrary text so unrelated values still occur.
+    fn text() -> impl Strategy<Value = String> {
+        prop_oneof![
+            4 => prop::sample::select(vec!["", "a", "b", "c\r\n", "λ", "a\n"]).prop_map(str::to_owned),
+            1 => any::<String>(),
+        ]
+    }
+
+    proptest! {
+        /// Every decision implies the relation between the three images that the
+        /// documented table gives it.
+        #[test]
+        fn decisions_match_the_three_way_contract(
+            base in prop::option::of(text()),
+            current in prop::option::of(text()),
+            candidate in text(),
+        ) {
+            let decision = decide(base.as_deref(), current.as_deref(), &candidate);
+            match decision {
+                Decision::Update => {
+                    prop_assert!(base.is_some());
+                    prop_assert_eq!(&current, &base);
+                    prop_assert_ne!(current.as_deref(), Some(candidate.as_str()));
+                }
+                Decision::Unchanged => {
+                    prop_assert_eq!(current.as_deref(), Some(candidate.as_str()));
+                    prop_assert!(base.is_none() || base == current);
+                }
+                Decision::Create => {
+                    prop_assert!(base.is_none());
+                    prop_assert!(current.is_none());
+                }
+                Decision::PreserveCustomization => {
+                    prop_assert_eq!(base.as_deref(), Some(candidate.as_str()));
+                    prop_assert!(current.is_some());
+                    prop_assert_ne!(&current, &base);
+                }
+                // `decide` has no import path; imports come from `caller_extension`.
+                Decision::Import => prop_assert!(false, "decide never returns Import"),
+                Decision::Conflict => {
+                    // Conflict is the residue: none of the specific cases applies.
+                    let same_as_base = base.is_some() && base == current;
+                    let preserve = base.is_some()
+                        && current.is_some()
+                        && current != base
+                        && base.as_deref() == Some(candidate.as_str());
+                    let create = base.is_none() && current.is_none();
+                    let adopt = base.is_none() && current.as_deref() == Some(candidate.as_str());
+                    prop_assert!(!(same_as_base || preserve || create || adopt));
+                }
+            }
+        }
+
+        /// Safety: bytes that differ from the recorded base are never replaced or
+        /// recreated, whatever the candidate is. Absence differs from empty text.
+        #[test]
+        fn customized_bytes_are_never_overwritten(
+            base in prop::option::of(text()),
+            current in text(),
+            candidate in text(),
+        ) {
+            prop_assume!(base.as_deref() != Some(current.as_str()));
+            let decision = decide(base.as_deref(), Some(&current), &candidate);
+            prop_assert_ne!(decision, Decision::Update);
+            prop_assert_ne!(decision, Decision::Create);
+        }
+
+        /// A deleted file that had a base is a conflict, never a silent recreation.
+        #[test]
+        fn deletion_of_a_based_file_is_a_conflict(base in text(), candidate in text()) {
+            prop_assert_eq!(decide(Some(&base), None, &candidate), Decision::Conflict);
+        }
+    }
+
     /// Verify that all three images participate without adopting edits to next candidate.
     #[test]
     fn all_three_images_participate_without_adopting_edits_to_next_candidate() {
