@@ -586,3 +586,26 @@ fn upgrade_state_fixed_file_is_accepted_only_when_unmodified() {
     assert!(preview(root.path(), "bootstrap-v2", true).is_err());
     assert_eq!(snapshot(root.path()), before);
 }
+
+/// A bootstrap state's workflow pin is an unauthenticated claim: rewriting it to the
+/// wide catalog's pin while the bases are still bootstrap-v2's bytes must not move the
+/// repository onto the six-file set through a plain bootstrap or an upgrade preview.
+#[test]
+fn bootstrap_state_with_a_rewritten_catalog_pin_is_rejected() {
+    let root = fixture();
+    bootstrap(root.path());
+    let path = root.path().join(BOOTSTRAP_STATE);
+    let mut value: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    value["workflow"]["commit"] = catalog::WORKFLOW_COMMIT_TEST_WIDE.into();
+    fs::write(&path, serde_json::to_vec(&value).unwrap()).unwrap();
+    let before = snapshot(root.path());
+    let error = bootstrap::inspect(root.path(), &root.path().join(POLICY)).unwrap_err();
+    assert!(
+        error.to_string().contains("incompatible bootstrap state"),
+        "{error}"
+    );
+    assert!(preview(root.path(), WIDE, false).is_err());
+    assert!(preview(root.path(), "bootstrap-v2", false).is_err());
+    assert_eq!(snapshot(root.path()), before);
+    assert!(!root.path().join(EXTRA).exists());
+}

@@ -86,11 +86,21 @@ fn receipt(plan: &Plan, outcome: &'static str, configured: bool) -> Receipt {
 fn validate_state(state: &State) -> Result<()> {
     // The catalog named by the state's own workflow pin governs its managed set;
     // an unknown pin yields an empty set and fails below.
-    let managed = state
+    let reviewed = state
         .catalog_id()
-        .and_then(|id| catalog::reviewed_for(id).ok())
+        .and_then(|id| catalog::reviewed_for(id).ok());
+    let managed = reviewed
+        .as_ref()
         .map(|catalog| catalog.managed_paths())
         .unwrap_or_default();
+    // The pin is an unauthenticated claim: bases that depend only on the catalog (caller
+    // workflows, fixed files) must be that catalog's own bytes, so a rewritten pin cannot
+    // silently re-home the state onto a catalog with a different managed set.
+    let pinned = reviewed.as_ref().and_then(|catalog| {
+        let mut bytes = catalog.caller_workflows();
+        bytes.extend(catalog.fixed_files().ok()?);
+        Some(bytes)
+    });
     if state.schema_version != VERSION
         || !crate::runtime::compatible(&state.runtime_version)
         || state.catalog_sha256 != catalog::TOOLS_SHA256
@@ -99,7 +109,12 @@ fn validate_state(state: &State) -> Result<()> {
         || !hex_digest(&state.last_plan_sha256, 64)
         || state.managed.len() > managed.len()
         || state.managed.iter().any(|(path, base)| {
-            !managed.contains(&path.as_str()) || digest(base.content.as_bytes()) != base.sha256
+            !managed.contains(&path.as_str())
+                || digest(base.content.as_bytes()) != base.sha256
+                || pinned
+                    .as_ref()
+                    .and_then(|bytes| bytes.get(path))
+                    .is_some_and(|expected| *expected != base.content)
         })
     {
         return Err(Error::Transaction(
