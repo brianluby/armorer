@@ -72,6 +72,9 @@ This procedure covers all 24 current schemas. After regeneration, run
 `requirements-schema.txt` to independently validate examples; CI installs those
 dependencies using their reviewed hashes.
 
+When a change updates the bootstrap catalog pins, update `CATALOG_REVIEWED_ON` in
+`src/catalog.rs` in the same reviewed change; see [the catalog guide](docs/bootstrap-catalog.md).
+
 Contracts remain experimental before v0.1 release. Structural schemas do not
 replace semantic validation or upstream pin authentication. Keep changes small;
 describe the trigger, resulting behavior, tests and limitations. Keep check/plan

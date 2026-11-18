@@ -11,6 +11,49 @@ use std::{
 };
 const STATE: &str = ".armorer/bootstrap-state-v2.json";
 const POLICY: &str = "schema_version = 1\n[licenses]\nallow = [\"MIT\"]\n[advisories]\nexceptions = []\n[sources]\nallow_git = []\n[bans]\nmultiple_versions = \"warn\"\ndeny = []\n";
+/// Drop the single stale-catalog warning from stderr when `freshness` says the catalog is
+/// stale, and require it to be present exactly once; a fresh catalog must print none.
+/// Everything else is returned untouched so drift assertions stay exact.
+fn without_stale_warning(stderr: &str, freshness: &armorer::catalog::Freshness) -> String {
+    let warning = armorer::catalog::stale_warning(freshness);
+    let (mut kept, mut seen) = (Vec::new(), 0);
+    for line in stderr.split_inclusive('\n') {
+        if warning.as_deref() == Some(line.trim_end_matches('\n')) {
+            seen += 1;
+        } else {
+            kept.push(line);
+        }
+    }
+    assert_eq!(seen, usize::from(warning.is_some()), "{stderr}");
+    kept.concat()
+}
+
+/// Strip the stale warning according to the wall clock, so assertions never expire.
+fn without_clock_warning(stderr: &str) -> String {
+    without_stale_warning(stderr, &armorer::catalog::freshness_now().unwrap())
+}
+
+/// The helper must track the production message: hand-built stale and fresh clocks.
+#[test]
+fn stale_warning_helper_matches_the_production_message() {
+    let reviewed = armorer::ci_policy::utc_day(armorer::catalog::CATALOG_REVIEWED_ON).unwrap();
+    let stale = armorer::catalog::freshness_at(reviewed + armorer::catalog::REVIEW_WINDOW_DAYS + 5)
+        .unwrap();
+    let fresh = armorer::catalog::freshness_at(reviewed).unwrap();
+    let line = armorer::catalog::stale_warning(&stale).unwrap();
+    let drift = "armorer: provisioning drift: cargo-lock-missing\n";
+    assert_eq!(
+        without_stale_warning(&format!("{line}\n{drift}"), &stale),
+        drift
+    );
+    assert_eq!(
+        without_stale_warning(&format!("{drift}{line}\n"), &stale),
+        drift
+    );
+    assert_eq!(without_stale_warning("", &fresh), "");
+    assert_eq!(without_stale_warning(drift, &fresh), drift);
+}
+
 /// Create an isolated repository fixture with explicit inputs for the surrounding transaction tests.
 fn fixture(profile: &str) -> (tempfile::TempDir, tempfile::NamedTempFile) {
     let root = tempfile::tempdir().unwrap();
@@ -660,7 +703,7 @@ fn cli_check_exit_status_reports_drift_separately_from_release_readiness() {
         assert_eq!(plan["schema_version"], 2);
         (
             output.status.code().unwrap(),
-            String::from_utf8(output.stderr).unwrap(),
+            without_clock_warning(&String::from_utf8(output.stderr).unwrap()),
         )
     };
 

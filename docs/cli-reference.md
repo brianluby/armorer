@@ -46,6 +46,13 @@ network service. The library can render locks and fixed unprivileged callers;
 this command writes none of them. The release trust `catalog` schema describes a
 different document. Follow [the catalog guide](bootstrap-catalog.md).
 
+The output also carries the static `reviewed_on` (UTC date the pins were last reviewed)
+and `review_window_days` (180). When the catalog is older than that window, `catalog`,
+`check` and `bootstrap check` each print one stderr line,
+`armorer: warning: catalog pins were last reviewed <N> days ago (window <W>); update Armorer or review the catalog`.
+The warning never changes an exit status. `bootstrap check --release-ready` treats a
+stale catalog as the sorted blocker `catalog-review-stale`.
+
 Know which authority you hold. **This is the way.**
 
 ## Apply approved intent
@@ -100,7 +107,7 @@ There are 24 schema names on main. JSON examples under
 | Top-level `check` or `bootstrap check`, provisioning in sync | 0 | JSON plan on stdout |
 | Top-level `check`, drift or open setup finding | 2 | JSON plan on stdout; reasons on stderr |
 | `bootstrap check`, drift or open setup finding | 2 | JSON plan on stdout; reasons on stderr |
-| `bootstrap check --release-ready`, any release gate open | 2 | JSON plan on stdout; reasons on stderr |
+| `bootstrap check --release-ready`, any release gate open (including `catalog-review-stale`) | 2 | JSON plan on stdout; reasons on stderr |
 | Invalid CLI arguments | 2 | Clap diagnostics on stderr |
 
 Serialization and stdout write failures also exit 1; a failed output write cannot
