@@ -6,22 +6,35 @@
 //!
 //! Terminal safety: text mode prints file contents and names that come from an untrusted
 //! repository. Every string written here goes through [`sanitize`] (via [`Out`]), so control
-//! characters and bidirectional overrides can never rewrite the reviewer's terminal.
+//! characters and bidirectional overrides can never rewrite the reviewer's terminal. Single-line
+//! contexts (`line`, table cells) also escape newlines, so a value cannot forge an extra line.
 
 use serde_json::Value;
 
 /// Escape every character that could alter terminal state or visually reorder a line.
 ///
-/// Newline and tab are kept. A carriage return becomes `\r`. Every other `char::is_control()` character, and the Unicode
-/// bidirectional embedding/override/isolate characters U+202A..=U+202E and U+2066..=U+2069, becomes
-/// a visible lowercase-hex escape: `\x1b` up to 0xFF, `\u{202e}` above. Idempotent.
+/// Newline and tab are kept. A carriage return becomes `\r`. Every other `char::is_control()` character,
+/// the Unicode bidirectional embedding/override/isolate characters U+202A..=U+202E and U+2066..=U+2069,
+/// U+2028/U+2029, and the invisible format characters that make two different strings look alike or
+/// reorder neighbours (U+061C, U+180E, U+200B..=U+200F, U+2060..=U+2064, U+FEFF and the tag block
+/// U+E0000..=U+E007F) become a visible lowercase-hex escape: `\x1b` up to 0xFF, `\u{202e}` above.
+/// Idempotent.
 pub fn sanitize(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     for c in text.chars() {
         // Bidirectional overrides/isolates reorder a line; U+2028/U+2029 break one in some terminals.
         let bidi = matches!(
             c,
-            '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}' | '\u{2028}' | '\u{2029}'
+            '\u{202A}'..='\u{202E}'
+                | '\u{2066}'..='\u{2069}'
+                | '\u{2028}'
+                | '\u{2029}'
+                | '\u{061C}'
+                | '\u{180E}'
+                | '\u{200B}'..='\u{200F}'
+                | '\u{2060}'..='\u{2064}'
+                | '\u{FEFF}'
+                | '\u{E0000}'..='\u{E007F}'
         );
         if c == '\r' {
             out.push_str("\\r");
@@ -48,8 +61,9 @@ impl Out {
         self.0.push_str(&sanitize(text));
     }
 
+    /// One output line: a newline inside `text` is escaped so it cannot forge another line.
     fn line(&mut self, text: &str) {
-        self.push(text);
+        self.push(&text.replace('\n', "\\n"));
         self.0.push('\n');
     }
 
@@ -69,7 +83,11 @@ impl Out {
     fn table(&mut self, indent: &str, rows: &[Vec<String>]) {
         let rows: Vec<Vec<String>> = rows
             .iter()
-            .map(|row| row.iter().map(|cell| sanitize(cell)).collect())
+            .map(|row| {
+                row.iter()
+                    .map(|cell| sanitize(cell).replace('\n', "\\n"))
+                    .collect()
+            })
             .collect();
         let columns = rows.iter().map(Vec::len).max().unwrap_or(0);
         let widths: Vec<usize> = (0..columns)
@@ -302,17 +320,28 @@ fn upgrade_plan(out: &mut Out, plan: &Value) {
             out.block(diff);
             continue;
         }
-        // A blocked change has no proposal; show what disagrees so it can be resolved.
         let candidate = text(change, "candidate_diff");
-        if !candidate.is_empty() {
-            out.blank();
+        if candidate.is_empty() {
+            continue;
+        }
+        out.blank();
+        if change.get("proposed_diff").is_some_and(Value::is_string) {
+            // A proposal exists and is empty (a preserved customization): apply keeps the
+            // current file, so the candidate diff is information, not a pending conflict.
+            out.line(&format!(
+                "Candidate diff for {} ({}); the current file is kept, so this is not applied:",
+                text(change, "path"),
+                text(change, "decision")
+            ));
+        } else {
+            // A blocked change has no proposal; show what disagrees so it can be resolved.
             out.line(&format!(
                 "Unresolved candidate diff for {} ({}); not part of an approved proposal:",
                 text(change, "path"),
                 text(change, "decision")
             ));
-            out.block(candidate);
         }
+        out.block(candidate);
     }
     let pins = array(plan, "pin_changes");
     if !pins.is_empty() {
@@ -373,7 +402,15 @@ fn rollback_plan(out: &mut Out, plan: &Value) {
     let changes = array(plan, "changes");
     let rows: Vec<Vec<String>> = changes
         .iter()
-        .map(|change| vec!["restore".into(), text(change, "path").into()])
+        .map(|change| {
+            // A reverse image with no content removes the file; do not call that a restore.
+            let action = if change.get("proposed_content").is_some_and(Value::is_null) {
+                "delete"
+            } else {
+                "restore"
+            };
+            vec![action.into(), text(change, "path").into()]
+        })
         .collect();
     out.table("  ", &rows);
     for change in changes {
@@ -492,6 +529,54 @@ mod tests {
     }
 
     #[test]
+    fn invisible_format_characters_are_visible_escapes() {
+        for c in [
+            '\u{061C}',
+            '\u{180E}',
+            '\u{200B}',
+            '\u{200C}',
+            '\u{200D}',
+            '\u{200E}',
+            '\u{200F}',
+            '\u{2060}',
+            '\u{2064}',
+            '\u{FEFF}',
+            '\u{E0000}',
+            '\u{E0041}',
+            '\u{E007F}',
+        ] {
+            let escaped = sanitize(&format!("a{c}b"));
+            assert_eq!(escaped, format!("a\\u{{{:x}}}b", u32::from(c)), "{c:?}");
+        }
+        assert_eq!(sanitize("a\u{E0080}"), "a\u{E0080}");
+    }
+
+    #[test]
+    fn newline_in_a_single_line_value_cannot_forge_a_line() {
+        let value = json!({
+            "mode": "bootstrap-plan", "plan_sha256": "d1", "catalog_id": "c\nforged: yes",
+            "findings": [{"code": "f", "detail": "x\n  fake-code: injected"}],
+            "changes": [{"path": "a.yml\n  unchanged  owned    safe.yml", "disposition": "update",
+                         "owned": true, "unified_diff": "-a\n+b\n"}]
+        });
+        let text = render(&value).unwrap();
+        for forged in [
+            "\nforged: yes",
+            "\n  unchanged  owned    safe.yml",
+            "\n  fake-code:",
+        ] {
+            assert!(!text.contains(forged), "{forged:?} in {text}");
+        }
+        assert!(text.contains("  update  owned  a.yml\\n  unchanged  owned    safe.yml\n"));
+        assert!(
+            text.contains("-a\n+b\n"),
+            "multi-line diffs stay multi-line"
+        );
+        let receipt = render(&json!({"outcome": "x\ny: z", "k\nj": "v\nw: 1"})).unwrap();
+        assert_eq!(receipt.lines().count(), 2, "{receipt}");
+    }
+
+    #[test]
     fn carriage_return_is_never_raw() {
         assert_eq!(sanitize("a\r\nb"), "a\\r\nb");
     }
@@ -589,6 +674,16 @@ mod tests {
         ));
         assert!(!text.contains("Proposed diff for c.yml"));
         assert!(!text.contains('\x1b'));
+        let mut kept = value.clone();
+        kept["changes"] = json!([
+            {"path": "ci.yml", "decision": "preserve-customization", "proposed_diff": "",
+             "candidate_diff": "--- a/ci.yml\n+++ b/ci.yml\n-mine\n+theirs\n"}
+        ]);
+        let text = render(&kept).unwrap();
+        assert!(text.contains(
+            "Candidate diff for ci.yml (preserve-customization); the current file is kept, so this is not applied:\n"
+        ));
+        assert!(!text.contains("Unresolved"));
         assert!(text.contains("  t: 1.0.0 -> none\n"));
         assert!(text.contains("  c1 [ok]: d1\n"));
         assert!(text.contains("upgrade apply --plan <file> --expect-plan-sha256 u1\n"));
@@ -610,6 +705,14 @@ mod tests {
         assert!(text.contains("Restores to catalog: none"));
         assert!(text.contains("  restore  w.yml\n"));
         assert!(text.contains("+++ /dev/null\n"));
+        let mut removal = value.clone();
+        removal["changes"] = json!([
+            {"path": "gone.json", "proposed_content": null, "unified_diff": "--- a/gone.json\n+++ /dev/null\n"},
+            {"path": "kept.yml", "proposed_content": "x", "unified_diff": ""}
+        ]);
+        let text = render(&removal).unwrap();
+        assert!(text.contains("  delete   gone.json\n"), "{text}");
+        assert!(text.contains("  restore  kept.yml\n"), "{text}");
         assert!(text.contains("  Local only.\n"));
         assert!(text.contains("upgrade rollback-apply --plan <file> --expect-plan-sha256 r1\n"));
     }
