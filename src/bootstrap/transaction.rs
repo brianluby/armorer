@@ -1,6 +1,6 @@
 //! Fixed-inventory durable transactions with exact recovery and shared locking.
 use super::{
-    JOURNAL, STATE, TARGETS, VERSION,
+    JOURNAL, STATE, VERSION,
     plan::{self, Plan},
 };
 use crate::{
@@ -78,15 +78,37 @@ fn receipt(plan: &Plan, outcome: &'static str, configured: bool) -> Receipt {
 
 /// Check ownership identities and generated bases before they can authorize a transaction.
 fn validate_state(state: &State) -> Result<()> {
+    // The catalog named by the state's own workflow pin governs its managed set;
+    // an unknown pin yields an empty set and fails below.
+    let reviewed = state
+        .catalog_id()
+        .and_then(|id| catalog::reviewed_for(id).ok());
+    let managed = reviewed
+        .as_ref()
+        .map(|catalog| catalog.managed_paths())
+        .unwrap_or_default();
+    // The pin is an unauthenticated claim: bases that depend only on the catalog (caller
+    // workflows, fixed files) must be that catalog's own bytes, so a rewritten pin cannot
+    // silently re-home the state onto a catalog with a different managed set.
+    let pinned = reviewed.as_ref().and_then(|catalog| {
+        let mut bytes = catalog.caller_workflows();
+        bytes.extend(catalog.fixed_files().ok()?);
+        Some(bytes)
+    });
     if state.schema_version != VERSION
         || !crate::runtime::compatible(&state.runtime_version)
         || state.catalog_sha256 != catalog::TOOLS_SHA256
         || state.workflow.repository != catalog::WORKFLOW_REPOSITORY
         || catalog::id_for_commit(&state.workflow.commit).is_none()
         || !hex_digest(&state.last_plan_sha256, 64)
-        || state.managed.len() > TARGETS.len()
+        || state.managed.len() > managed.len()
         || state.managed.iter().any(|(path, base)| {
-            !TARGETS.contains(&path.as_str()) || digest(base.content.as_bytes()) != base.sha256
+            !managed.contains(&path.as_str())
+                || digest(base.content.as_bytes()) != base.sha256
+                || pinned
+                    .as_ref()
+                    .and_then(|bytes| bytes.get(path))
+                    .is_some_and(|expected| *expected != base.content)
         })
     {
         return Err(Error::Transaction(
@@ -364,10 +386,14 @@ fn transaction(
 /// Reconstruct all operations before allowing recovery; no custom path/content authority.
 fn validate_journal(journal: &Journal, expected: &str) -> Result<()> {
     plan::validate(&journal.plan, expected)?;
+    // The journal carries its approved plan; that plan's catalog bounds the inventory.
+    let bound = catalog::reviewed_for(&journal.plan.catalog_id)?
+        .managed_paths()
+        .len();
     if journal.schema_version != VERSION
         || journal.plan.recovery_required
         || journal.operations.is_empty()
-        || journal.operations.len() > TARGETS.len() + 1
+        || journal.operations.len() > bound + 1
         || journal
             .operations
             .last()
@@ -444,6 +470,10 @@ pub fn recover(root: &Path, expected: &str) -> Result<Receipt> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    /// Managed paths of the default bootstrap-v2 catalog these fixtures provision.
+    fn managed() -> Vec<&'static str> {
+        catalog::reviewed_v2().unwrap().managed_paths()
+    }
     const POLICY: &str = "schema_version = 1\n[licenses]\nallow = [\"MIT\"]\n[advisories]\nexceptions = []\n[sources]\nallow_git = []\n[bans]\nmultiple_versions = \"warn\"\ndeny = []\n";
     /// Create an isolated repository fixture with explicit inputs for the surrounding transaction tests.
     fn fixture() -> tempfile::TempDir {
@@ -489,14 +519,14 @@ mod tests {
     }
     /// Assert that the isolated fixture has no persisted transaction journal.
     fn absent(root: &Path) {
-        for path in TARGETS.into_iter().chain([STATE, JOURNAL]) {
+        for path in managed().into_iter().chain([STATE, JOURNAL]) {
             assert!(!root.join(path).exists(), "{path}");
         }
     }
     /// Verify that write failures restore all bytes at every boundary and allow retry.
     #[test]
     fn write_failures_restore_all_bytes_at_every_boundary_and_allow_retry() {
-        for index in 0..=TARGETS.len() {
+        for index in 0..=managed().len() {
             let root = fixture();
             let plan = inspect(root.path());
             assert!(
@@ -526,7 +556,7 @@ mod tests {
     /// Verify that crash recovery restores every boundary and blocks wrong digest.
     #[test]
     fn crash_recovery_restores_every_boundary_and_blocks_wrong_digest() {
-        for index in 0..=TARGETS.len() {
+        for index in 0..=managed().len() {
             let root = fixture();
             let plan = inspect(root.path());
             interrupt(root.path(), &plan, index);
@@ -597,12 +627,12 @@ mod tests {
     /// Verify that intervening edits block rollback before any file is restored.
     #[test]
     fn intervening_edits_block_rollback_before_any_file_is_restored() {
-        for path in TARGETS.into_iter().chain([STATE]) {
+        for path in managed().into_iter().chain([STATE]) {
             let root = fixture();
             let plan = inspect(root.path());
-            interrupt(root.path(), &plan, TARGETS.len());
+            interrupt(root.path(), &plan, managed().len());
             fs::write(root.path().join(path), "external edit").unwrap();
-            let snapshot: Vec<_> = TARGETS
+            let snapshot: Vec<_> = managed()
                 .into_iter()
                 .chain([STATE, JOURNAL])
                 .map(|path| (path, fs::read(root.path().join(path)).unwrap()))
@@ -623,7 +653,7 @@ mod tests {
             &plan,
             &plan.plan_sha256,
             |_| {
-                fs::write(root.path().join(TARGETS[0]), "external policy edit")?;
+                fs::write(root.path().join(managed()[0]), "external policy edit")?;
                 Err(Error::Transaction("injected failure"))
             },
             |root, bytes| replace(root, JOURNAL, bytes, false),
@@ -632,7 +662,7 @@ mod tests {
         assert!(error.to_string().contains("recovery required"));
         assert!(root.path().join(JOURNAL).exists());
         assert_eq!(
-            fs::read(root.path().join(TARGETS[0])).unwrap(),
+            fs::read(root.path().join(managed()[0])).unwrap(),
             b"external policy edit"
         );
     }
@@ -647,7 +677,7 @@ mod tests {
                 &plan,
                 &plan.plan_sha256,
                 |index| {
-                    if index == TARGETS.len() {
+                    if index == managed().len() {
                         fs::write(root.path().join("Cargo.lock"), "version = 4\n")?;
                     }
                     Ok(())
@@ -692,7 +722,7 @@ mod tests {
             assert_eq!(fs::read(root.path().join("LICENSE")).unwrap(), b"MIT");
             assert_eq!(fs::read(root.path().join(JOURNAL)).unwrap(), bytes);
             assert_eq!(
-                fs::read(root.path().join(TARGETS[0])).unwrap(),
+                fs::read(root.path().join(managed()[0])).unwrap(),
                 POLICY.as_bytes()
             );
         }
@@ -708,7 +738,7 @@ mod tests {
         {
             use std::os::unix::fs::PermissionsExt;
             fs::set_permissions(
-                root.path().join(TARGETS[0]),
+                root.path().join(managed()[0]),
                 fs::Permissions::from_mode(0o640),
             )
             .unwrap();
@@ -736,7 +766,7 @@ mod tests {
                 .is_err()
             );
             assert_eq!(
-                fs::read(root.path().join(TARGETS[0])).unwrap(),
+                fs::read(root.path().join(managed()[0])).unwrap(),
                 POLICY.as_bytes()
             );
             assert_eq!(fs::read(root.path().join(STATE)).unwrap(), old_state);
@@ -746,7 +776,7 @@ mod tests {
         {
             use std::os::unix::fs::PermissionsExt;
             assert_eq!(
-                fs::metadata(root.path().join(TARGETS[0]))
+                fs::metadata(root.path().join(managed()[0]))
                     .unwrap()
                     .permissions()
                     .mode()
@@ -767,7 +797,7 @@ mod tests {
         )
         .unwrap();
         let plan = inspect(root.path());
-        interrupt(root.path(), &plan, TARGETS.len() - 1);
+        interrupt(root.path(), &plan, managed().len() - 1);
         let mut journal: Journal = decode(&fs::read(root.path().join(JOURNAL)).unwrap()).unwrap();
         journal.committed = true;
         fs::write(root.path().join(JOURNAL), json(&journal).unwrap()).unwrap();

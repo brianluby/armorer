@@ -11,3 +11,12 @@ pub fn gnu_patch_available() -> bool {
         Err(_) => false,
     }
 }
+
+/// Lowercase SHA-256 hex of `bytes`, independent of the sha2 digest type's formatting traits.
+pub fn sha256_hex(bytes: impl AsRef<[u8]>) -> String {
+    use sha2::{Digest, Sha256};
+    Sha256::digest(bytes.as_ref())
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}

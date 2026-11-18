@@ -89,9 +89,15 @@ jobs:
             --policy "$training/ci-policy.reviewed.toml" --catalog bootstrap-v1) || status=$?
           test "$status" -eq 1
           printf '%s' "$output" | python3 -c 'import json,sys; e=json.load(sys.stdin)["error"]; assert "unknown upgrade catalog" in e["message"], e' 
+          # ADR 0013: the test-only wide file-set catalog is equally unselectable.
+          status=0
+          output=$(target/debug/armorer --repository "$training" upgrade plan \
+            --policy "$training/ci-policy.reviewed.toml" --catalog bootstrap-test-wide) || status=$?
+          test "$status" -eq 1
+          printf '%s' "$output" | python3 -c 'import json,sys; e=json.load(sys.stdin)["error"]; assert "unknown upgrade catalog" in e["message"], e'
       - name: Verify committed schemas
         run: |
-          for kind in config lock release-inventory verification-policy artifact-evidence evidence-requirements capability-config catalog capability-observation lifecycle-record github-receipt publish-set registry-receipt ci-policy; do
+          for kind in config lock release-inventory verification-policy artifact-evidence evidence-requirements capability-config catalog capability-observation lifecycle-record github-receipt publish-set registry-receipt ci-policy init-proposal; do
             target/debug/armorer schema "$kind" > "$RUNNER_TEMP/armorer-$kind.json"
             diff -u "schemas/$kind-v1.json" "$RUNNER_TEMP/armorer-$kind.json"
           done

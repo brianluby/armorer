@@ -8,6 +8,41 @@ This reference describes `src/main.rs` on main. Open PR commands are listed in
 
 **This is the way.**
 
+## Initialize a workspace
+
+```sh
+armorer --repository /path/to/workspace init --repo-name owner/name [--toolchain x.y.z]
+armorer --repository /path/to/workspace init --repo-name owner/name [--toolchain x.y.z] \
+  --write --expect-proposal-sha256 REVIEWED_PROPOSAL_SHA256
+```
+
+| Flag | Meaning |
+| --- | --- |
+| `--repo-name` | Required GitHub `owner/name` recorded in the proposed `armorer.toml` |
+| `--toolchain` | Exact stable `x.y.z`; when omitted, only an exact `toolchain.channel` in `rust-toolchain.toml` is used |
+| `--write` | Create the proposed files; requires `--expect-proposal-sha256` |
+| `--expect-proposal-sha256` | The reviewed lowercase `proposal_sha256`; requires `--write` |
+
+Without `--write`, `init` emits an `armorer-init-proposal` document (schema
+`init-proposal`) and a reminder on stderr. It writes nothing. The proposal holds
+the exact `armorer.toml` and `armorer-policy.draft.toml` text with SHA-256, the
+discovered workspace, findings and `proposal_sha256`: the SHA-256 of compact JSON
+with that field blank, bounded at 1 MiB. Discovery is the same isolated
+`cargo metadata --no-deps --offline --locked` snapshot that inspection uses.
+
+With `--write`, `init` recomputes the proposal, requires the supplied digest to
+match, takes `.armorer/apply.lock`, creates the draft and then `armorer.toml`,
+and never overwrites or deletes a file. Its receipt reports `outcome: written`,
+the paths written, and `configured`, `policy_reviewed`, `ci_verified`,
+`release_rehearsed`, `published` and `provenance_verified` all false.
+
+`init` refuses an existing or symlinked `armorer.toml`, an invalid `--repo-name`,
+a missing or inexact toolchain, a package or binary name that cannot be an
+`armorer.toml` identifier, a workspace with no proposable deliverable or more
+than 128 of them, and, on write, a malformed or stale digest or an existing
+destination. Errors omit input values. The draft is not reviewed policy:
+`bootstrap plan` rejects it until `licenses.allow` lists at least one license.
+
 ## Inspect and preview
 
 ```sh
@@ -74,6 +109,43 @@ operation.
 
 Exact approval binds your word to exact intent. **This is the way.**
 
+## Choose the output format
+
+```sh
+armorer --format text bootstrap plan --policy /path/to/reviewed-policy.toml
+armorer check --format text
+```
+
+`--format <json|text>` is accepted before or after the subcommand. The default is
+`json`: every command prints exactly the pretty JSON documented here, byte for byte,
+and `--format json` is the same as no flag. `text` is opt-in and exists so a human
+can review a plan. It changes only stdout. Exit statuses and stderr are identical in
+both formats, with one exception below.
+
+| Output | What `--format text` shows |
+| --- | --- |
+| Error | `error [code]: message` |
+| Bootstrap plan (`bootstrap plan`, `bootstrap check`, `check`) | Plan digest and catalog id; one line per change with disposition, owned or unowned, and path; the `unified_diff` of every change that is not `unchanged`; findings as `code: detail`; the `bootstrap apply --plan <file> --expect-plan-sha256 <digest>` hint |
+| `init` proposal | Repository, toolchain, each proposed file with its path and full content, findings, digest and the `--write --expect-proposal-sha256` hint |
+| `upgrade plan`, `upgrade rollback-plan` | Direction, source and target catalogs, one line per change with its decision and path, the proposed diff for changes that are not `unchanged`, pin changes, compatibility notes or limitations, digest and the matching apply hint |
+| Receipts (`init --write`, `bootstrap apply`, `bootstrap recover`, `upgrade apply`, `upgrade recover`, `upgrade rollback-apply`) | `outcome` first, then every other field as `name: value`; arrays are comma-separated |
+| `catalog` | Workflow repository and commit, then a table of tool, version and platforms |
+| Anything else (schemas, release verification, historical comparison, publication) | No summary exists. Armorer prints the same pretty JSON as `json` mode and writes `armorer: no text view for this output; showing JSON` on stderr. This line is the only stderr difference between the formats. |
+
+Text mode escapes terminal-hostile characters. It prints file contents and names that
+come from the repository you are inspecting, so every character for which Rust's
+`char::is_control()` is true, except newline and tab, is replaced by a visible
+escape: `\x1b` (lowercase hex up to 0xFF, `\u{...}` above it), and a carriage return
+becomes `\r`. The Unicode bidirectional embedding, override and isolate characters
+U+202A through U+202E and U+2066 through U+2069, and the line and paragraph
+separators U+2028 and U+2029, are escaped the same way, for example
+`\u{202e}`. Text mode adds no color or terminal control sequences of its own and ends
+with exactly one newline.
+
+The text view is a summary, never an approval input. Approval digests are computed
+over the JSON document and never over the text view. To approve a plan, save the JSON
+output, review it, and pass its digest to the matching apply command.
+
 ## Inspect contract schemas
 
 ```sh
@@ -92,17 +164,17 @@ authentication are separate requirements.
 | Artifact trust | `release-inventory`, `verification-policy`, `artifact-evidence`, `evidence-requirements` |
 | Capability and catalog | `capability-config`, `catalog`, `capability-observation` |
 | Lifecycle and publication | `lifecycle-record`, `github-receipt`, `publish-set`, `registry-receipt`, `publication-policy`, `publication-plan`, `publication-approval` |
-| Bootstrap and upgrades | `ci-policy`, `bootstrap-plan`, `upgrade-plan`, `upgrade-rollback` |
+| Initialization, bootstrap and upgrades | `init-proposal`, `ci-policy`, `bootstrap-plan`, `upgrade-plan`, `upgrade-rollback` |
 | Graph and native contexts | `cargo-graph-v2`, `native-catalog-v2`, `runtime-distribution-v1`, `verification-context-v3` |
 
-There are 24 schema names on main. JSON examples under
+There are 25 schema names on main. JSON examples under
 [trust-v1](../examples/trust-v1/README.md) are synthetic contract fixtures.
 
 ## Read the exit status
 
 | Result | Exit | Output |
 | --- | --- | --- |
-| Valid plan/catalog, successful apply/recovery, schema or help | 0 | JSON for operations; text for help |
+| Valid plan/catalog/init proposal, successful apply/recovery/init write, schema or help | 0 | JSON for operations; text for help |
 | Operational failure | 1 | JSON error on stdout |
 | Top-level `check` or `bootstrap check`, provisioning in sync | 0 | JSON plan on stdout |
 | Top-level `check`, drift or open setup finding | 2 | JSON plan on stdout; reasons on stderr |
@@ -137,6 +209,21 @@ selections and unsafe inputs stop the operation with an error instead.
 | `native-build-review` | Review target-specific native links and build-script requirements |
 | `transaction-recovery-required` | Retain the unfinished journal and follow explicit recovery |
 
+`init` proposals add their own findings. `license-file-missing` there means no
+`LICENSE`, `LICENSE.md`, `LICENSE.txt`, `LICENSE-MIT`, `LICENSE-APACHE` or
+`COPYING` regular file exists and the proposal names `LICENSE`.
+
+| Init finding | Next duty |
+| --- | --- |
+| `policy-draft-incomplete` | List accepted dependency licenses and review the draft before `bootstrap plan` |
+| `targets-review` | Remove proposed targets the project does not ship |
+| `profile-review` | Change a long-running binary's `cli` profile to `service` where it applies |
+| `license-file-missing` | Add the license file, or change `policy.license_file` |
+| `required-features-skipped` | Review the counted binary targets that default features do not enable; add them by hand if intended |
+| `package-without-deliverable` | Review the counted packages with no default-enabled binary or library target |
+| `policy-draft-exists` | Move the existing `armorer-policy.draft.toml` aside; `init --write` never overwrites it |
+| `toolchain-file-differs` | An existing `rust-toolchain.toml` does not pin the `--toolchain` value (a different or inexact channel, no channel, or a file that is not valid TOML), or a legacy `rust-toolchain` file exists; resolve it before `bootstrap plan` reports the conflict. It checks the channel only: `bootstrap plan` also reports a conflict for a file that pins the same channel with other content |
+
 ## Provision, migrate and verify through separate contracts
 
 Main also provides the following explicit interfaces:
@@ -156,7 +243,8 @@ historical comparison or a weaker context. Native publication writes remain
 blocked until every required gate is Enforced and a separate publication approval
 is supplied; the current-attempt approval and runner serialization gates are now
 observable through the pinned controller's attempt-bound deployment (PR32).
-There is no `init` command. The original offline library API remains available.
+`init` proposes and creates only `armorer.toml` and the policy draft; it provisions
+nothing. The original offline library API remains available.
 Use the reviewed checkout's `./target/debug/armorer`; building does not install
 the executable on PATH.
 

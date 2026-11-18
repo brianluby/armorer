@@ -6,6 +6,8 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 use serde_json::json;
 use std::{io::Write, path::PathBuf};
 
+mod render;
+
 #[derive(Parser)]
 #[command(
     version,
@@ -14,14 +16,39 @@ use std::{io::Write, path::PathBuf};
 struct Cli {
     #[arg(long, default_value = ".", global = true)]
     repository: PathBuf,
+    /// Output format: json (default, the machine contract) or text (reviewer summary).
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json, global = true)]
+    format: OutputFormat,
     #[command(subcommand)]
     command: Operation,
+}
+
+/// Selects how stdout is rendered; exit statuses and stderr never depend on it.
+#[derive(Clone, Copy, ValueEnum)]
+enum OutputFormat {
+    Json,
+    Text,
 }
 
 #[derive(Subcommand)]
 enum Operation {
     /// Report bootstrap drift over .armorer/ci-policy.toml (JSON; exit 0 in sync, 2 on drift).
     Check,
+    /// Propose armorer.toml and a policy draft from read-only discovery (JSON); --write creates them.
+    Init {
+        /// GitHub owner/name recorded in the proposed armorer.toml.
+        #[arg(long)]
+        repo_name: String,
+        /// Exact stable x.y.z toolchain; defaults only to an exact rust-toolchain.toml channel.
+        #[arg(long)]
+        toolchain: Option<String>,
+        /// Create the reviewed files; never overwrites an existing file.
+        #[arg(long, requires = "expect_proposal_sha256")]
+        write: bool,
+        /// Independently reviewed proposal_sha256 that authorizes --write.
+        #[arg(long, requires = "write")]
+        expect_proposal_sha256: Option<String>,
+    },
     /// Print the authenticated embedded bootstrap tool/workflow catalog (no downloads).
     Catalog,
 
@@ -236,6 +263,7 @@ enum SchemaKind {
     UpgradePlan,
     UpgradeRollback,
     BootstrapPlan,
+    InitProposal,
     CiPolicy,
     Config,
     Lock,
@@ -638,6 +666,22 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
                 0,
             ))
         }
+        Operation::Init {
+            repo_name,
+            toolchain,
+            write,
+            expect_proposal_sha256,
+        } => {
+            let expected = expect_proposal_sha256.as_deref().filter(|_| write);
+            let value =
+                armorer::init::run(&cli.repository, &repo_name, toolchain.as_deref(), expected)?;
+            if expected.is_none() {
+                eprintln!(
+                    "armorer: nothing was written; review files and findings, then rerun with --write --expect-proposal-sha256 <reviewed proposal_sha256>"
+                );
+            }
+            Ok((value, 0))
+        }
         Operation::Schema { kind } => {
             let schema = match kind {
                 SchemaKind::PublicationPolicy => {
@@ -666,6 +710,7 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
                 }
                 SchemaKind::UpgradePlan => schemars::schema_for!(armorer::upgrade::Plan),
                 SchemaKind::BootstrapPlan => schemars::schema_for!(armorer::bootstrap::Plan),
+                SchemaKind::InitProposal => schemars::schema_for!(armorer::init::Proposal),
                 SchemaKind::CiPolicy => schemars::schema_for!(armorer::ci_policy::CiPolicy),
                 SchemaKind::Config => schemars::schema_for!(Config),
                 SchemaKind::Lock => schemars::schema_for!(Lock),
@@ -757,6 +802,7 @@ fn main() {
         }
         std::process::exit(1);
     }
+    let format = cli.format;
     let (value, code) = match run(cli) {
         Ok(result) => result,
         Err(error) => (
@@ -764,7 +810,16 @@ fn main() {
             1,
         ),
     };
-    let output = serde_json::to_vec_pretty(&value);
+    let output = match format {
+        OutputFormat::Json => serde_json::to_vec_pretty(&value),
+        OutputFormat::Text => match render::render(&value) {
+            Some(text) => Ok(text.into_bytes()),
+            None => {
+                eprintln!("armorer: no text view for this output; showing JSON");
+                serde_json::to_vec_pretty(&value)
+            }
+        },
+    };
     let mut stdout = std::io::stdout().lock();
     match output {
         Ok(bytes)

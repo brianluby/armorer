@@ -357,9 +357,8 @@ fn lock_runtime_version_follows_the_patch_line_compatibility_rule() {
 
 #[test]
 fn plan_hashes_exact_validated_lock_bytes() {
-    use sha2::{Digest, Sha256};
     let root = fixture();
-    let config_digest = format!("{:x}", Sha256::digest(CONFIG.as_bytes()));
+    let config_digest = sha256_hex(CONFIG.as_bytes());
     let lock = format!(
         r#"schema_version = 1
 config_sha256 = "{config_digest}"
@@ -381,10 +380,7 @@ sha256 = "{}"
         let (validated, exact) = load_lock(root.path(), &config_digest).unwrap().unwrap();
         assert_eq!(validated.config_sha256, config_digest);
         assert_eq!(exact, bytes.as_bytes());
-        assert_eq!(
-            format!("{:x}", Sha256::digest(&exact)),
-            format!("{:x}", Sha256::digest(bytes.as_bytes()))
-        );
+        assert_eq!(sha256_hex(&exact), sha256_hex(bytes.as_bytes()));
     }
 }
 
@@ -1082,4 +1078,13 @@ fn check_uses_the_upgrade_owners_catalog() {
         String::from_utf8_lossy(&out.stdout),
         String::from_utf8_lossy(&out.stderr)
     );
+}
+
+/// Lowercase SHA-256 hex of `bytes`, independent of the sha2 digest type's formatting traits.
+fn sha256_hex(bytes: impl AsRef<[u8]>) -> String {
+    use sha2::{Digest, Sha256};
+    Sha256::digest(bytes.as_ref())
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }
