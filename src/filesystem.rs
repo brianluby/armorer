@@ -1,5 +1,8 @@
 //! Bounded, symlink-refusing transaction I/O shared by every provisioning path.
-//! Owner-only staging primitives. Unsupported platforms fail before creating anything.
+//! Owner-only staging primitives. On a non-Unix platform the private staging primitives fail
+//! before creating anything, but the by-path transaction fallbacks (`ensure_parent`, `lock`,
+//! `replace` and `remove`) may create or change files and directories before the durable-sync
+//! step returns the unsupported-platform error, so a non-Unix failure is not proof that nothing was written.
 //!
 //! On Unix every managed read, write, removal and parent-directory creation
 //! below a repository root goes through directory handles: the root is opened
@@ -1399,6 +1402,7 @@ pub(crate) fn lock(root: &Path) -> Result<TransactionLock> {
 ///
 /// Only the non-Unix path walk reaches this by path; on Unix every managed
 /// directory (and the repository root) is synced through a held handle.
+/// It always fails, and its callers have already created, replaced or removed the entry by then.
 #[cfg(not(unix))]
 fn sync_directory(path: &Path) -> Result<()> {
     // Initial mutation support is Unix, matching the supported host platforms.

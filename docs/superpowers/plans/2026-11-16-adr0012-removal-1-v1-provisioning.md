@@ -8,7 +8,7 @@
 
 **Tech Stack:** Rust (edition per Cargo.toml), clap, schemars, serde; Python structural validators under `scripts/`.
 
-**Spec:** `docs/adr/0012-pre-release-contract-consolidation.md` (rows 1–2 of "Removed before 0.1.0"), review finding A4 in `reviews/2026-11-16-architecture-security-roadmap-review.md`.
+**Spec:** `docs/adr/0012-pre-release-contract-consolidation.md` (rows 1–2 of "Removed before 0.1.0"), review finding A4 in [`docs/architecture-review-2026-11-16.md`](../../architecture-review-2026-11-16.md).
 
 **Tracking:** Veans project 16, task #31 (db id 1496). Branch `adr0012/remove-v1-provisioning`, worktree `../armorer-adr0012-r1`.
 

@@ -31,7 +31,7 @@ coverage, validation and the exact outstanding acceptance evidence.
 | Prepare credential ownership and own adoption | [Credential boundaries](credential-boundaries.md), [dogfooding](dogfooding.md) | Pinned no-secret CI/build interface and own-source read-only inspection; protected adapters/rehearsal still pending |
 | Contribute in the creed | [Contributing](../CONTRIBUTING.md), [writing guide](writing-guide.md) | Pinned checks, all schemas and accurate Mandalorian prose |
 
-The [historical contributor repair](../reviews/2026-10-03-pr23-schema-guide.md)
+The historical contributor repair (`reviews/2026-10-03-pr23-schema-guide.md`)
 records #23's 24-schema fix. The accepted procedure now stages all 24 schemas;
 #23 is closed as superseded. Bootstrap, upgrade and complete verification are
 accepted implementations; their production/operational gates remain open.
@@ -57,9 +57,9 @@ future operational scope or hosted Armorer dogfooding.
 Do the preparation the source supports. Keep unsupported commands out of the
 main walkthrough. **This is the way.**
 
-The [original combined-source review](../reviews/2026-10-02-integration-pr21.md)
+The original combined-source review (`reviews/2026-10-02-integration-pr21.md`)
 records #21's structural resolution and trust finding. The
-[successor review](../reviews/2026-10-02-integration-pr21-successor.md) records its
+successor review (`reviews/2026-10-02-integration-pr21-successor.md`) records its
 source fix, regressions and remaining acceptance gates. Candidate guides are
 reviewable preparation. Promote them into the
 current-source walkthrough only after accepted integration and renewed source,
@@ -81,5 +81,5 @@ Make the guide earn the reader's trust. **This is the way.**
 
 The [accepted source map](development-status.md) and [live acceptance ledger](v01-acceptance.md)
 separate merged implementation from the remaining operational gates. Preserve the
-[preceding documentation snapshot](../reviews/2026-10-03-documentation-plan-before-reconciliation.txt)
+preceding documentation snapshot (`reviews/2026-10-03-documentation-plan-before-reconciliation.txt`)
 and existing dated review receipts. PR #26 remains under separate human review.

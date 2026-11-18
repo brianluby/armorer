@@ -285,6 +285,71 @@ fn rejects_symlink_inputs() {
     assert_eq!(inspect(root.path()).unwrap_err().code(), "unsafe-path");
 }
 
+/// A managed policy yields the same plan as the path-based preview of the same bytes.
+#[test]
+fn inspect_managed_matches_inspect_for_the_same_policy() {
+    let root = fixture();
+    write(root.path(), ".armorer/ci-policy.toml", POLICY);
+    let managed =
+        armorer::bootstrap::inspect_managed(root.path(), ".armorer/ci-policy.toml").unwrap();
+    assert_eq!(
+        managed.plan_sha256,
+        inspect(root.path()).unwrap().plan_sha256
+    );
+}
+
+/// A missing or invalid managed policy is an error, never an empty or default plan.
+#[test]
+fn inspect_managed_rejects_missing_and_invalid_policy() {
+    let root = fixture();
+    assert!(armorer::bootstrap::inspect_managed(root.path(), ".armorer/ci-policy.toml").is_err());
+    write(
+        root.path(),
+        ".armorer/ci-policy.toml",
+        "schema_version = 1\n",
+    );
+    assert!(armorer::bootstrap::inspect_managed(root.path(), ".armorer/ci-policy.toml").is_err());
+}
+
+/// A symlink at the policy leaf is refused, not followed to its valid target.
+#[cfg(unix)]
+#[test]
+fn inspect_managed_refuses_a_symlinked_policy_leaf() {
+    let root = fixture();
+    fs::create_dir_all(root.path().join(".armorer")).unwrap();
+    std::os::unix::fs::symlink(
+        root.path().join("ci-policy.reviewed.toml"),
+        root.path().join(".armorer/ci-policy.toml"),
+    )
+    .unwrap();
+    let error =
+        armorer::bootstrap::inspect_managed(root.path(), ".armorer/ci-policy.toml").unwrap_err();
+    assert_eq!(error.code(), "unsafe-path");
+}
+
+/// An absent lock is `Ok(None)`; a lock symlink, dangling or valid, is an error and never absence.
+#[test]
+fn load_lock_absence_and_symlinks() {
+    let root = fixture();
+    let digest = "a".repeat(64);
+    assert!(load_lock(root.path(), &digest).unwrap().is_none());
+    #[cfg(unix)]
+    {
+        std::os::unix::fs::symlink("missing.lock", root.path().join("armorer.lock")).unwrap();
+        assert!(load_lock(root.path(), &digest).is_err());
+        fs::remove_file(root.path().join("armorer.lock")).unwrap();
+        let lock = format!(
+            "schema_version = 1\nconfig_sha256 = \"{digest}\"\nruntime_version = \"0.1.0\"\n[workflows]\nrepository = \"brianluby/armorer-workflows\"\ncommit = \"{}\"\n[tools.cargo-cyclonedx]\nversion = \"0.5.9\"\nsha256 = \"{}\"\n",
+            "b".repeat(40),
+            "c".repeat(64)
+        );
+        write(root.path(), "real.lock", &lock);
+        assert!(load_lock(root.path(), &digest).unwrap().is_none());
+        std::os::unix::fs::symlink("real.lock", root.path().join("armorer.lock")).unwrap();
+        assert!(load_lock(root.path(), &digest).is_err());
+    }
+}
+
 #[test]
 fn lock_requires_config_binding_and_full_pins() {
     let root = fixture();

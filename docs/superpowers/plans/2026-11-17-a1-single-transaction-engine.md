@@ -1,6 +1,6 @@
 # A1: single transaction engine — Implementation Plan
 
-> Executor: superpowers:executing-plans, inline. Spec: review A1 (reviews/2026-11-16-architecture-security-roadmap-review.md). Veans #34 (1499). Branch a1/single-transaction-engine.
+> Executor: superpowers:executing-plans, inline. Spec: review A1 ([docs/architecture-review-2026-11-16.md](../../architecture-review-2026-11-16.md)). Veans #34 (1499). Branch a1/single-transaction-engine.
 
 **Goal:** one journaled write/recovery engine; bootstrap and upgrade keep their approval contracts, pre-lock validation order, receipts and journal wire bytes.
 

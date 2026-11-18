@@ -28,6 +28,20 @@ Use the same prefix for build, format and lint checks.
 Passing local checks earns review evidence. Hosted CI and human acceptance have
 their own gates. **This is the way.**
 
+## Review receipts and rehearsal evidence
+
+Receipts, exit codes, checksums and rehearsal output are kept locally in the
+git-ignored `code_reviews/` directory. They are not part of the repository, and
+you must not commit them. The copies that were tracked under `reviews/` until this
+change remain in history at `292e9b6`; read one with
+`git show 292e9b6:reviews/<file>`.
+
+A receipt earns credit only for the exact source commit it names. Cite the commit
+in your pull request and keep the receipt itself with you. The architecture and
+roadmap review stays tracked as [docs/architecture-review-2026-11-16.md](docs/architecture-review-2026-11-16.md);
+[ADR 0014](docs/adr/0014-review-evidence-outside-the-repository.md) records the decision.
+**This is the way.**
+
 ## Fuzz and property tests
 
 Parsers that read untrusted bytes carry property tests (`proptest`, in

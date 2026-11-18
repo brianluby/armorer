@@ -101,7 +101,7 @@ through the pinned controller's attempt-bound deployment (PR32), not permanently
 unsupported. No public release, package publication, tag movement or settings mutation
 was performed by this reconciliation. L3 and optional adapters remain deferred.
 
-The [preceding ledger](../reviews/2026-10-03-v01-acceptance-before-reconciliation.txt)
+The preceding ledger (`reviews/2026-10-03-v01-acceptance-before-reconciliation.txt`)
 retains every original dated receipt and pending observation. Its old source
 acceptance labels describe that earlier snapshot. Use this ledger and the
 [source map](development-status.md) for current accepted implementation and the

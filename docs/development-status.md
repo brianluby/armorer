@@ -67,7 +67,7 @@ No SLSA level, publication or completed release rehearsal is inferred from CI.
 
 Use the [acceptance ledger](v01-acceptance.md) for each ticket's exact gate and
 [documentation coverage](documentation-coverage.md) for operational guide limits.
-The [preceding source map](../reviews/2026-10-03-development-status-before-reconciliation.txt)
+The preceding source map (`reviews/2026-10-03-development-status-before-reconciliation.txt`)
 and existing review records remain historical snapshots.
 
 Keep every earned protection. **This is the way.**
