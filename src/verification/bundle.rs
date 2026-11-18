@@ -83,9 +83,14 @@ fn bare(bytes: Vec<u8>) -> Result<UnverifiedBundle> {
     Ok(UnverifiedBundle { bytes, statement })
 }
 
-/// Fuzz-only hook: `bare` is the bytes entry point behind `load_one`.
+/// Fuzz-only hook: `bare` is the bytes entry point behind `load_one`. Inputs
+/// over `MAX_BUNDLE` are rejected before copying, as `read_bounded` does, so the
+/// fuzzer explores only production-reachable input.
 #[cfg(feature = "fuzzing")]
 pub(crate) fn fuzz_bare(bytes: &[u8]) -> bool {
+    if bytes.len() as u64 > MAX_BUNDLE {
+        return false;
+    }
     bare(bytes.to_vec()).is_ok()
 }
 
