@@ -88,6 +88,10 @@ overrides are safe or that the real build works.
 
 On current main, differing unowned toolchain files and legacy `rust-toolchain`
 produce conflicts. Identical files remain unowned. There is no force/adopt flag.
+The same holds for the [optional repository files](bootstrap-v2.md#optional-repository-files):
+leave `security_policy` or `dependabot` off while a hand-written `SECURITY.md` or
+`.github/dependabot.yml` stays, and set `code_owners` only once you hand
+`.github/CODEOWNERS` to Armorer.
 Preserve the custom bytes, resolve the desired toolchain deliberately, then review
 a fresh plan. Follow [bootstrap and recovery](bootstrap-v2.md) for the reviewed change.
 Use [bootstrap](bootstrap-v2.md) for five-file provisioning and

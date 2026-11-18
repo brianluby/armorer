@@ -8,7 +8,7 @@ Armorer is building repeatable secure CI and verifiable releases for Rust reposi
 
 ## What stands today
 
-Read-only `bootstrap plan` validates explicit Cargo workspace selections and shows exact before/after text and complete diffs; `check` reports provisioning drift over the managed policy. The accepted version-two `bootstrap` path provisions all five local CI/build files from reviewed catalog pins and owner-selected policy. `upgrade` preserves stored generated bases, exposes conflicts and supports explicit imports and rollback. The strict complete-release consumer verifies independent context, authenticated inventories, exact assets and paired SBOM/graph evidence. Native Apple executable verification requires macOS. Follow [the source map](docs/development-status.md) and [acceptance ledger](docs/v01-acceptance.md) for accepted heads and operational gates.
+Read-only `bootstrap plan` validates explicit Cargo workspace selections and shows exact before/after text and complete diffs; `check` reports provisioning drift over the managed policy. The accepted version-two `bootstrap` path provisions all five local CI/build files from reviewed catalog pins and owner-selected policy, plus `SECURITY.md`, `.github/dependabot.yml` and `.github/CODEOWNERS` when `armorer.toml` opts in to them. `upgrade` preserves stored generated bases, exposes conflicts and supports explicit imports and rollback. The strict complete-release consumer verifies independent context, authenticated inventories, exact assets and paired SBOM/graph evidence. Native Apple executable verification requires macOS. Follow [the source map](docs/development-status.md) and [acceptance ledger](docs/v01-acceptance.md) for accepted heads and operational gates.
 
 **v0.1 targets SLSA Build L2. Current main claims no SLSA level.** L3 belongs to a future-version backlog item. Configuration, hosted CI, release rehearsal, publication and verified provenance each need separate evidence.
 
@@ -67,7 +67,7 @@ Follow [your first inspection](docs/onboarding.md) for a complete local exercise
 | Verify an individual attestation through the library | [Offline verifier](docs/offline-verifier.md) |
 | Understand configuration, locks and plan digests | [Version-one contracts](docs/contracts-v1.md) |
 | Understand release trust and evidence | [Trust contracts](docs/trust-contracts-v1.md) |
-| Provision all five local files | [Bootstrap and recovery](docs/bootstrap-v2.md) |
+| Provision all five local files and the optional repository files | [Bootstrap and recovery](docs/bootstrap-v2.md) |
 | Review upgrades, imports and rollback | [Upgrades](docs/upgrades.md) |
 | Verify complete or historical release bytes | [Complete verifier](docs/verify-release-cli.md), [explicit historical policy](docs/historical-verification.md) |
 | Inspect owned-draft publication gates | [Controller](docs/owned-draft-controller-v1.md) |

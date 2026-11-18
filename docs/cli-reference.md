@@ -194,6 +194,17 @@ Stable error categories are `io`, `invalid-toml`, `invalid-config`, `unsafe-path
 (non-Unix hosts). TOML diagnostics omit
 input values. Armorer does not print arbitrary Cargo stderr or request secrets.
 
+When a repository owns an optional managed file that `armorer.toml` no longer
+selects, `check`, `bootstrap plan`, `bootstrap check` and `bootstrap apply` stop
+with this `transaction` error and change nothing:
+
+```json
+{"error":{"code":"transaction","message":"transaction blocked: an owned managed file is no longer selected by the configuration; releasing or removing it is not supported yet"}}
+```
+
+Switch the file back on. Releasing or removing an owned optional file has no
+approved behavior yet; see [optional repository files](bootstrap-v2.md#optional-repository-files).
+
 ## Read the findings
 
 Findings record unmet requirements in an otherwise valid inspection. Invalid
@@ -223,6 +234,12 @@ selections and unsafe inputs stop the operation with an error instead.
 | `package-without-deliverable` | Review the counted packages with no default-enabled binary or library target |
 | `policy-draft-exists` | Move the existing `armorer-policy.draft.toml` aside; `init --write` never overwrites it |
 | `toolchain-file-differs` | An existing `rust-toolchain.toml` does not pin the `--toolchain` value (a different or inexact channel, no channel, or a file that is not valid TOML), or a legacy `rust-toolchain` file exists; resolve it before `bootstrap plan` reports the conflict. It checks the channel only: `bootstrap plan` also reports a conflict for a file that pins the same channel with other content |
+| `repository-files-review` | Always present. Says which [optional managed files](bootstrap-v2.md#optional-repository-files) the proposal switched on, which it left off because a file already exists, and that `code_owners` must be set by the owner. Review each switch; set `code_owners` to manage `.github/CODEOWNERS` |
+
+`init` switches `security_policy` on only when none of `SECURITY.md`,
+`.github/SECURITY.md` and `docs/SECURITY.md` exists, and `dependabot` on only when
+neither `.github/dependabot.yml` nor `.github/dependabot.yaml` exists. It never
+proposes `code_owners`. A symlink at any probed path is refused, never followed.
 
 ## Provision, migrate and verify through separate contracts
 
@@ -230,7 +247,7 @@ Main also provides the following explicit interfaces:
 
 | Command | Subcommands / guide |
 | --- | --- |
-| `bootstrap` | `plan`, `check`, `apply`, `recover`; [five-file procedure](bootstrap-v2.md) |
+| `bootstrap` | `plan`, `check`, `apply`, `recover`; [five-file procedure and optional files](bootstrap-v2.md) |
 | `upgrade` | `plan`, `apply`, `recover`, `rollback-plan`, `rollback-apply`; [reviewed migration](upgrades.md) |
 | `verify-release` | Independently approved context, exact assets and required bundles; [complete verifier](verify-release-cli.md) |
 | `verify-historical-bytes` | Explicit independently approved historical policy; [weaker byte comparison](historical-verification.md) |

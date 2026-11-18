@@ -94,14 +94,33 @@ and `AuthenticatedCatalog::managed_paths` derives the sorted path list from the
 same table, so the declared set and the rendered set cannot drift apart. Plans,
 ownership states, journals, import scope and upgrade bounds ask the catalog that
 governs the document; nothing else lists the files ([ADR 0013](adr/0013-catalog-defined-managed-file-set.md)).
-`bootstrap-v2` declares five: the project CI policy, the two callers, the lock
-and the toolchain file.
+`bootstrap-v2` declares five unconditional files: the project CI policy, the two
+callers, the lock and the toolchain file.
 
-Adding a managed file means adding a table entry and its template under
-`catalogs/templates/`, then regenerating the example packets. It changes every
-consumer's plan, so it ships as a reviewed catalog successor, never as an edit
-to an accepted entry. Guards that run before a catalog is known, such as the
-license-path overlap check, use the union of every compiled set.
+An entry is either unconditional or optional. The three optional entries,
+`SECURITY.md`, `.github/dependabot.yml` and `.github/CODEOWNERS`, are rendered only
+when `[repository_files]` in `armorer.toml` selects them, and every switch is off
+by default ([ADR 0015](adr/0015-optional-managed-repository-files.md)). Two sets
+come from the one table. `managed_paths` is the maximal set, every path the catalog
+can ever render (eight for `bootstrap-v2`). `selected_paths` is the set a given
+configuration selects (five with every switch off). A bootstrap plan lists exactly
+the selected set for its intent. Documents that carry no configuration, such as
+bootstrap ownership and journal count bounds, are bounded by the maximal set.
+
+`SECURITY.md.tmpl` takes `%%REPOSITORY%%` and `dependabot.yml.tmpl` takes
+`%%WORKFLOW_REPOSITORY%%`, through the same single-pass renderer and its rules.
+`.github/CODEOWNERS` has a variable number of owners, so it is rendered in code
+from the validated owner list, with the same control-character refusal. Golden
+SHA-256 tests in `src/catalog.rs` freeze both optional templates as well.
+
+Adding an unconditional managed file means adding a table entry and its template
+under `catalogs/templates/`, then regenerating the example packets. It changes
+every consumer's plan, so after 0.1.0 it ships as a reviewed catalog successor,
+never as an edit to an accepted entry. An optional entry that is off by default
+changes no existing plan; before 0.1.0, ADR 0012 lets it join the pre-release
+`bootstrap-v2` entry in place. Guards that run before a catalog is known, such as
+the license-path overlap check, use the union of every compiled maximal set, so a
+`license_file` of `SECURITY.md` is refused.
 
 Count the files the catalog declares, not the files you expect.
 **This is the way.**

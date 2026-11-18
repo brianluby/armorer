@@ -72,13 +72,59 @@ bytes against the current UTC day. Generate a new plan to approve a policy chang
 
 The five fixed targets are `rust-toolchain.toml`, `armorer.lock`,
 `.armorer/ci-policy.toml`, `.github/workflows/armorer-ci.yml` and
-`.github/workflows/armorer-build.yml`. Paths, templates and workflow commits are
+`.github/workflows/armorer-build.yml`. Three more files are managed only when
+`armorer.toml` opts in; see [optional repository files](#optional-repository-files).
+Paths, templates and workflow commits are
 compiled authority; there is no custom shell, hook, URL or force-adoption input.
 The embedded catalog is authenticated against an independent compiled digest
 before parsing. The lock records all 18 target-qualified native tool distributions
 and the exact accepted workflow revision described in
 [catalog source and limits](bootstrap-catalog.md). CI checks PRs/pushes; the build
 caller is manual and unsigned. Neither caller has OIDC, publication or secrets.
+
+## Optional repository files
+
+A repository that is secure from the start also carries a security policy, code
+owners and dependency-update configuration. Armorer can manage three more files,
+each switched on in an optional `[repository_files]` table of `armorer.toml`:
+
+```toml
+[repository_files]
+security_policy = true
+dependabot = true
+code_owners = ["@owner", "@example-org/platform"]
+```
+
+| File | Switch | Content |
+| --- | --- | --- |
+| `SECURITY.md` | `security_policy = true` | Fixed neutral policy: report privately through `https://github.com/<repository>/security/advisories/new`, or open an issue with no details if that form is unavailable; what to include; no promised response time |
+| `.github/dependabot.yml` | `dependabot = true` | Fixed: `cargo` and `github-actions`, weekly, 7-day cooldown, at most 5 open pull requests, cargo minor and patch grouped; the Armorer workflow pin is ignored because it moves only through `armorer upgrade` |
+| `.github/CODEOWNERS` | non-empty `code_owners` | Generated: `*` and the managed control paths (`/.github/`, `/.armorer/`, `/armorer.toml`, `/armorer.lock`, `/rust-toolchain.toml`, `/SECURITY.md`) owned by the listed owners in order |
+
+Every switch is off by default. Without the table, the plan, state, journal, lock
+and receipt bytes are exactly what they were before these files existed, and the
+table never appears in a serialized configuration. `code_owners` takes at most 16
+unique entries, each exactly `@user` or `@org/team` as GitHub spells them;
+anything else is an `invalid-config` error that does not echo the value.
+Code-owner review takes effect only when a ruleset or branch protection requires
+it; the file alone enforces nothing.
+
+The ordinary ownership rules apply. A selected file that already exists with
+different bytes, such as a hand-written `SECURITY.md`, is a conflict that blocks
+apply and is never overwritten; identical bytes stay unowned. Leave the switch off
+while you keep a hand-written file, or remove that file through your own reviewed
+change before switching it on. The content is fixed: there is no template input,
+and `dependabot.yml` cannot carry extra ecosystems. Customizations conflict.
+
+Turning a switch off after Armorer owns the file has no approved behavior yet.
+`check`, `bootstrap plan`, `bootstrap check` and `bootstrap apply` refuse with
+`an owned managed file is no longer selected by the configuration; releasing or
+removing it is not supported yet`, and an upgrade plan shows the file as a
+blocking conflict. Nothing is deleted and ownership is never dropped silently.
+Switch the file back on to continue. See [ADR 0015](adr/0015-optional-managed-repository-files.md).
+
+Opt in deliberately. Keep the hand-written file until you choose to hand it over.
+**This is the way.**
 
 ## Ownership, repeatability and recovery
 
