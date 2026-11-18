@@ -497,9 +497,19 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
                     let plan = armorer::bootstrap::inspect(&cli.repository, &policy)?;
                     // Reasons go to stderr; stdout stays the unchanged plan document.
                     let drift = plan.drift();
+                    // One clock read feeds both the warning and the blocker: a clock
+                    // error is ignored for the warning but fails closed for the gate.
+                    let freshness = armorer::catalog::freshness_now();
+                    if let Some(line) = freshness
+                        .as_ref()
+                        .ok()
+                        .and_then(armorer::catalog::stale_warning)
+                    {
+                        eprintln!("{line}");
+                    }
                     // The strict gate fails only while a blocker exists.
                     let blockers = if release_ready {
-                        plan.release_blockers()
+                        armorer::catalog::with_review_blocker(plan.release_blockers(), &freshness?)
                     } else {
                         Vec::new()
                     };
@@ -541,10 +551,15 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
             };
             Ok((value.map_err(|_| Error::Json)?, status))
         }
-        Operation::Catalog => Ok((
-            serde_json::to_value(armorer::catalog::reviewed_v2()?).map_err(|_| Error::Json)?,
-            0,
-        )),
+        Operation::Catalog => {
+            let mut value =
+                serde_json::to_value(armorer::catalog::reviewed_v2()?).map_err(|_| Error::Json)?;
+            // Static review facts only; the clock-dependent age never reaches stdout.
+            value["reviewed_on"] = armorer::catalog::CATALOG_REVIEWED_ON.into();
+            value["review_window_days"] = armorer::catalog::REVIEW_WINDOW_DAYS.into();
+            warn_if_catalog_stale();
+            Ok((value, 0))
+        }
         Operation::VerifyRelease {
             directory,
             trusted_inputs,
@@ -695,6 +710,7 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
                 &armorer::safe_path(&cli.repository, ".armorer/ci-policy.toml")?,
             )?;
             let drift = plan.drift();
+            warn_if_catalog_stale();
             let status = if drift.is_empty() {
                 0
             } else {
@@ -706,12 +722,42 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
     }
 }
 
+/// Print the single stale-catalog warning to stderr; never affects the exit status.
+fn warn_if_catalog_stale() {
+    if let Some(line) = armorer::catalog::freshness_now()
+        .ok()
+        .and_then(|f| armorer::catalog::stale_warning(&f))
+    {
+        eprintln!("{line}");
+    }
+}
+
 /// Parse CLI arguments, write pretty JSON to stdout, and exit with the operation's status.
 ///
 /// Operation errors become JSON errors with status 1. Serialization or stdout
 /// write failures also exit with status 1; argument parsing is handled by clap.
 fn main() {
-    let (value, code) = match run(Cli::parse()) {
+    let cli = Cli::parse();
+    // `cfg!` keeps this block type-checked on every host (and free of
+    // unreachable-code warnings) while refusing up front on non-Unix hosts.
+    if !cfg!(unix) {
+        let refusal = json!({"error": {
+            "code": "unsupported-host",
+            "message": "Armorer supports Linux and macOS hosts only"
+        }});
+        let written = serde_json::to_vec_pretty(&refusal).is_ok_and(|bytes| {
+            let mut stdout = std::io::stdout().lock();
+            stdout
+                .write_all(&bytes)
+                .and_then(|()| stdout.write_all(b"\n"))
+                .is_ok()
+        });
+        if !written {
+            eprintln!("armorer: failed to write JSON output to stdout");
+        }
+        std::process::exit(1);
+    }
+    let (value, code) = match run(cli) {
         Ok(result) => result,
         Err(error) => (
             json!({"error": {"code": error.code(), "message": error.to_string()}}),

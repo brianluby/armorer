@@ -22,13 +22,7 @@ use std::{fs, path::Path};
 const JOURNAL_SYNC_FAILED: &str =
     "journal deleted but directory sync failed; no recovery journal remains";
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct Write {
-    pub path: String,
-    pub before: Option<String>,
-    pub after: Option<String>,
-}
+pub(super) use crate::transaction::Write;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "operation", rename_all = "kebab-case", deny_unknown_fields)]
 enum Approval {
@@ -132,10 +126,7 @@ fn receipt(p: &Approval, outcome: &'static str, configured: bool) -> Receipt {
         provenance_verified: false,
     }
 }
-/// Compare the current optional file bytes with the approved image without adopting a mismatch.
-fn matches(bytes: Option<&[u8]>, text: Option<&str>) -> bool {
-    bytes == text.map(str::as_bytes)
-}
+use crate::transaction::matches;
 
 /// Reconstruct fixed managed writes, exact former-owner deletion and new receipt.
 fn operations(p: &Plan) -> Result<Vec<Write>> {
@@ -316,28 +307,6 @@ fn after_images(root: &Path, p: &Plan) -> Result<bool> {
     Ok(true)
 }
 
-/// Persist one approved operation with its original mode and durable journal progress.
-fn write(root: &Path, w: &Write, after: bool) -> Result<()> {
-    let image = if after { &w.after } else { &w.before };
-    let current = optional_bytes(root, &w.path)?;
-    match image {
-        Some(image) => {
-            bootstrap::transaction::ensure_parent(root, &w.path)?;
-            replace(root, &w.path, image.as_bytes(), current.is_none())
-        }
-        None => {
-            if current.is_some() {
-                let path = safe_path(root, &w.path)?;
-                fs::remove_file(&path)?;
-                sync_directory(
-                    path.parent()
-                        .ok_or(Error::Transaction("invalid migration parent"))?,
-                )?;
-            }
-            Ok(())
-        }
-    }
-}
 /// Remove the completed journal and sync its parent after the caller has verified recovery state.
 fn remove_journal(root: &Path, expected: &[u8]) -> Result<()> {
     if optional_bytes(root, JOURNAL)?.as_deref() != Some(expected) {
@@ -390,14 +359,7 @@ fn rollback(root: &Path, j: &Journal, bytes: &[u8]) -> Result<()> {
             "upgrade journal changed before recovery",
         ));
     }
-    for w in j.operations.iter().rev() {
-        if !matches(
-            optional_bytes(root, &w.path)?.as_deref(),
-            w.before.as_deref(),
-        ) {
-            write(root, w, false)?;
-        }
-    }
+    crate::transaction::restore(root, &j.operations, "invalid migration parent")?;
     remove_journal(root, bytes)
 }
 
@@ -462,18 +424,13 @@ fn transaction(
     let initial = json(&j)?;
     replace(&root, JOURNAL, &initial, true)?;
     let result = (|| {
-        for (index, w) in j.operations.iter().enumerate() {
-            if !matches(
-                optional_bytes(&root, &w.path)?.as_deref(),
-                w.before.as_deref(),
-            ) {
-                return Err(Error::Transaction(
-                    "upgrade target changed before replacement",
-                ));
-            }
-            write(&root, w, true)?;
-            after_write(index)?;
-        }
+        crate::transaction::apply_writes(
+            &root,
+            &j.operations,
+            "upgrade target changed before replacement",
+            "invalid migration parent",
+            &mut after_write,
+        )?;
         p.context(&root)?;
         if !p.complete(&root)? {
             return Err(Error::Transaction(

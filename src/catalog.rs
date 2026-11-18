@@ -29,6 +29,68 @@ pub const WORKFLOW_COMMIT_V2: &str = "e5e9c0d31baff87e357046d81068b646a39a9f23";
 pub const RUNTIME_VERSION: &str = "0.1.0";
 pub const TOOLS_SHA256: &str = "e21e6cbd2cdd1125dbb9817116b1f46d043807b4d92128abc9dc07256dbb4b13";
 const TOOLS: &[u8] = include_bytes!("../catalogs/bootstrap-tools-v1.json");
+/// UTC date the bootstrap-v2 catalog pins were last reviewed. Source: the catalog source
+/// receipt `catalogs/bootstrap-tools-v1-source.json` (`verified_on`), restated in
+/// `docs/bootstrap-catalog.md`; it equals the author date of the last commit that changed
+/// the catalog JSON. Update it in the same reviewed change as any catalog update.
+pub const CATALOG_REVIEWED_ON: &str = "2026-10-02";
+/// Days after `CATALOG_REVIEWED_ON` before the pins are reported stale.
+pub const REVIEW_WINDOW_DAYS: u64 = 180;
+
+/// Catalog review age against the window. Kept outside plans so digests stay time-free.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Freshness {
+    pub reviewed_on: &'static str,
+    pub age_days: u64,
+    pub window_days: u64,
+    pub stale: bool,
+}
+
+/// Pure freshness for a UTC day number (days since the Unix epoch). A clock earlier
+/// than the review date is age 0, never stale.
+///
+/// # Errors
+/// Fails only if the compiled review date is malformed (guarded by a unit test).
+pub fn freshness_at(today_utc_day: u64) -> Result<Freshness> {
+    let reviewed = crate::ci_policy::utc_day(CATALOG_REVIEWED_ON)?;
+    let age_days = today_utc_day.saturating_sub(reviewed);
+    Ok(Freshness {
+        reviewed_on: CATALOG_REVIEWED_ON,
+        age_days,
+        window_days: REVIEW_WINDOW_DAYS,
+        stale: age_days > REVIEW_WINDOW_DAYS,
+    })
+}
+
+/// Freshness against the UTC wall clock.
+///
+/// # Errors
+/// Fails if the clock precedes the Unix epoch.
+pub fn freshness_now() -> Result<Freshness> {
+    freshness_at(crate::ci_policy::today()?)
+}
+
+/// The single stderr line printed when the catalog is stale; `None` when fresh.
+#[must_use]
+pub fn stale_warning(freshness: &Freshness) -> Option<String> {
+    freshness.stale.then(|| {
+        format!(
+            "armorer: warning: catalog pins were last reviewed {} days ago (window {}); update Armorer or review the catalog",
+            freshness.age_days, freshness.window_days
+        )
+    })
+}
+
+/// Add `catalog-review-stale` to a release blocker list when stale; result stays sorted.
+#[must_use]
+pub fn with_review_blocker(mut blockers: Vec<String>, freshness: &Freshness) -> Vec<String> {
+    if freshness.stale {
+        blockers.push("catalog-review-stale".into());
+        blockers.sort();
+        blockers.dedup();
+    }
+    blockers
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -680,6 +742,64 @@ mod tests {
             catalog
                 .bootstrap_files(&"a".repeat(64), "1.95.0", "")
                 .is_ok()
+        );
+    }
+
+    fn day() -> u64 {
+        crate::ci_policy::utc_day(CATALOG_REVIEWED_ON).unwrap()
+    }
+
+    #[test]
+    fn freshness_is_stale_only_after_the_window() {
+        let at = freshness_at(day() + REVIEW_WINDOW_DAYS).unwrap();
+        assert_eq!(at.age_days, REVIEW_WINDOW_DAYS);
+        assert!(!at.stale);
+        let past = freshness_at(day() + REVIEW_WINDOW_DAYS + 1).unwrap();
+        assert_eq!(past.age_days, REVIEW_WINDOW_DAYS + 1);
+        assert!(past.stale);
+        assert_eq!(past.reviewed_on, CATALOG_REVIEWED_ON);
+        assert_eq!(past.window_days, 180);
+    }
+
+    #[test]
+    fn clock_before_the_review_date_is_age_zero_and_fresh() {
+        let early = freshness_at(day() - 40).unwrap();
+        assert_eq!((early.age_days, early.stale), (0, false));
+        assert!(!freshness_at(0).unwrap().stale);
+    }
+
+    #[test]
+    fn review_date_constant_is_a_sane_calendar_date() {
+        // Shape and calendar validity come from the shared strict parser.
+        let reviewed = crate::ci_policy::utc_day(CATALOG_REVIEWED_ON)
+            .expect("CATALOG_REVIEWED_ON must be a valid YYYY-MM-DD date");
+        // Sanity bounds derived from the constant: not before the catalog source receipt
+        // (2026-10-02) and no more than a window-length past it as a typo guard.
+        let receipt = crate::ci_policy::utc_day("2026-10-02").unwrap();
+        assert!(
+            reviewed >= receipt,
+            "CATALOG_REVIEWED_ON predates the catalog receipt"
+        );
+        assert!(
+            reviewed <= receipt + 10 * REVIEW_WINDOW_DAYS,
+            "CATALOG_REVIEWED_ON is implausibly far after the catalog receipt"
+        );
+    }
+
+    #[test]
+    fn stale_decisions_are_pure() {
+        let fresh = freshness_at(day()).unwrap();
+        let stale = freshness_at(day() + REVIEW_WINDOW_DAYS + 5).unwrap();
+        assert_eq!(stale_warning(&fresh), None);
+        assert_eq!(
+            stale_warning(&stale).unwrap(),
+            "armorer: warning: catalog pins were last reviewed 185 days ago (window 180); update Armorer or review the catalog"
+        );
+        let blockers = vec!["a-gate".to_string(), "z-gate".to_string()];
+        assert_eq!(with_review_blocker(blockers.clone(), &fresh), blockers);
+        assert_eq!(
+            with_review_blocker(blockers, &stale),
+            ["a-gate", "catalog-review-stale", "z-gate"]
         );
     }
 }
