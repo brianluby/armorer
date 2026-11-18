@@ -146,7 +146,8 @@ promise a complete JSON result. A typical operational error has this shape:
 ```
 
 Stable error categories are `io`, `invalid-toml`, `invalid-config`, `unsafe-path`,
-`cargo-discovery`, `cargo-metadata`, `json` and `transaction`. TOML diagnostics omit
+`cargo-discovery`, `cargo-metadata`, `json`, `transaction` and `unsupported-host`
+(non-Unix hosts). TOML diagnostics omit
 input values. Armorer does not print arbitrary Cargo stderr or request secrets.
 
 ## Read the findings

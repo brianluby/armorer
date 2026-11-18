@@ -133,9 +133,24 @@ fn trusted_rustup(root: &Path) -> Result<PathBuf> {
         if candidate.starts_with(root) || resolved.starts_with(root) {
             continue;
         }
+        // Warn only: GitHub-hosted runner images make `~/.cargo/bin` world-writable,
+        // so rejecting would break CI, and a plan finding would make plan digests
+        // host-dependent. The warning deliberately omits the path.
+        #[cfg(unix)]
+        if world_writable(&directory) || world_writable(&resolved) {
+            eprintln!(
+                "armorer: warning: rustup was found in a world-writable location; another local user could replace it"
+            );
+        }
         return Ok(candidate);
     }
     Err(Error::Cargo("rustup-path"))
+}
+
+#[cfg(unix)]
+fn world_writable(path: &Path) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::metadata(path).is_ok_and(|metadata| metadata.permissions().mode() & 0o002 != 0)
 }
 
 /// Return a UTF-8 path relative to `root`, using forward slashes.

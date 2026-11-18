@@ -69,6 +69,8 @@ jobs:
         run: cargo test --locked --test release_context real_inventory_authentication_failure_precedes_json_and_asset_processing -- --ignored --test-threads=1
       - name: Build
         run: cargo build --locked
+      - name: Check Armorer's own provisioning for drift
+        run: target/debug/armorer check > "$RUNNER_TEMP/armorer-self-check.json"
       - name: Production binary cannot select the test-only predecessor catalog
         run: |
           training=$(mktemp -d)
