@@ -7,9 +7,8 @@ mod support;
 use std::{collections::BTreeMap, fs, path::Path, process::Command};
 /// Load the fixture lock against the current configuration byte identity.
 fn load_lock(root: &Path) -> armorer::Result<Option<(config::Lock, Vec<u8>)>> {
-    use sha2::{Digest, Sha256};
     let (_, bytes) = config::load_config(root)?;
-    config::load_lock(root, &format!("{:x}", Sha256::digest(bytes)))
+    config::load_lock(root, &support::sha256_hex(bytes))
 }
 const POLICY: &str = "ci-policy.reviewed.toml";
 /// Create an isolated repository fixture with explicit inputs for the surrounding transaction tests.
@@ -318,7 +317,6 @@ fn imports_never_erase_bespoke_jobs_or_policies_and_reject_moving_declarations()
 /// Verify that catalog base substitution never falls back to import even with matching claimed hashes.
 #[test]
 fn catalog_base_substitution_never_falls_back_to_import_even_with_matching_claimed_hashes() {
-    use sha2::{Digest, Sha256};
     for mutation in 0..4 {
         let root = fixture("library");
         bootstrap(root.path());
@@ -338,8 +336,7 @@ fn catalog_base_substitution_never_falls_back_to_import_even_with_matching_claim
                     .as_str()
                     .unwrap()
                     .replace(armorer::catalog::WORKFLOW_COMMIT_V2, &"a".repeat(40));
-                value["managed"][path]["sha256"] =
-                    format!("{:x}", Sha256::digest(bad.as_bytes())).into();
+                value["managed"][path]["sha256"] = support::sha256_hex(bad.as_bytes()).into();
                 value["managed"][path]["content"] = bad.into();
             }
             _ => unreachable!(),
@@ -998,15 +995,13 @@ fn independent_patch_reconstructs_upgrade_and_reverse_images_including_deleted_o
 /// Verify that a forged generated toolchain base with matching self hash never becomes an import.
 #[test]
 fn forged_generated_toolchain_base_with_matching_self_hash_never_becomes_an_import() {
-    use sha2::{Digest, Sha256};
     let root = fixture("library");
     bootstrap(root.path());
     let path = root.path().join(".armorer/bootstrap-state-v2.json");
     let mut value: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
     let forged = "[toolchain]\nchannel=\"1.95.0\"\nprofile=\"default\"\n";
     value["managed"]["rust-toolchain.toml"]["content"] = forged.into();
-    value["managed"]["rust-toolchain.toml"]["sha256"] =
-        format!("{:x}", Sha256::digest(forged)).into();
+    value["managed"]["rust-toolchain.toml"]["sha256"] = support::sha256_hex(forged).into();
     fs::write(path, serde_json::to_vec(&value).unwrap()).unwrap();
     fs::write(root.path().join("rust-toolchain.toml"), forged).unwrap();
     let before = snapshot(root.path());
@@ -1026,7 +1021,6 @@ fn forged_generated_toolchain_base_with_matching_self_hash_never_becomes_an_impo
 /// Install a genuine frozen bootstrap-v1 ownership state plus its exact generated targets,
 /// so cross-revision tests start from a real existing v1 consumer rather than a fabricated pin.
 fn install_v1_bootstrap(root: &Path) {
-    use sha2::{Digest, Sha256};
     let v1 = armorer::catalog::reviewed().unwrap();
     let (intent, _) = config::load_config(root).unwrap();
     let policy = fs::read_to_string(root.join(POLICY)).unwrap();
@@ -1047,7 +1041,7 @@ fn install_v1_bootstrap(root: &Path) {
             path.clone(),
             serde_json::json!({
                 "content": content,
-                "sha256": format!("{:x}", Sha256::digest(content.as_bytes())),
+                "sha256": support::sha256_hex(content.as_bytes()),
             }),
         );
     }

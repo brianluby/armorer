@@ -45,8 +45,7 @@ fn lock_is_exact_config_bound_and_each_native_distribution_is_unambiguous() {
     assert_eq!(fs::read_dir(root.path()).unwrap().count(), 1);
     assert_eq!(fs::read(root.path().join("armorer.toml")).unwrap(), before);
     fs::write(root.path().join("armorer.lock"), rendered).unwrap();
-    use sha2::{Digest, Sha256};
-    let config_digest = format!("{:x}", Sha256::digest(&before));
+    let config_digest = sha256_hex(&before);
     let lock = load_lock(root.path(), &config_digest).unwrap().unwrap().0;
     assert_eq!(lock.workflows.repository, WORKFLOW_REPOSITORY);
     assert_eq!(lock.workflows.commit, WORKFLOW_COMMIT);
@@ -64,7 +63,7 @@ fn lock_is_exact_config_bound_and_each_native_distribution_is_unambiguous() {
     )
     .unwrap();
     let (_, current) = load_config(root.path()).unwrap();
-    let current = format!("{:x}", Sha256::digest(current));
+    let current = sha256_hex(current);
     assert!(load_lock(root.path(), &current).is_err());
 }
 
@@ -163,4 +162,13 @@ fn committed_caller_fixtures_match_the_reviewed_renderer() {
     for (path, content) in catalog.caller_workflows() {
         assert_eq!(fs::read(root.join(path)).unwrap(), content.as_bytes());
     }
+}
+
+/// Lowercase SHA-256 hex of `bytes`, independent of the sha2 digest type's formatting traits.
+fn sha256_hex(bytes: impl AsRef<[u8]>) -> String {
+    use sha2::{Digest, Sha256};
+    Sha256::digest(bytes.as_ref())
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }

@@ -410,7 +410,6 @@ fn retained_build_paths_control_component_scope() {
 #[test]
 #[ignore = "requires retained native fixture outputs; run explicitly with ARMORER_TEST_GRAPH_RECEIPTS"]
 fn native_python_graphs_match_independent_rust_reader() {
-    use sha2::{Digest, Sha256};
     use std::{fs, path::PathBuf};
     let directory = PathBuf::from(
         std::env::var_os("ARMORER_TEST_GRAPH_RECEIPTS").expect("native fixture receipts required"),
@@ -429,7 +428,7 @@ fn native_python_graphs_match_independent_rust_reader() {
     let lock_bytes = fs::read(directory.join("armorer.lock")).unwrap();
     let lock: armorer::config::Lock =
         toml::from_str(std::str::from_utf8(&lock_bytes).unwrap()).unwrap();
-    let hash = |bytes: &[u8]| format!("{:x}", Sha256::digest(bytes));
+    let hash = |bytes: &[u8]| sha256_hex(bytes);
     let workflow_commit = receipt["runtime_commit"].as_str().unwrap();
     assert_eq!(lock.workflows.commit, workflow_commit);
     let inputs = InputIdentity {
@@ -813,4 +812,13 @@ fn exported_graph_schema_requires_run_selection_and_context_presence() {
         target_types.iter().any(|t| t == "null"),
         "target must stay nullable"
     );
+}
+
+/// Lowercase SHA-256 hex of `bytes`, independent of the sha2 digest type's formatting traits.
+fn sha256_hex(bytes: impl AsRef<[u8]>) -> String {
+    use sha2::{Digest, Sha256};
+    Sha256::digest(bytes.as_ref())
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }
