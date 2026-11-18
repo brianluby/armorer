@@ -631,6 +631,423 @@ mod tests {
             assert_symlink_refusal(optional_bytes(root.path(), input));
         }
     }
+
+    /// Create a FIFO with the system tool, as the existing special-file tests do.
+    fn mkfifo(path: &Path) {
+        let status = std::process::Command::new("mkfifo")
+            .arg(path)
+            .status()
+            .unwrap();
+        assert!(status.success());
+    }
+
+    /// Run `operation` on another thread and fail instead of hanging if it blocks.
+    fn without_blocking<T: Send + 'static>(operation: impl FnOnce() -> T + Send + 'static) -> T {
+        let (sender, receiver) = std::sync::mpsc::channel();
+        std::thread::spawn(move || sender.send(operation()).unwrap());
+        receiver
+            .recv_timeout(std::time::Duration::from_secs(10))
+            .expect("operation on a special file must not block")
+    }
+
+    /// Assert an I/O not-found error, the shape a by-path open or unlink of a missing entry reports.
+    #[track_caller]
+    fn assert_not_found<T: std::fmt::Debug>(result: Result<T>) {
+        assert!(
+            matches!(&result, Err(Error::Io(error)) if error.kind() == io::ErrorKind::NotFound),
+            "{result:?}"
+        );
+    }
+
+    /// Assert the shared regular-file refusal.
+    #[track_caller]
+    fn assert_regular_refusal<T: std::fmt::Debug>(result: Result<T>) {
+        assert!(
+            matches!(&result, Err(Error::Path(message)) if message == crate::REGULAR_INPUT),
+            "{result:?}"
+        );
+    }
+
+    /// Removal refuses a symlinked intermediate directory, existing or dangling, and touches nothing outside.
+    #[test]
+    fn remove_refuses_symlinked_intermediate_directory() {
+        for relative in ["linked/file", "real/linked/file"] {
+            for dangling in [false, true] {
+                let root = tempfile::tempdir().unwrap();
+                let outside = tempfile::tempdir().unwrap();
+                fs::write(outside.path().join("file"), b"outside bytes").unwrap();
+                let before = fingerprint(&outside.path().join("file"));
+                fs::create_dir(root.path().join("real")).unwrap();
+                let target = if dangling {
+                    outside.path().join("missing")
+                } else {
+                    outside.path().to_path_buf()
+                };
+                let link = root.path().join(relative).parent().unwrap().to_path_buf();
+                symlink(&target, &link).unwrap();
+                assert_symlink_refusal(remove(root.path(), relative, "invalid parent").map(|_| ()));
+                assert_eq!(listing(outside.path()), ["file"], "{relative}");
+                assert_eq!(fingerprint(&outside.path().join("file")), before);
+                assert!(fs::symlink_metadata(&link).unwrap().is_symlink());
+            }
+        }
+    }
+
+    /// Removal refuses a symlinked leaf, existing or dangling, without unlinking the link or its target.
+    #[test]
+    fn remove_refuses_symlinked_leaf() {
+        for dangling in [false, true] {
+            let root = tempfile::tempdir().unwrap();
+            let outside = tempfile::tempdir().unwrap();
+            let target = outside.path().join("target");
+            if !dangling {
+                fs::write(&target, b"outside bytes").unwrap();
+            }
+            fs::create_dir(root.path().join("dir")).unwrap();
+            let link = root.path().join("dir/leaf");
+            symlink(&target, &link).unwrap();
+            assert_symlink_refusal(remove(root.path(), "dir/leaf", "invalid parent").map(|_| ()));
+            assert!(fs::symlink_metadata(&link).unwrap().is_symlink());
+            assert_eq!(listing(&root.path().join("dir")), ["leaf"]);
+            if dangling {
+                assert!(listing(outside.path()).is_empty());
+            } else {
+                assert_eq!(fs::read(&target).unwrap(), b"outside bytes");
+            }
+        }
+    }
+
+    /// Removal unlinks exactly one regular file, keeps its siblings and syncs the held parent.
+    #[test]
+    fn remove_unlinks_regular_file_and_keeps_siblings() {
+        let root = tempfile::tempdir().unwrap();
+        fs::create_dir_all(root.path().join(".armorer/nested")).unwrap();
+        fs::write(root.path().join(".armorer/journal.json"), b"journal").unwrap();
+        fs::write(root.path().join(".armorer/state.json"), b"state").unwrap();
+        fs::write(root.path().join("top"), b"top").unwrap();
+        remove(root.path(), ".armorer/journal.json", "invalid parent")
+            .unwrap()
+            .sync()
+            .unwrap();
+        assert_eq!(
+            listing(&root.path().join(".armorer")),
+            ["nested", "state.json"]
+        );
+        assert_eq!(
+            fs::read(root.path().join(".armorer/state.json")).unwrap(),
+            b"state"
+        );
+        // A leaf directly under the root is removed relative to the root handle.
+        remove(root.path(), "top", "invalid parent")
+            .unwrap()
+            .sync()
+            .unwrap();
+        assert_eq!(listing(root.path()), [".armorer"]);
+    }
+
+    /// Absence is a not-found error for removal itself, while an approved deletion of an absent file is a no-op.
+    #[test]
+    fn remove_reports_absence_as_each_caller_expects() {
+        let root = tempfile::tempdir().unwrap();
+        fs::create_dir(root.path().join("dir")).unwrap();
+        // Journal removal: a missing journal fails exactly like a by-path `remove_file`.
+        assert_not_found(remove(root.path(), "dir/absent", "invalid parent").map(|_| ()));
+        assert_not_found(remove(root.path(), "missing/absent", "invalid parent").map(|_| ()));
+        assert_not_found(
+            remove(&root.path().join("no-root"), "file", "invalid parent").map(|_| ()),
+        );
+        // Approved deletion: `write_image` checks presence first, so absence is success.
+        crate::transaction::write_image(root.path(), "dir/absent", None, false, "invalid parent")
+            .unwrap();
+        crate::transaction::write_image(root.path(), "missing/x", None, false, "invalid parent")
+            .unwrap();
+        assert_eq!(listing(root.path()), ["dir"]);
+        assert!(listing(&root.path().join("dir")).is_empty());
+        // And a present regular file is deleted through the same path.
+        fs::write(root.path().join("dir/present"), b"bytes").unwrap();
+        crate::transaction::write_image(root.path(), "dir/present", None, false, "invalid parent")
+            .unwrap();
+        assert!(listing(&root.path().join("dir")).is_empty());
+    }
+
+    /// Directories and special files are never unlinked; a FIFO is refused without blocking.
+    #[test]
+    fn remove_refuses_directory_and_special_leaves() {
+        let root = tempfile::tempdir().unwrap();
+        fs::create_dir_all(root.path().join("dir/leaf")).unwrap();
+        assert_regular_refusal(remove(root.path(), "dir/leaf", "invalid parent").map(|_| ()));
+        assert!(
+            fs::symlink_metadata(root.path().join("dir/leaf"))
+                .unwrap()
+                .is_dir()
+        );
+        mkfifo(&root.path().join("dir/fifo"));
+        let fifo_root = root.path().to_path_buf();
+        assert_regular_refusal(without_blocking(move || {
+            remove(&fifo_root, "dir/fifo", "invalid parent").map(|_| ())
+        }));
+        assert_eq!(listing(&root.path().join("dir")), ["fifo", "leaf"]);
+    }
+
+    /// Missing parents are created nested, each with the mode `fs::create_dir` would give it.
+    #[test]
+    fn ensure_parent_creates_nested_missing_directories() {
+        let root = tempfile::tempdir().unwrap();
+        let reference = root.path().join("reference");
+        fs::create_dir(&reference).unwrap();
+        let expected = fs::metadata(&reference).unwrap().mode() & 0o7777;
+        ensure_parent(root.path(), ".github/workflows/nested/ci.yml").unwrap();
+        let created = root.path().join(".github/workflows/nested");
+        for directory in [
+            root.path().join(".github"),
+            root.path().join(".github/workflows"),
+            created.clone(),
+        ] {
+            let metadata = fs::symlink_metadata(&directory).unwrap();
+            assert!(metadata.is_dir(), "{directory:?}");
+            assert_eq!(metadata.mode() & 0o7777, expected, "{directory:?}");
+        }
+        // Only directories are created; the leaf is never touched.
+        assert!(listing(&created).is_empty());
+        assert_eq!(listing(root.path()), [".github", "reference"]);
+        // A leaf directly under the root needs no directory.
+        ensure_parent(root.path(), "armorer.lock").unwrap();
+        assert_eq!(listing(root.path()), [".github", "reference"]);
+    }
+
+    /// Existing parents are reused untouched, so the call is a no-op.
+    #[test]
+    fn ensure_parent_is_a_no_op_when_parents_exist() {
+        let root = tempfile::tempdir().unwrap();
+        fs::create_dir_all(root.path().join(".github/workflows")).unwrap();
+        fs::write(root.path().join(".github/workflows/ci.yml"), b"keep").unwrap();
+        let before: Vec<_> = [".github", ".github/workflows"]
+            .iter()
+            .map(|relative| {
+                let metadata = fs::symlink_metadata(root.path().join(relative)).unwrap();
+                (metadata.ino(), metadata.mtime(), metadata.mtime_nsec())
+            })
+            .collect();
+        ensure_parent(root.path(), ".github/workflows/ci.yml").unwrap();
+        let after: Vec<_> = [".github", ".github/workflows"]
+            .iter()
+            .map(|relative| {
+                let metadata = fs::symlink_metadata(root.path().join(relative)).unwrap();
+                (metadata.ino(), metadata.mtime(), metadata.mtime_nsec())
+            })
+            .collect();
+        assert_eq!(before, after);
+        assert_eq!(
+            fs::read(root.path().join(".github/workflows/ci.yml")).unwrap(),
+            b"keep"
+        );
+    }
+
+    /// A symlinked intermediate, existing or dangling, refuses creation and nothing appears outside.
+    #[test]
+    fn ensure_parent_refuses_symlinked_intermediate_directory() {
+        for relative in [
+            "linked/new/file",
+            "real/linked/new/file",
+            "real/linked/file",
+        ] {
+            for dangling in [false, true] {
+                let root = tempfile::tempdir().unwrap();
+                let outside = tempfile::tempdir().unwrap();
+                fs::write(outside.path().join("marker"), b"outside").unwrap();
+                fs::create_dir(root.path().join("real")).unwrap();
+                let target = if dangling {
+                    outside.path().join("missing")
+                } else {
+                    outside.path().to_path_buf()
+                };
+                let link = if relative.starts_with("real/") {
+                    root.path().join("real/linked")
+                } else {
+                    root.path().join("linked")
+                };
+                symlink(&target, &link).unwrap();
+                let outside_before = listing(outside.path());
+                assert_symlink_refusal(ensure_parent(root.path(), relative));
+                assert_eq!(listing(outside.path()), outside_before, "{relative}");
+                assert!(fs::symlink_metadata(&link).unwrap().is_symlink());
+                assert_eq!(
+                    listing(&root.path().join("real")).len(),
+                    usize::from(relative.starts_with("real/"))
+                );
+            }
+        }
+    }
+
+    /// A regular file at an intermediate component reports the creation conflict; a symlinked leaf is refused.
+    #[test]
+    fn ensure_parent_refuses_file_intermediate_and_symlinked_leaf() {
+        let root = tempfile::tempdir().unwrap();
+        fs::write(root.path().join(".github"), b"not a directory").unwrap();
+        assert!(matches!(
+            ensure_parent(root.path(), ".github/workflows/ci.yml"),
+            Err(Error::Io(error)) if error.kind() == io::ErrorKind::AlreadyExists
+        ));
+        assert_eq!(
+            fs::read(root.path().join(".github")).unwrap(),
+            b"not a directory"
+        );
+        let outside = tempfile::tempdir().unwrap();
+        fs::create_dir(root.path().join("dir")).unwrap();
+        symlink(outside.path().join("target"), root.path().join("dir/leaf")).unwrap();
+        assert_symlink_refusal(ensure_parent(root.path(), "dir/leaf"));
+        assert!(listing(outside.path()).is_empty());
+        // The recorded messages and lexical gate are unchanged, and nothing is created first.
+        assert!(matches!(
+            ensure_parent(root.path(), ""),
+            Err(Error::Transaction("invalid bootstrap parent"))
+        ));
+        for hostile in ["new/../escape", "/absolute/file", "../escape"] {
+            assert!(
+                matches!(ensure_parent(root.path(), hostile), Err(Error::Path(_))),
+                "{hostile}"
+            );
+        }
+        assert_eq!(listing(root.path()), [".github", "dir"]);
+    }
+
+    /// Managed reads keep `read_small(&safe_path(..))`'s refusals, bound and absence error.
+    #[test]
+    fn read_managed_refuses_symlinks_special_files_and_oversize() {
+        let root = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        fs::write(outside.path().join("secret"), b"outside").unwrap();
+        fs::create_dir(root.path().join("dir")).unwrap();
+        fs::write(root.path().join("dir/file"), b"inside").unwrap();
+        assert_eq!(read_managed(root.path(), "dir/file").unwrap(), b"inside");
+        assert_not_found(read_managed(root.path(), "dir/absent"));
+        assert_not_found(read_managed(root.path(), "absent/file"));
+        assert_not_found(read_managed(&root.path().join("no-root"), "file"));
+
+        symlink(outside.path(), root.path().join("linked")).unwrap();
+        assert_symlink_refusal(read_managed(root.path(), "linked/secret"));
+        symlink(outside.path().join("secret"), root.path().join("dir/leaf")).unwrap();
+        assert_symlink_refusal(read_managed(root.path(), "dir/leaf"));
+        symlink(outside.path().join("gone"), root.path().join("dir/dead")).unwrap();
+        assert_symlink_refusal(read_managed(root.path(), "dir/dead"));
+
+        fs::write(root.path().join("limit"), vec![b'x'; 1_048_576]).unwrap();
+        assert_eq!(read_managed(root.path(), "limit").unwrap().len(), 1_048_576);
+        fs::write(root.path().join("large"), vec![b'x'; 1_048_577]).unwrap();
+        assert!(matches!(
+            read_managed(root.path(), "large"),
+            Err(Error::Invalid(_))
+        ));
+        assert_regular_refusal(read_managed(root.path(), "dir"));
+        mkfifo(&root.path().join("fifo"));
+        let fifo_root = root.path().to_path_buf();
+        assert_regular_refusal(without_blocking(move || read_managed(&fifo_root, "fifo")));
+        // Errors match the path-based read they replace, input by input.
+        for relative in [
+            "dir/file",
+            "dir/absent",
+            "linked/secret",
+            "dir/leaf",
+            "dir/dead",
+            "large",
+            "dir",
+        ] {
+            let old = crate::safe_path(root.path(), relative)
+                .and_then(|path| crate::read_small(&path))
+                .map_err(|error| error.to_string());
+            let new = read_managed(root.path(), relative).map_err(|error| error.to_string());
+            assert_eq!(new, old, "{relative}");
+        }
+    }
+
+    /// The existence probe refuses symlinks like `safe_path` and reports any entry type as present.
+    #[test]
+    fn exists_probes_through_handles() {
+        let root = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        fs::create_dir(root.path().join("dir")).unwrap();
+        fs::write(root.path().join("dir/file"), b"x").unwrap();
+        mkfifo(&root.path().join("dir/fifo"));
+        assert!(exists(root.path(), "dir/file").unwrap());
+        assert!(exists(root.path(), "dir").unwrap());
+        assert!(exists(root.path(), "dir/fifo").unwrap());
+        assert!(!exists(root.path(), "dir/absent").unwrap());
+        assert!(!exists(root.path(), "absent/file").unwrap());
+        assert!(!exists(&root.path().join("no-root"), "file").unwrap());
+        symlink(outside.path(), root.path().join("linked")).unwrap();
+        symlink(outside.path().join("gone"), root.path().join("dir/dead")).unwrap();
+        for relative in ["linked", "linked/file", "dir/dead"] {
+            assert_symlink_refusal(exists(root.path(), relative));
+        }
+        assert!(listing(outside.path()).is_empty());
+    }
+
+    /// Race regression: removal through a held parent lands in the walked inode after a symlink swap.
+    #[test]
+    fn held_parent_handle_survives_directory_swap_for_removal() {
+        let root = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        fs::create_dir(root.path().join("managed")).unwrap();
+        fs::write(root.path().join("managed/journal"), b"inside").unwrap();
+        fs::write(root.path().join("managed/sibling"), b"sibling").unwrap();
+        // The outside directory holds a same-named victim a path-based unlink would delete.
+        fs::write(outside.path().join("journal"), b"outside").unwrap();
+        let walked = fs::metadata(root.path().join("managed")).unwrap().ino();
+        let parent = handles::open_parent(root.path(), "managed/journal")
+            .unwrap()
+            .unwrap();
+        fs::rename(root.path().join("managed"), root.path().join("original")).unwrap();
+        symlink(outside.path(), root.path().join("managed")).unwrap();
+
+        handles::remove_at(&parent.directory, &parent.leaf).unwrap();
+        parent.directory.sync_all().unwrap();
+        assert_eq!(parent.directory.metadata().unwrap().ino(), walked);
+        assert_eq!(listing(&root.path().join("original")), ["sibling"]);
+        assert_eq!(listing(outside.path()), ["journal"]);
+        assert_eq!(
+            fs::read(outside.path().join("journal")).unwrap(),
+            b"outside"
+        );
+
+        // A fresh walk now sees the symlink and refuses it.
+        assert_symlink_refusal(
+            remove(root.path(), "managed/journal", "invalid parent").map(|_| ()),
+        );
+        assert_eq!(listing(outside.path()), ["journal"]);
+    }
+
+    /// Race regression: directory creation through a held parent lands in the walked inode after a symlink swap.
+    #[test]
+    fn held_parent_handle_survives_directory_swap_for_creation() {
+        let root = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        fs::create_dir(root.path().join("managed")).unwrap();
+        let walked = fs::metadata(root.path().join("managed")).unwrap().ino();
+        // The walk `create_parents` starts with: hold `managed`, the last existing component.
+        let parent = handles::open_parent(root.path(), "managed/workflows")
+            .unwrap()
+            .unwrap();
+        fs::rename(root.path().join("managed"), root.path().join("original")).unwrap();
+        symlink(outside.path(), root.path().join("managed")).unwrap();
+
+        let created = handles::directory_at(&parent.directory, OsStr::new("workflows")).unwrap();
+        let nested = handles::directory_at(&created, OsStr::new("nested")).unwrap();
+        assert_eq!(parent.directory.metadata().unwrap().ino(), walked);
+        let original = root.path().join("original");
+        assert_eq!(listing(&original), ["workflows"]);
+        assert_eq!(listing(&original.join("workflows")), ["nested"]);
+        assert_eq!(
+            nested.metadata().unwrap().ino(),
+            fs::metadata(original.join("workflows/nested"))
+                .unwrap()
+                .ino()
+        );
+        assert!(listing(outside.path()).is_empty());
+
+        // A fresh walk now sees the symlink and refuses it, creating nothing outside.
+        assert_symlink_refusal(ensure_parent(root.path(), "managed/other/ci.yml"));
+        assert!(listing(outside.path()).is_empty());
+    }
 }
 
 /// Not-found in the I/O category, as a by-path open of a missing entry reports it.
