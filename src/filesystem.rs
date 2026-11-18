@@ -313,6 +313,29 @@ mod tests {
         }
     }
 
+    /// A newly created managed file requests 0644 under the process umask; updates keep their mode.
+    #[test]
+    fn replace_creates_new_files_with_shared_mode() {
+        use std::os::unix::fs::OpenOptionsExt;
+        let root = tempfile::tempdir().unwrap();
+        // Same request through std reveals the umask without changing it.
+        let reference = root.path().join("reference");
+        fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o644)
+            .open(&reference)
+            .unwrap();
+        let expected = fs::metadata(&reference).unwrap().mode() & 0o7777;
+        replace(root.path(), "created", b"new", true).unwrap();
+        let created = root.path().join("created");
+        assert_eq!(fs::metadata(&created).unwrap().mode() & 0o7777, expected);
+        assert_eq!(expected & !0o644, 0, "never wider than requested");
+        fs::set_permissions(&created, fs::Permissions::from_mode(0o600)).unwrap();
+        replace(root.path(), "created", b"updated", false).unwrap();
+        assert_eq!(fs::metadata(&created).unwrap().mode() & 0o7777, 0o600);
+    }
+
     /// Creation never clobbers a destination that already exists.
     #[test]
     fn replace_absent_refuses_existing_destination() {
@@ -817,7 +840,8 @@ mod handles {
     /// Mode requested for the staging file of an update; the destination's mode is applied before rename.
     const STAGING_MODE: RawMode = 0o600;
     /// Mode requested for a newly created managed file, subject to the process umask.
-    pub(super) const NEW_FILE_MODE: RawMode = 0o600;
+    /// Managed files (workflow YAML, lock, policy) are meant to be committed and shared.
+    pub(super) const NEW_FILE_MODE: RawMode = 0o644;
     /// Prefix of staging entries created next to a destination.
     pub(super) const STAGING_PREFIX: &str = ".armorer-tmp-";
     /// Bounded retries when a random staging name is already taken.
