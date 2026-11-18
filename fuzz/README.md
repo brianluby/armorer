@@ -21,5 +21,10 @@ cargo +nightly fuzz run <name> -- -max_total_time=60
 ```
 
 CI only compile-checks this crate on the pinned stable toolchain
-(`cargo check --locked --manifest-path fuzz/Cargo.toml`); it does not run the
+(`cargo check --manifest-path fuzz/Cargo.toml`, deliberately without `--locked`); it does not run the
 fuzzers. `corpus/` and `artifacts/` stay untracked.
+
+`fuzz/Cargo.lock` is committed so local fuzzing runs are repeatable, but no update
+bot maintains it. After a dependency bump in the root `Cargo.toml`, refresh it with
+`cargo check --manifest-path fuzz/Cargo.toml` and commit the result when convenient.
+CI does not pass `--locked` here, so a stale fuzz lockfile never blocks a root bump.
