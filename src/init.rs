@@ -506,11 +506,12 @@ fn toolchain_file_differs(root: &Path, explicit: Option<&str>) -> Result<bool> {
     let Some(bytes) = optional_bytes(root, "rust-toolchain.toml")? else {
         return Ok(false);
     };
+    // A file that is not UTF-8 TOML cannot pin anything, and bootstrap will conflict on it.
     let Some(value) = std::str::from_utf8(&bytes)
         .ok()
         .and_then(|text| toml::from_str::<toml::Value>(text).ok())
     else {
-        return Ok(false);
+        return Ok(true);
     };
     Ok(value
         .get("toolchain")
@@ -895,7 +896,7 @@ mod tests {
             ("[toolchain]\nchannel = \"1.94.0\"\n", true),
             ("[toolchain]\nchannel = \"stable\"\n", true),
             ("[toolchain]\nprofile = \"minimal\"\n", true),
-            ("not toml [", false),
+            ("not toml [", true),
         ] {
             std::fs::write(&file, content).unwrap();
             assert_eq!(
