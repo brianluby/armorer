@@ -198,7 +198,10 @@ impl AuthenticatedCatalog {
             "armorer.lock".into(),
             self.lock_for_config_sha256(config_sha256)?,
         );
-        files.insert("rust-toolchain.toml".into(), format!("[toolchain]\nchannel = \"{}\"\nprofile = \"minimal\"\ncomponents = [\"clippy\", \"rustfmt\"]\n", toolchain));
+        files.insert(
+            "rust-toolchain.toml".into(),
+            render_template(TOOLCHAIN_TEMPLATE, &[("TOOLCHAIN", toolchain)])?,
+        );
         Ok(files)
     }
 
@@ -206,16 +209,26 @@ impl AuthenticatedCatalog {
     /// The build caller is manual and unsigned; it has no publication capability.
     /// CI cancels superseded runs only for pull requests, so every pushed commit
     /// keeps a completed run.
+    ///
+    /// # Panics
+    /// Never on user input: the templates and the workflow pin are compile-time
+    /// constants, and `compiled_templates_render_for_every_catalog` renders every
+    /// compiled catalog. A failure here is a build defect and fails closed.
     pub fn caller_workflows(&self) -> BTreeMap<String, String> {
-        let repository = &self.workflow.repository;
-        let commit = &self.workflow.commit;
+        let values = [
+            ("WORKFLOW_REPOSITORY", self.workflow.repository.as_str()),
+            ("WORKFLOW_COMMIT", self.workflow.commit.as_str()),
+        ];
         let mut callers = BTreeMap::new();
-        callers.insert(".github/workflows/armorer-ci.yml".into(), format!(
-            "name: Armorer CI\n\non:\n  pull_request:\n  push:\n  workflow_dispatch:\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: armorer-ci-${{{{ github.workflow }}}}-${{{{ github.ref }}}}\n  cancel-in-progress: ${{{{ github.event_name == 'pull_request' }}}}\n\njobs:\n  verify:\n    uses: {repository}/.github/workflows/rust-ci.yml@{commit}\n"
-        ));
-        callers.insert(".github/workflows/armorer-build.yml".into(), format!(
-            "name: Armorer unsigned build\n\non:\n  workflow_dispatch:\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: armorer-build-${{{{ github.workflow }}}}-${{{{ github.ref }}}}\n  cancel-in-progress: false\n\njobs:\n  build:\n    uses: {repository}/.github/workflows/rust-build.yml@{commit}\n"
-        ));
+        for (path, template) in [
+            (".github/workflows/armorer-ci.yml", CI_CALLER_TEMPLATE),
+            (".github/workflows/armorer-build.yml", BUILD_CALLER_TEMPLATE),
+        ] {
+            let Ok(text) = render_template(template, &values) else {
+                unreachable!("compiled caller template must render with compiled pins");
+            };
+            callers.insert(path.into(), text);
+        }
         callers
     }
 
@@ -225,9 +238,139 @@ impl AuthenticatedCatalog {
     }
 }
 
+const CI_CALLER_TEMPLATE: &str = include_str!("../catalogs/templates/armorer-ci.yml.tmpl");
+const BUILD_CALLER_TEMPLATE: &str = include_str!("../catalogs/templates/armorer-build.yml.tmpl");
+const TOOLCHAIN_TEMPLATE: &str = include_str!("../catalogs/templates/rust-toolchain.toml.tmpl");
+
+/// Render a template with fixed `@@NAME@@` placeholders in one left-to-right pass.
+/// Substituted values are never rescanned, so a value cannot introduce or complete
+/// a placeholder. `@@` followed by an uppercase letter or underscore must be a
+/// complete declared placeholder; any other `@` is literal text. Errors never echo values.
+fn render_template(template: &str, values: &[(&str, &str)]) -> Result<String> {
+    let invalid = || Error::Invalid("invalid file template".into());
+    if values
+        .iter()
+        .any(|(_, v)| v.contains("@@") || v.chars().any(char::is_control))
+    {
+        return Err(invalid());
+    }
+    let mut used = vec![false; values.len()];
+    let mut out = String::with_capacity(template.len());
+    let mut rest = template;
+    while let Some(at) = rest.find('@') {
+        out.push_str(&rest[..at]);
+        rest = &rest[at..];
+        let named = rest
+            .strip_prefix("@@")
+            .filter(|r| r.starts_with(|c: char| c.is_ascii_uppercase() || c == '_'));
+        let Some(after) = named else {
+            out.push('@');
+            rest = &rest[1..];
+            continue;
+        };
+        let len = after
+            .find(|c: char| !(c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_'))
+            .unwrap_or(after.len());
+        let (name, tail) = after.split_at(len);
+        let tail = tail.strip_prefix("@@").ok_or_else(invalid)?;
+        let index = values
+            .iter()
+            .position(|(n, _)| *n == name)
+            .ok_or_else(invalid)?;
+        used[index] = true;
+        out.push_str(values[index].1);
+        rest = tail;
+    }
+    out.push_str(rest);
+    if used.contains(&false) {
+        return Err(invalid());
+    }
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const V2_GOLDENS: &[(&str, &str)] = &[
+        (
+            ".github/workflows/armorer-build.yml",
+            "30ff9cbd05cd26659cf7f28274f236762ba2d3fc6518b57cfa7a0d47cc12b715",
+        ),
+        (
+            ".github/workflows/armorer-ci.yml",
+            "edfb0ff48f128193445b0f35e2022913a2e0adb71007fb59d8d535cdf4f392c5",
+        ),
+        (
+            "rust-toolchain.toml",
+            "24ef3b9d3edbd850aa386cb0a98e10450b0030991a4537cb359f54d49dbbb33a",
+        ),
+    ];
+    const V1_GOLDENS: &[(&str, &str)] = &[
+        (
+            ".github/workflows/armorer-build.yml",
+            "d54919c9b41be91ffb665eb631a27aeed4ebb482339a64977a968798645f1ed1",
+        ),
+        (
+            ".github/workflows/armorer-ci.yml",
+            "2478570952c760df003bd956521b126d936bfc28098797082b2ad30767c005e8",
+        ),
+        (
+            "rust-toolchain.toml",
+            "24ef3b9d3edbd850aa386cb0a98e10450b0030991a4537cb359f54d49dbbb33a",
+        ),
+    ];
+
+    /// Rendered bytes of every template file are frozen for each compiled catalog; a
+    /// template edit changes every consumer's bytes and must update these on purpose.
+    /// Digests were captured from the former inline `format!` renderers.
+    #[test]
+    fn compiled_templates_render_for_every_catalog() {
+        for (catalog, goldens) in [
+            (reviewed().unwrap(), V1_GOLDENS),
+            (reviewed_v2().unwrap(), V2_GOLDENS),
+        ] {
+            let mut files = catalog.caller_workflows();
+            let all = catalog
+                .bootstrap_files(&"a".repeat(64), "1.95.0", "")
+                .unwrap();
+            files.insert(
+                "rust-toolchain.toml".into(),
+                all["rust-toolchain.toml"].clone(),
+            );
+            assert_eq!(files.len(), goldens.len());
+            for (path, expected) in goldens {
+                assert_eq!(digest(files[*path].as_bytes()), *expected, "{path}");
+            }
+        }
+    }
+
+    #[test]
+    fn renderer_rejects_unknown_unused_and_unsafe_values() {
+        assert_eq!(
+            render_template("a @@X@@ b", &[("X", "1")]).unwrap(),
+            "a 1 b"
+        );
+        assert!(render_template("a @@Y@@", &[("X", "1")]).is_err());
+        assert!(render_template("a @@X", &[("X", "1")]).is_err());
+        assert!(render_template("a", &[("X", "1")]).is_err());
+        for bad in ["a@@b", "a\nb", "a\u{7}b", "a\rb"] {
+            assert!(render_template("@@X@@", &[("X", bad)]).is_err(), "{bad:?}");
+        }
+        let err = render_template("@@X@@", &[("X", "se@@cret")]).unwrap_err();
+        assert!(!err.to_string().contains("secret"));
+    }
+
+    #[test]
+    fn renderer_never_reexpands_values_and_passes_literals_through() {
+        let out = render_template("@@A@@|@@B@@", &[("A", "@B"), ("B", "x")]).unwrap();
+        assert_eq!(out, "@B|x");
+        let out = render_template("@@A@@|@@B@@", &[("A", "B@"), ("B", "@x")]).unwrap();
+        assert_eq!(out, "B@|@x");
+        let lit = "g: ${{ github.ref }} ${{ a == 'b' }} me@example.com\n";
+        assert_eq!(render_template(lit, &[]).unwrap(), lit);
+        assert_eq!(render_template("x@@@A@@", &[("A", "1")]).unwrap(), "x@1");
+    }
 
     /// The settled v2 successor pins workflows main e5e9c0d and authenticates the same
     /// embedded tool bytes as frozen v1; only the workflow pin moves, never the digest.
