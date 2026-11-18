@@ -60,6 +60,46 @@ filesystem ancestry and no hostile process sharing the consumer's OS account
 remain required. See [offline verifier details](offline-verifier.md) for native
 version/root support, bounds and limitations.
 
+## One manifest instead of seven flags
+
+The seven path and digest flags can instead be named by one JSON manifest, pinned by
+a single digest typed on the command line:
+
+```sh
+armorer verify-release \
+  --manifest /path/to/release-inputs.json \
+  --expect-manifest-sha256 '<independently approved 64-character SHA-256>'
+```
+
+The manifest has `schema_version` 1, `contract: "armorer-release-inputs"` and one
+field per flag: `directory`, `trusted_inputs`, `expect_context_sha256`,
+`context_kind` (`native-v3`), `gh`, `trusted_root` and `cyclonedx`. An optional
+`publication` block is ignored here and required by `publication`. See the
+[example](../examples/release-inputs/README.md) and
+`armorer schema release-inputs-manifest`.
+
+* **Its digest is the approval.** The manifest holds the expected context digest, so
+  it must not be trusted on its own. Armorer reads the file (at most 64 KiB, regular
+  file, never a symlink), hashes its exact bytes and compares them with
+  `--expect-manifest-sha256` before parsing it or opening any path it names. A
+  mismatch reports only `release-inputs-manifest-digest-mismatch`. Reviewing the
+  manifest means reviewing the digests inside it, and the digest you pass must come
+  from somewhere other than the manifest's own location.
+* **Strict parsing.** Unknown fields, duplicate keys, another `schema_version` or
+  `contract`, missing fields, empty paths and paths with control characters are
+  refused. Other path content is not restricted, exactly like the flags.
+* **Relative paths** resolve against the directory that contains the manifest, never
+  the working directory, so a manifest and its inputs can be moved together. Absolute
+  paths are used as written.
+* **Exclusive with the flags.** `--manifest` and `--expect-manifest-sha256` require
+  each other, and `--manifest` combined with any of the seven input flags is an
+  argument error (exit 2). The flag form is unchanged and still requires every flag.
+* **No change to verification.** The manifest does not make verification weaker or
+  stronger: it moves seven values into one reviewed file, then runs the same
+  sequence in the same order (context first, then adapters and release files). On
+  success the output is the same plus `inputs_manifest` with the manifest's `sha256`
+  and `size`; the flag form's output is unchanged.
+
 On complete success, stdout is JSON with `status: authenticated-release-files`,
 `cryptographic_release_authenticated: true`, `provenance_verified: true`, the
 independent context/catalog/input identities, inventory and detached bundle
