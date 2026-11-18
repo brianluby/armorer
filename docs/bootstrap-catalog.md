@@ -72,6 +72,12 @@ Review the pins. Preserve existing locks until a migration is approved.
 **This is the way.**
 
 `caller_workflows` renders two fixed files shown in [examples](../examples/bootstrap-catalog/README.md).
+The file text lives in `catalogs/templates/*.tmpl` (compiled in with `include_str!`),
+so reviewers read real YAML and TOML. Templates use only the fixed placeholders
+`%%WORKFLOW_REPOSITORY%%`, `%%WORKFLOW_COMMIT%%` and `%%TOOLCHAIN%%`. The renderer
+substitutes in a single pass, rejects unknown or unused placeholders, and rejects values
+containing `%%`, newlines or control characters. The rendered bytes are frozen by
+golden SHA-256 tests in `src/catalog.rs`.
 CI supports ordinary PR/push/manual events; the build caller is explicitly manual
 and unsigned. Both jobs pin the reviewed full workflow commit and grant only
 contents read. Neither exposes shell, inputs, custom provenance, OIDC, signing

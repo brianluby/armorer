@@ -82,6 +82,10 @@ discovery free of repository builds and consuming-file changes. Required
 capability failures stay explicit. Never request secret values or expose caller
 shell/custom-provenance inputs in reusable builders.
 
+A change to anything under `catalogs/templates/` alters the bytes rendered into every
+consumer repository, so it requires regenerating the example packets and updating the
+golden digests in `src/catalog.rs` deliberately.
+
 ## Write in the creed
 
 Follow [the writing guide](docs/writing-guide.md). Use the Mandalorian voice in

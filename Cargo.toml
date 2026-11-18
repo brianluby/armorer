@@ -7,7 +7,7 @@ license = "MIT"
 description = "Repeatable secure CI and verifiable releases for Rust repositories"
 repository = "https://github.com/brianluby/armorer"
 readme = "README.md"
-include = ["src/**/*", "catalogs/bootstrap-tools-v1.json", "Cargo.toml", "README.md", "LICENSE"]
+include = ["src/**/*", "catalogs/bootstrap-tools-v1.json", "catalogs/templates/*.tmpl", "Cargo.toml", "README.md", "LICENSE"]
 
 [features]
 # ADR 0012 rule 3: catalog-to-catalog migration tests run against a test-only
