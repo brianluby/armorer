@@ -1,0 +1,111 @@
+{
+  "$defs": {
+    "PublicationManifest": {
+      "additionalProperties": false,
+      "description": "The three inputs only `publication` takes.",
+      "properties": {
+        "expect_policy_sha256": {
+          "description": "`--expect-publication-policy-sha256`.",
+          "pattern": "^[0-9a-f]{64}$(?![\\s\\S])",
+          "type": "string"
+        },
+        "policy": {
+          "description": "`--publication-policy`.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "release_attestation_root": {
+          "description": "`--release-attestation-root`.",
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "policy",
+        "expect_policy_sha256",
+        "release_attestation_root"
+      ],
+      "type": "object"
+    },
+    "ReleaseContextKind": {
+      "description": "Frozen catalog semantics a manifest may select; the names match `--context-kind`.",
+      "enum": [
+        "native-v3"
+      ],
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Inputs shared by `verify-release` and `publication`; one field per command-line flag.",
+  "properties": {
+    "context_kind": {
+      "$ref": "#/$defs/ReleaseContextKind",
+      "description": "`--context-kind`."
+    },
+    "contract": {
+      "const": "armorer-release-inputs",
+      "type": "string"
+    },
+    "cyclonedx": {
+      "description": "`--cyclonedx`.",
+      "minLength": 1,
+      "type": "string"
+    },
+    "directory": {
+      "description": "`--directory`; a relative path resolves against the manifest's directory.",
+      "minLength": 1,
+      "type": "string"
+    },
+    "expect_context_sha256": {
+      "description": "`--expect-context-sha256`.",
+      "pattern": "^[0-9a-f]{64}$(?![\\s\\S])",
+      "type": "string"
+    },
+    "gh": {
+      "description": "`--gh`.",
+      "minLength": 1,
+      "type": "string"
+    },
+    "publication": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PublicationManifest"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Required by `publication`, ignored by `verify-release`."
+    },
+    "schema_version": {
+      "format": "uint32",
+      "maximum": 1,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "trusted_inputs": {
+      "description": "`--trusted-inputs`.",
+      "minLength": 1,
+      "type": "string"
+    },
+    "trusted_root": {
+      "description": "`--trusted-root`.",
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "contract",
+    "directory",
+    "trusted_inputs",
+    "expect_context_sha256",
+    "context_kind",
+    "gh",
+    "trusted_root",
+    "cyclonedx"
+  ],
+  "title": "ReleaseInputsManifest",
+  "type": "object"
+}

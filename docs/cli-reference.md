@@ -166,8 +166,9 @@ authentication are separate requirements.
 | Lifecycle and publication | `lifecycle-record`, `github-receipt`, `publish-set`, `registry-receipt`, `publication-policy`, `publication-plan`, `publication-approval` |
 | Initialization, bootstrap and upgrades | `init-proposal`, `ci-policy`, `bootstrap-plan`, `upgrade-plan`, `upgrade-rollback` |
 | Graph and native contexts | `cargo-graph-v2`, `native-catalog-v2`, `runtime-distribution-v1`, `verification-context-v3` |
+| Release inputs | `release-inputs-manifest` |
 
-There are 25 schema names on main. JSON examples under
+There are 26 schema names on main. JSON examples under
 [trust-v1](../examples/trust-v1/README.md) are synthetic contract fixtures.
 
 ## Read the exit status
@@ -232,9 +233,24 @@ Main also provides the following explicit interfaces:
 | --- | --- |
 | `bootstrap` | `plan`, `check`, `apply`, `recover`; [five-file procedure](bootstrap-v2.md) |
 | `upgrade` | `plan`, `apply`, `recover`, `rollback-plan`, `rollback-apply`; [reviewed migration](upgrades.md) |
-| `verify-release` | Independently approved context, exact assets and required bundles; [complete verifier](verify-release-cli.md) |
+| `verify-release` | Independently approved context, exact assets and required bundles; [complete verifier](verify-release-cli.md); `--manifest` replaces the seven input flags |
 | `verify-historical-bytes` | Explicit independently approved historical policy; [weaker byte comparison](historical-verification.md) |
 | `publication` | `plan`, `inspect`, `stage`, `publish`, `recover-published`; [owned-draft controller and native limits](owned-draft-controller-v1.md) |
+
+`verify-release` and `publication` also accept `--manifest <file>
+--expect-manifest-sha256 <64 lowercase hex>` in place of their individual path and
+digest flags. The two manifest flags require each other, and combining `--manifest`
+with any individual input flag is an argument error (exit 2). Armorer hashes the
+exact manifest bytes and compares them with the digest before parsing it or opening
+any path in it, so the digest is the approval and a mismatch fails with
+`release-inputs-manifest-digest-mismatch` (code `invalid-config`). Relative paths in
+the manifest resolve against its directory. A `publication` subcommand with a
+manifest lacking its `publication` block fails with
+`release-inputs-manifest-has-no-publication-block`. Success output gains
+`inputs_manifest` (`sha256`, `size`). The manifest does not make verification weaker
+or stronger; it moves the values into one reviewed file. See the
+[example](../examples/release-inputs/README.md) and `armorer schema
+release-inputs-manifest`.
 
 Run each command with `--help` for its exact input flags. Bootstrap and upgrade
 packets are separate contracts; neither authorizes the other's writes.

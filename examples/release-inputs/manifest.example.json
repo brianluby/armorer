@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "contract": "armorer-release-inputs",
+  "directory": "release",
+  "trusted_inputs": "trusted",
+  "expect_context_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "context_kind": "native-v3",
+  "gh": "/opt/armorer/gh",
+  "trusted_root": "trusted/trusted_root.json",
+  "cyclonedx": "/opt/armorer/cyclonedx",
+  "publication": {
+    "policy": "publication-policy.json",
+    "expect_policy_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "release_attestation_root": "trusted/release-root.json"
+  }
+}
