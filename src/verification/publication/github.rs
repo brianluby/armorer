@@ -1364,6 +1364,67 @@ mod tests {
         check(&io::parse::<Value>(&bytes).unwrap(), &frozen, &served).unwrap();
     }
 
+    const CAPABILITIES_CHANGED: &str = "publication-capabilities-changed";
+    const LIVE_OBSERVATION_ATTEMPTS: u32 = 3;
+    const LIVE_OBSERVATION_PAUSE: Duration = Duration::from_secs(5);
+
+    /// Run a complete observation up to `attempts` times, retrying only the exact change error
+    /// with a fixed pause. Any other error, or success, returns immediately.
+    fn retry_when_capabilities_change<T>(
+        attempts: u32,
+        pause: Duration,
+        mut sleep: impl FnMut(Duration),
+        mut observe: impl FnMut() -> Result<T>,
+    ) -> Result<T> {
+        let mut attempt = 1;
+        loop {
+            match observe() {
+                Err(Error::Invalid(code)) if code == CAPABILITIES_CHANGED && attempt < attempts => {
+                    attempt += 1;
+                    sleep(pause);
+                }
+                other => return other,
+            }
+        }
+    }
+
+    #[test]
+    /// The retry helper retries only the exact change error, at most three attempts, with a fixed pause.
+    fn live_observation_retry_is_bounded_and_exact() {
+        let changed = || Error::Invalid(CAPABILITIES_CHANGED.into());
+        let run = |script: Vec<Result<u8>>| {
+            let mut script = script.into_iter();
+            let mut calls = 0;
+            let mut pauses = Vec::new();
+            let result = retry_when_capabilities_change(
+                3,
+                Duration::from_secs(5),
+                |d| pauses.push(d),
+                || {
+                    calls += 1;
+                    script.next().expect("no more than the scripted attempts")
+                },
+            );
+            (result, calls, pauses)
+        };
+        let (result, calls, pauses) = run(vec![Err(changed()), Err(changed()), Ok(7)]);
+        assert_eq!(result.unwrap(), 7);
+        assert_eq!(calls, 3);
+        assert_eq!(pauses, vec![Duration::from_secs(5); 2]);
+        let (result, calls, pauses) = run(vec![Err(changed()), Err(changed()), Err(changed())]);
+        assert!(matches!(result, Err(Error::Invalid(code)) if code == CAPABILITIES_CHANGED));
+        assert_eq!(calls, 3);
+        assert_eq!(pauses.len(), 2);
+        let (result, calls, pauses) = run(vec![Err(Error::Invalid("other-failure".into()))]);
+        assert!(matches!(result, Err(Error::Invalid(code)) if code == "other-failure"));
+        assert_eq!(calls, 1);
+        assert!(pauses.is_empty());
+        let (result, calls, pauses) = run(vec![Ok(1)]);
+        assert_eq!(result.unwrap(), 1);
+        assert_eq!(calls, 1);
+        assert!(pauses.is_empty());
+    }
+
     #[test]
     #[ignore = "requires independently qualified native gh and existing GET-only authentication"]
     /// Exercise real fixed-route settings reads and reject all write methods, native substitution and root substitution.
@@ -1431,18 +1492,38 @@ mod tests {
             NativeGithub::open_owner_read_only(&executable, &substituted_root, &policy, &owner)
                 .is_err()
         );
-        let observer = if std::env::var_os("GH_TOKEN")
-            .or_else(|| std::env::var_os("GITHUB_TOKEN"))
-            .is_some()
-        {
-            NativeGithub::open(&executable, &root, &policy).unwrap()
-        } else {
-            readonly
-        };
-        // Fixed GETs alone are executed. Their unavailable states are retained,
-        // and required attempt/serialization gates remain unproven regardless
-        // of the current repository settings or the test policy's claims.
-        let report = observer.observe_capabilities(&policy).unwrap();
+        // The production observation reads the live repository twice and deliberately fails
+        // closed with `publication-capabilities-changed` when the two reads differ. A merge to
+        // the default branch between those reads changes the repository document (push time,
+        // update time, issue counts), so this test, which does not control the live repository,
+        // retries a bounded number of complete, fresh observations. Only that exact error is
+        // retried; the production check is unchanged and still fails closed.
+        let report = retry_when_capabilities_change(
+            LIVE_OBSERVATION_ATTEMPTS,
+            LIVE_OBSERVATION_PAUSE,
+            std::thread::sleep,
+            || {
+                // A new client, workspace and observation state for every attempt.
+                let observer = if std::env::var_os("GH_TOKEN")
+                    .or_else(|| std::env::var_os("GITHUB_TOKEN"))
+                    .is_some()
+                {
+                    NativeGithub::open(&executable, &root, &policy)?
+                } else {
+                    NativeGithub::open_owner_read_only(&executable, &root, &policy, &owner)?
+                };
+                // Fixed GETs alone are executed. Their unavailable states are retained,
+                // and required attempt/serialization gates remain unproven regardless
+                // of the current repository settings or the test policy's claims.
+                observer.observe_capabilities(&policy)
+            },
+        )
+        .unwrap_or_else(|error| match error {
+            Error::Invalid(code) if code == CAPABILITIES_CHANGED => panic!(
+                "the live repository changed during every one of {LIVE_OBSERVATION_ATTEMPTS} observation attempts ({CAPABILITIES_CHANGED})"
+            ),
+            other => panic!("live publication observation failed: {other:?}"),
+        });
         assert_eq!(report.repository_id, 1398918200);
         for name in [
             "current-attempt-environment-enforcement",
