@@ -10,6 +10,15 @@ use armorer::{
 use sha2::{Digest, Sha256};
 use std::{collections::BTreeMap, fs, path::Path, process::Command};
 
+/// Lowercase hex SHA-256, written without relying on the digest type's formatting
+/// traits so it compiles across sha2 major versions.
+fn sha256_hex(bytes: &[u8]) -> String {
+    Sha256::digest(bytes)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
 const POLICY: &str = "ci-policy.reviewed.toml";
 const WIDE: &str = "bootstrap-test-wide";
 const EXTRA: &str = ".github/armorer-managed.md";
@@ -333,7 +342,7 @@ fn retarget(value: &mut serde_json::Value, from: &str, entry: serde_json::Value)
 
 #[test]
 fn states_listing_a_path_outside_their_catalog_set_are_rejected() {
-    let digest = format!("{:x}", Sha256::digest(EXTRA_CONTENT.as_bytes()));
+    let digest = sha256_hex(EXTRA_CONTENT.as_bytes());
     // Bootstrap-v2 ownership: a renamed entry, then an added sixth entry.
     for extra_entry in [false, true] {
         let root = fixture();
@@ -578,8 +587,7 @@ fn upgrade_state_fixed_file_is_accepted_only_when_unmodified() {
     let mut value: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
     let custom = format!("{EXTRA_CONTENT}# customized\n");
     value["managed"][EXTRA]["applied"] = custom.clone().into();
-    value["managed"][EXTRA]["applied_sha256"] =
-        format!("{:x}", Sha256::digest(custom.as_bytes())).into();
+    value["managed"][EXTRA]["applied_sha256"] = sha256_hex(custom.as_bytes()).into();
     fs::write(&path, serde_json::to_vec(&value).unwrap()).unwrap();
     let before = snapshot(root.path());
     assert!(preview(root.path(), WIDE, false).is_err());
