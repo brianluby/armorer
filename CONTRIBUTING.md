@@ -28,6 +28,26 @@ Use the same prefix for build, format and lint checks.
 Passing local checks earns review evidence. Hosted CI and human acceptance have
 their own gates. **This is the way.**
 
+## Fuzz and property tests
+
+Parsers that read untrusted bytes carry property tests (`proptest`, in
+`tests/properties.rs` and in `#[cfg(test)]` modules beside the code). They run
+inside `cargo test --locked` with default case counts; a failing case is
+minimised and saved under `proptest-regressions/`, so commit that file with the
+fix.
+
+Fuzz targets live in `fuzz/`, a separate crate with its own lockfile. They reach
+the parsers through the hidden `fuzzing` feature, which no default build enables.
+To run one (nightly toolchain and `cargo install cargo-fuzz` required):
+
+```sh
+cargo +nightly fuzz run <name> -- -max_total_time=60
+```
+
+CI only compile-checks them with `cargo check --locked --manifest-path
+fuzz/Cargo.toml`. Add a target for each new hand-written parser of untrusted
+bytes. **This is the way.**
+
 ## Keep the contracts exact
 
 Regenerate schemas after changing serialized contracts. Build the checkout's

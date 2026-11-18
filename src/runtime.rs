@@ -41,6 +41,71 @@ pub(crate) fn compatible(recorded: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
+
+    /// Small components so chains and equalities occur often.
+    fn stable() -> impl Strategy<Value = String> {
+        (0_u64..3, 0_u64..3, 0_u64..6).prop_map(|(a, b, c)| format!("{a}.{b}.{c}"))
+    }
+
+    /// Stable versions, ones carrying prerelease or build metadata, and junk.
+    fn any_version() -> impl Strategy<Value = String> {
+        prop_oneof![
+            4 => stable(),
+            2 => (stable(), prop::sample::select(vec!["-rc.1", "-alpha", "+local", "-b.2+x"]))
+                .prop_map(|(v, suffix)| format!("{v}{suffix}")),
+            1 => any::<String>(),
+        ]
+    }
+
+    proptest! {
+        #[test]
+        fn reflexive_for_stable_versions(v in stable()) {
+            prop_assert!(compatible_with(&v, &v));
+        }
+
+        #[test]
+        fn transitive(a in stable(), b in stable(), c in stable()) {
+            if compatible_with(&a, &b) && compatible_with(&b, &c) {
+                prop_assert!(compatible_with(&a, &c));
+            }
+        }
+
+        #[test]
+        fn prerelease_or_build_metadata_is_never_compatible(
+            v in stable(),
+            suffix in prop::sample::select(vec!["-rc.1", "-alpha", "+local", "-b.2+x", "+1"]),
+            other in any_version(),
+        ) {
+            let tagged = format!("{v}{suffix}");
+            prop_assert!(!compatible_with(&tagged, &other));
+            prop_assert!(!compatible_with(&other, &tagged));
+        }
+
+        #[test]
+        fn mutual_compatibility_means_equality(a in any_version(), b in any_version()) {
+            if compatible_with(&a, &b) && compatible_with(&b, &a) {
+                prop_assert_eq!(a, b);
+            }
+        }
+
+        /// Independent oracle: same major and minor, and a recorded patch that is
+        /// not newer than the running one. Pins the direction of the patch rule.
+        #[test]
+        fn same_line_with_an_older_or_equal_patch_is_compatible(
+            recorded in (0_u64..3, 0_u64..3, 0_u64..6),
+            running in (0_u64..3, 0_u64..3, 0_u64..6),
+        ) {
+            let expected = recorded.0 == running.0 && recorded.1 == running.1 && recorded.2 <= running.2;
+            let fmt = |(a, b, c): (u64, u64, u64)| format!("{a}.{b}.{c}");
+            prop_assert_eq!(compatible_with(&fmt(recorded), &fmt(running)), expected);
+        }
+
+        #[test]
+        fn never_panics(a in any::<String>(), b in any::<String>()) {
+            let _ = compatible_with(&a, &b);
+        }
+    }
 
     #[test]
     /// A patch release reads older records from its own line and nothing else.

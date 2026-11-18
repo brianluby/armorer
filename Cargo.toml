@@ -13,9 +13,12 @@ include = ["src/**/*", "catalogs/bootstrap-tools-v1.json", "catalogs/templates/*
 # ADR 0012 rule 3: catalog-to-catalog migration tests run against a test-only
 # predecessor. Production builds cannot select bootstrap-v1.
 test-predecessor = []
+# Exposes byte-level parser wrappers for the cargo-fuzz targets in fuzz/. Never enabled by default.
+fuzzing = []
 
 [dev-dependencies]
 armorer = { path = ".", features = ["test-predecessor"] }
+proptest = { version = "=1.12.0", default-features = false, features = ["std"] }
 
 [dependencies]
 base64 = "=0.23.1"

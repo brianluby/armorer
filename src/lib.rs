@@ -22,6 +22,10 @@ mod transaction;
 pub mod trust;
 pub mod upgrade;
 pub mod verification;
+// Kept last and out of alphabetical order so it never collides with a new module line.
+#[cfg(feature = "fuzzing")]
+#[doc(hidden)]
+pub mod fuzzing;
 
 use std::path::{Component, Path, PathBuf};
 
