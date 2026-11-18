@@ -108,13 +108,13 @@ fn note(state: &str, code: &str, detail: &str) -> Compatibility {
 fn hash(content: Option<&str>) -> Option<String> {
     content.map(|s| digest(s.as_bytes()))
 }
-/// Validate the individually selected import paths against the fixed managed-target allowlist.
-fn imports(files: &[String]) -> Result<()> {
-    if files.len() > bootstrap::TARGETS.len()
+/// Validate the individually selected import paths against the target catalog's
+/// managed set: only a file the target renders can be adopted.
+fn imports(files: &[String], target: &Authority) -> Result<()> {
+    let allowed = catalog::reviewed_for(&target.id)?.managed_paths();
+    if files.len() > allowed.len()
         || files.iter().collect::<BTreeSet<_>>().len() != files.len()
-        || files
-            .iter()
-            .any(|path| !bootstrap::TARGETS.contains(&path.as_str()))
+        || files.iter().any(|path| !allowed.contains(&path.as_str()))
     {
         return Err(Error::Transaction(
             "import decisions must be unique fixed bootstrap targets",
@@ -155,6 +155,7 @@ fn known_bases(
     catalog: &crate::catalog::AuthenticatedCatalog,
 ) -> Result<()> {
     let callers = catalog.caller_workflows();
+    let fixed = catalog.fixed_files()?;
     for (path, base) in bases {
         let matches = match path.as_str() {
             ".github/workflows/armorer-ci.yml" | ".github/workflows/armorer-build.yml" => {
@@ -181,7 +182,8 @@ fn known_bases(
                             .is_ok_and(|files| files.get("rust-toolchain.toml") == Some(base))
                 }),
             ".armorer/ci-policy.toml" => true, // owner-selected policy, not publisher/catalog authority
-            _ => false,
+            // A fixed catalog file must equal the catalog's own bytes; anything else fails.
+            _ => fixed.get(path) == Some(base),
         };
         if !matches {
             return Err(Error::Transaction(
@@ -348,6 +350,46 @@ fn change(
     }
 }
 
+/// An owned file that the target catalog does not render. No merge rule defines
+/// that outcome, so it is a blocking conflict: never a silent delete and never a
+/// silent release of ownership. The candidate is shown as absent (empty, with a
+/// `/dev/null` diff) and nothing is proposed.
+fn unrendered(path: String, base: Option<String>, current: Option<String>) -> Change {
+    let mut c = change(path, base, current, String::new(), false);
+    c.decision = Decision::Conflict;
+    c.proposed_content = None;
+    c.after_sha256 = None;
+    c.proposed_diff = None;
+    c
+}
+
+/// Every path one upgrade governs, in sorted path order: the target catalog's
+/// rendered set (with its candidate) plus each owned path the target no longer
+/// renders (no candidate). With equal source and target sets this is exactly the
+/// target's rendered set.
+fn scope(
+    generated: BTreeMap<String, String>,
+    bases: &BTreeMap<String, String>,
+) -> BTreeMap<String, Option<String>> {
+    let mut scope: BTreeMap<String, Option<String>> =
+        bases.keys().map(|path| (path.clone(), None)).collect();
+    scope.extend(generated.into_iter().map(|(path, c)| (path, Some(c))));
+    scope
+}
+
+/// Upper bound on the managed files one upgrade may touch: the union of the source
+/// and target catalogs' managed sets. Equal sets bound it by that one set.
+pub(super) fn scope_bound(plan: &Plan) -> Result<usize> {
+    let mut paths: BTreeSet<&'static str> = catalog::reviewed_for(&plan.target_catalog.id)?
+        .managed_paths()
+        .into_iter()
+        .collect();
+    if let Some(source) = &plan.source_catalog {
+        paths.extend(catalog::reviewed_for(&source.id)?.managed_paths());
+    }
+    Ok(paths.len())
+}
+
 impl Plan {
     /// Full bounded canonical approval digest, retaining exact three-way images.
     pub fn digest(&self) -> Result<String> {
@@ -373,7 +415,7 @@ pub fn inspect(
     allow_downgrade: bool,
 ) -> Result<Plan> {
     let target = authority::select(catalog_id)?;
-    imports(import_files)?;
+    imports(import_files, &target)?;
     let (_, policy) = ci_policy::load(policy)?;
     inspect_bytes(root, &policy, target, import_files, allow_downgrade)
 }
@@ -392,7 +434,8 @@ pub(super) fn license_overlap(license_file: &str) -> Result<()> {
         "armorer.toml",
         "rust-toolchain",
     ];
-    if bootstrap::TARGETS
+    // Runs before any catalog governs the packet: guard the union of every compiled set.
+    if catalog::all_managed_paths()
         .iter()
         .chain(controls.iter())
         .any(|target| license_path == std::path::Path::new(target))
@@ -442,7 +485,7 @@ pub(super) fn inspect_bytes(
         );
     }
     let mut changes = Vec::new();
-    for (path, candidate) in generated {
+    for (path, candidate) in scope(generated, &bases) {
         let current = optional_bytes(root, &path)?.map(|b| text(&b)).transpose()?;
         let requested = import_files.contains(&path);
         if requested && bases.contains_key(&path) {
@@ -450,13 +493,16 @@ pub(super) fn inspect_bytes(
                 "already-owned files cannot be reclassified as imports",
             ));
         }
-        let mut c = change(
-            path.clone(),
-            bases.get(&path).cloned(),
-            current,
-            candidate,
-            requested,
-        );
+        let mut c = match candidate {
+            Some(candidate) => change(
+                path.clone(),
+                bases.get(&path).cloned(),
+                current,
+                candidate,
+                requested,
+            ),
+            None => unrendered(path.clone(), bases.get(&path).cloned(), current),
+        };
         if path == "rust-toolchain.toml" && input_preimages["rust-toolchain"].is_some() {
             c.decision = Decision::Conflict;
             c.proposed_content = None;
@@ -659,13 +705,18 @@ pub(super) fn validate(plan: &Plan, expected: &str) -> Result<()> {
         || plan.contract != "armorer-upgrade-plan"
         || plan.runtime_version != env!("CARGO_PKG_VERSION")
         || plan.target_catalog != authority::select(&plan.target_catalog.id)?
-        || plan.changes.len() != bootstrap::TARGETS.len()
+        // At least the target's set and at most every compiled path; the exact
+        // source-and-target scope is checked once ownership is decoded below.
+        || !catalog::reviewed_for(&plan.target_catalog.id).is_ok_and(|target| {
+            (target.managed_paths().len()..=catalog::all_managed_paths().len())
+                .contains(&plan.changes.len())
+        })
     {
         return Err(Error::Transaction(
             "upgrade plan does not match independently approved digest or authority",
         ));
     }
-    imports(&plan.import_files)?;
+    imports(&plan.import_files, &plan.target_catalog)?;
     // Stored packets are canonical (inspect sorts); unsorted duplicates the approval digest.
     if !plan.import_files.is_sorted() {
         return Err(Error::Transaction("import files must be sorted"));
@@ -702,25 +753,34 @@ pub(super) fn validate(plan: &Plan, expected: &str) -> Result<()> {
         &plan.intent.toolchain,
         &plan.policy_content,
     )?;
-    if generated.len() != plan.changes.len() {
+    let scope = scope(generated, &origin.bases);
+    if scope.len() != plan.changes.len() {
         return Err(Error::Transaction(
             "generated target set differs from fixed contract",
         ));
     }
-    for (c, (path, candidate)) in plan.changes.iter().zip(generated) {
+    for (c, (path, candidate)) in plan.changes.iter().zip(scope) {
         let requested = plan.import_files.contains(&path);
         if requested && origin.bases.contains_key(&path) {
             return Err(Error::Transaction(
                 "owned target cannot be reclassified as an import",
             ));
         }
-        let mut derived = change(
-            path.clone(),
-            origin.bases.get(&path).cloned(),
-            c.before_content.clone(),
-            candidate.clone(),
-            requested,
-        );
+        let mut derived = match &candidate {
+            Some(candidate) => change(
+                path.clone(),
+                origin.bases.get(&path).cloned(),
+                c.before_content.clone(),
+                candidate.clone(),
+                requested,
+            ),
+            None => unrendered(
+                path.clone(),
+                origin.bases.get(&path).cloned(),
+                c.before_content.clone(),
+            ),
+        };
+        let candidate = candidate.unwrap_or_default();
         if path == "rust-toolchain.toml" && plan.input_preimages["rust-toolchain"].is_some() {
             derived.decision = Decision::Conflict;
             derived.proposed_content = None;

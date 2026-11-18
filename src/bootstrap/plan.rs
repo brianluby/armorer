@@ -1,5 +1,5 @@
 //! Exact fixed-target previews and independent catalog authority.
-use super::{JOURNAL, STATE, TARGETS, VERSION, transaction::load_state};
+use super::{JOURNAL, STATE, VERSION, transaction::load_state};
 use crate::{
     Error, Result, catalog, ci_policy,
     config::{Config, hex_digest, load_config},
@@ -206,7 +206,8 @@ pub(super) fn inspect_bytes(root: &Path, policy: &[u8]) -> Result<Plan> {
             .components()
             .collect();
     let controls = [STATE, JOURNAL, ".armorer/apply.lock", "armorer.toml"];
-    if TARGETS
+    // No catalog governs the plan yet: guard the union of every compiled set.
+    if catalog::all_managed_paths()
         .iter()
         .chain(controls.iter())
         .any(|target| license_path == std::path::Path::new(target))
@@ -335,7 +336,8 @@ pub(super) fn validate(plan: &Plan, expected: &str) -> Result<()> {
         || catalog::reviewed_for(&plan.catalog_id).is_err()
         || !hex_digest(&plan.config_sha256, 64)
         || plan.capability_state != "unknown"
-        || plan.changes.len() != TARGETS.len()
+        || !catalog::reviewed_for(&plan.catalog_id)
+            .is_ok_and(|catalog| catalog.managed_paths().len() == plan.changes.len())
         || plan
             .state_sha256
             .as_ref()

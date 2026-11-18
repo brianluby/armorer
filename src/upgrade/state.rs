@@ -59,7 +59,9 @@ pub(super) fn decode_state(bytes: &[u8]) -> Result<State> {
             "invalid upgrade ownership plan or config digest; no fallback",
         ));
     }
-    if state.managed.len() > bootstrap::TARGETS.len() {
+    // The state's own (already validated) authority governs its managed set.
+    let catalog = catalog::reviewed_for(&state.authority.id)?;
+    if state.managed.len() > catalog.managed_paths().len() {
         return Err(Error::Transaction(
             "invalid upgrade ownership managed-count bound; no fallback",
         ));
@@ -71,7 +73,7 @@ pub(super) fn decode_state(bytes: &[u8]) -> Result<State> {
             "invalid upgrade ownership toolchain; no fallback",
         ));
     }
-    let generated = catalog::reviewed_for(&state.authority.id)?.bootstrap_files(
+    let generated = catalog.bootstrap_files(
         &state.config_sha256,
         &state.toolchain,
         &state.generated_policy,
@@ -94,7 +96,8 @@ pub(super) fn decode_state(bytes: &[u8]) -> Result<State> {
                 merge::caller_extension(&image.applied, &image.generated, "build")
             }
             ".armorer/ci-policy.toml" => true,
-            _ => false,
+            // A fixed catalog file admits no customization; every other path fails closed.
+            _ => catalog.fixed_files()?.contains_key(path) && image.applied == image.generated,
         };
         if !allowed {
             return Err(Error::Transaction(

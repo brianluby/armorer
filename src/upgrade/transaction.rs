@@ -534,9 +534,11 @@ fn transaction(
 /// policy expiry cannot block restoring an already approved transaction's bytes.
 fn validate_journal(j: &Journal, expected: &str) -> Result<()> {
     j.approval.validate(expected)?;
+    // The approved packet's source and target catalogs bound the inventory.
+    let bound = plan::scope_bound(j.approval.original())?;
     if j.schema_version != 1
         || j.operations.is_empty()
-        || j.operations.len() > bootstrap::TARGETS.len() + 2
+        || j.operations.len() > bound + 2
         || j.operations != j.approval.operations()?
     {
         return Err(Error::Transaction(
@@ -600,6 +602,10 @@ pub fn recover(root: &Path, expected: &str) -> Result<Receipt> {
 mod tests {
     use super::*;
     use std::collections::BTreeMap;
+    /// Managed paths of the bootstrap-v2 catalog these fixtures provision.
+    fn managed() -> Vec<&'static str> {
+        crate::catalog::reviewed_v2().unwrap().managed_paths()
+    }
     const POLICY: &str = "schema_version = 1\n[licenses]\nallow = [\"MIT\"]\n[advisories]\nexceptions = []\n[sources]\nallow_git = []\n[bans]\nmultiple_versions = \"warn\"\ndeny = []\n";
     /// Create an isolated repository fixture with explicit inputs for the surrounding transaction tests.
     fn fixture(kind: &str) -> (tempfile::TempDir, Plan) {
@@ -835,7 +841,7 @@ mod tests {
     #[test]
     fn intervening_file_owner_or_journal_edits_block_recovery_before_any_restoration() {
         for reverse in [false, true] {
-            for path in bootstrap::TARGETS.into_iter().chain([STATE, JOURNAL]) {
+            for path in managed().into_iter().chain([STATE, JOURNAL]) {
                 let (root, p) = fixture("bootstrap");
                 let approved = approval(root.path(), p, reverse);
                 let count = approved.operations().unwrap().len();
@@ -959,10 +965,7 @@ mod tests {
             &approved,
             approved.digest(),
             |_| {
-                fs::write(
-                    root.path().join(bootstrap::TARGETS[0]),
-                    "external policy edit",
-                )?;
+                fs::write(root.path().join(managed()[0]), "external policy edit")?;
                 Err(Error::Transaction("injected failure"))
             },
             |root, bytes| replace(root, JOURNAL, bytes, false),
@@ -976,7 +979,7 @@ mod tests {
     /// Verify that unchanged targets and foreign owner presence also block whole recovery.
     #[test]
     fn unchanged_targets_and_foreign_owner_presence_also_block_whole_recovery() {
-        for path in [bootstrap::TARGETS[0], bootstrap::TARGETS[1], STATE] {
+        for path in [managed()[0], managed()[1], STATE] {
             let (root, p) = fixture("bootstrap");
             let approved = Approval::Upgrade { plan: p };
             let count = approved.operations().unwrap().len();
