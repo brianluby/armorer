@@ -238,7 +238,7 @@ pub fn load_json<T: serde::de::DeserializeOwned>(
     root: &std::path::Path,
     relative: &str,
 ) -> Result<(T, Vec<u8>)> {
-    let bytes = crate::read_small(&crate::safe_path(root, relative)?)?;
+    let bytes = crate::filesystem::read_managed(root, relative)?;
     let value = parse_json(&bytes)?;
     Ok((value, bytes))
 }

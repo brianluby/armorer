@@ -7,11 +7,10 @@ use crate::{
     Error, Result, catalog,
     config::{WorkflowPin, hex_digest},
     digest,
-    filesystem::{decode, json, lock, optional_bytes, replace, sync_directory, text},
-    safe_path,
+    filesystem::{decode, json, lock, optional_bytes, remove, replace, text},
 };
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, fs, path::Path};
+use std::{collections::BTreeMap, path::Path};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -210,9 +209,9 @@ fn guard_legacy(root: &Path) -> Result<()> {
 
 use crate::transaction::matches;
 /// Remove the completed journal and sync its parent after the caller has verified recovery state.
+/// The unlink and the sync both go through the held `.armorer` directory handle.
 fn remove_journal(root: &Path) -> Result<()> {
-    fs::remove_file(safe_path(root, JOURNAL)?)?;
-    sync_directory(&safe_path(root, ".armorer")?)
+    remove(root, JOURNAL, "invalid recovery parent")?.sync()
 }
 
 /// Check every target first; no partial rollback may erase an intervening edit.
@@ -470,6 +469,7 @@ pub fn recover(root: &Path, expected: &str) -> Result<Receipt> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
     /// Managed paths of the default bootstrap-v2 catalog these fixtures provision.
     fn managed() -> Vec<&'static str> {
         catalog::reviewed_v2().unwrap().managed_paths()
