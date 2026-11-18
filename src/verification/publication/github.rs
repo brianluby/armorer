@@ -1368,8 +1368,10 @@ mod tests {
     const LIVE_OBSERVATION_ATTEMPTS: u32 = 3;
     const LIVE_OBSERVATION_PAUSE: Duration = Duration::from_secs(5);
 
-    /// Run a complete observation up to `attempts` times, retrying only the exact change error
-    /// with a fixed pause. Any other error, or success, returns immediately.
+    /// Run a complete observation, retrying only the exact change error with a fixed pause.
+    /// It always observes once, even when `attempts` is 0, and makes at most `attempts`
+    /// observations in total when `attempts` is 1 or more. Any other error, or success,
+    /// returns immediately.
     fn retry_when_capabilities_change<T>(
         attempts: u32,
         pause: Duration,
@@ -1438,6 +1440,7 @@ mod tests {
         io::write_readonly(&root, root_bytes).unwrap();
         // This private test policy selects GET routes only. It is neither an independently
         // approved production policy nor qualification of this fixture as a release-signing root.
+        let expires_at = now().unwrap() + 600;
         let value = PublicationPolicy {
             schema_version: 1,
             context: ByteIdentity::from_bytes(b"test-only observation intent"),
@@ -1456,7 +1459,7 @@ mod tests {
             publish_environment: "armorer-readonly-qualification-v1".into(),
             publish_environment_id: 1,
             max_observation_age: 30,
-            expires_at: now().unwrap() + 600,
+            expires_at,
         };
         let policy = TrustedPublicationPolicy {
             identity: ByteIdentity::from_bytes(&serde_json::to_vec(&value).unwrap()),
@@ -1503,6 +1506,12 @@ mod tests {
             LIVE_OBSERVATION_PAUSE,
             std::thread::sleep,
             || {
+                // Validation rejects an expired policy with an error that is deliberately not
+                // retried, so name that cause instead of reporting an opaque policy failure.
+                assert!(
+                    now().unwrap() < expires_at,
+                    "the test policy expired before the observation attempts finished"
+                );
                 // A new client, workspace and observation state for every attempt.
                 let observer = if std::env::var_os("GH_TOKEN")
                     .or_else(|| std::env::var_os("GITHUB_TOKEN"))
