@@ -1886,3 +1886,242 @@ mod handles {
         Ok(File::from(fd))
     }
 }
+
+/// Source guard: path-based removal, directory creation and managed reads stay in this module.
+///
+/// Every production line under `src/` outside `filesystem.rs` and `lib.rs` is
+/// scanned for `remove_file`, `create_dir` (including `create_dir_all`) and
+/// `read_small(&…safe_path(`. `#[cfg(test)]` items, test-only module files and
+/// whole-line comments are skipped. The few remaining calls work on private
+/// temporary directories Armorer itself created, never a repository root; each
+/// is allowed by its exact line with the reason, so any edit to one forces a
+/// fresh review here.
+#[cfg(test)]
+mod source_guard {
+    use std::{
+        collections::BTreeSet,
+        fs,
+        path::{Path, PathBuf},
+    };
+
+    /// Files that own the path-based fallbacks and the lexical gate.
+    const OWNERS: [&str; 2] = ["src/filesystem.rs", "src/lib.rs"];
+
+    /// Exact trimmed production lines allowed to keep a path-based call, with the reason.
+    const ALLOWED: &[(&str, &str, &str)] = &[
+        (
+            "src/discovery.rs",
+            "std::fs::create_dir_all(&output)?;",
+            "mirrors manifest directories into the private discovery snapshot, not the repository",
+        ),
+        (
+            "src/discovery.rs",
+            "std::fs::create_dir(&snapshot_root)?;",
+            "creates the snapshot root inside a fresh owner-only discovery tempdir",
+        ),
+        (
+            "src/discovery.rs",
+            "std::fs::create_dir(&cargo_home)?;",
+            "creates an isolated CARGO_HOME inside the same private discovery tempdir",
+        ),
+        (
+            "src/verification/publication/github.rs",
+            "fs::create_dir(workspace.path().join(\"config\"))?;",
+            "creates the verifier's config directory inside its private workspace tempdir",
+        ),
+        (
+            "src/verification/sigstore.rs",
+            "fs::create_dir(&home)?;",
+            "creates a sterile HOME inside a private per-request verification slot",
+        ),
+        (
+            "src/verification/cyclonedx.rs",
+            "fs::create_dir(&bundle_directory)?;",
+            "creates the validator bundle directory inside its private workspace tempdir",
+        ),
+        (
+            "src/verification/cyclonedx.rs",
+            "fs::create_dir(&home)?;",
+            "creates a sterile HOME inside a private per-request tempdir",
+        ),
+    ];
+
+    /// Every `.rs` file below `dir`, relative to the crate root with `/` separators.
+    fn sources(crate_root: &Path, dir: &Path, files: &mut Vec<String>) {
+        for entry in fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                sources(crate_root, &path, files);
+            } else if path.extension().is_some_and(|extension| extension == "rs") {
+                let relative = path.strip_prefix(crate_root).unwrap();
+                files.push(relative.to_str().unwrap().replace('\\', "/"));
+            }
+        }
+    }
+
+    /// Whether a trimmed line opens a test-only item.
+    fn test_attribute(trimmed: &str) -> bool {
+        trimmed.starts_with("#[cfg(test)]") || trimmed.starts_with("#[cfg(all(test")
+    }
+
+    /// Production lines of one file with their 1-based numbers, plus out-of-line test modules declared in it.
+    ///
+    /// A `#[cfg(test)]` item spans from its first line to the closing brace at
+    /// the same indentation, which rustfmt guarantees; a `;`-terminated item is
+    /// one line, and `mod name;` marks `name`'s file as test-only.
+    fn production(source: &str) -> (Vec<(usize, &str)>, Vec<String>) {
+        let mut lines = Vec::new();
+        let mut test_modules = Vec::new();
+        let mut pending = false;
+        let mut closing: Option<String> = None;
+        for (index, line) in source.lines().enumerate() {
+            let trimmed = line.trim();
+            if let Some(close) = &closing {
+                if line == close {
+                    closing = None;
+                }
+                continue;
+            }
+            if test_attribute(trimmed) {
+                pending = true;
+                continue;
+            }
+            if pending {
+                if trimmed.starts_with("#[") || trimmed.starts_with("//") || trimmed.is_empty() {
+                    continue;
+                }
+                pending = false;
+                if let Some(name) = trimmed
+                    .strip_prefix("mod ")
+                    .or_else(|| trimmed.strip_prefix("pub(crate) mod "))
+                    .and_then(|rest| rest.strip_suffix(';'))
+                {
+                    test_modules.push(name.to_owned());
+                } else if trimmed.ends_with('{') {
+                    let indent = &line[..line.len() - line.trim_start().len()];
+                    closing = Some(format!("{indent}}}"));
+                }
+                continue;
+            }
+            if trimmed.starts_with("//") {
+                continue;
+            }
+            lines.push((index + 1, line));
+        }
+        (lines, test_modules)
+    }
+
+    /// The file holding module `name` declared in `declaring` (`a/mod.rs` or `lib.rs` style, or `a/b.rs`).
+    fn module_file(declaring: &str, name: &str) -> String {
+        let path = Path::new(declaring);
+        let directory = path.parent().unwrap();
+        let stem = path.file_stem().unwrap().to_str().unwrap();
+        let base: PathBuf = if matches!(stem, "mod" | "lib" | "main") {
+            directory.to_path_buf()
+        } else {
+            directory.join(stem)
+        };
+        base.join(format!("{name}.rs"))
+            .to_str()
+            .unwrap()
+            .replace('\\', "/")
+    }
+
+    /// Whether whitespace-free source reads a file through a path that `safe_path` returned.
+    fn reads_validated_path(compact: &str) -> bool {
+        compact.match_indices("read_small(&").any(|(index, _)| {
+            let rest = &compact[index + "read_small(&".len()..];
+            let callee: String = rest
+                .chars()
+                .take_while(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == ':')
+                .collect();
+            callee == "safe_path" || callee.ends_with("::safe_path")
+        })
+    }
+
+    /// The stripping rules themselves: test items and comments vanish, production stays.
+    #[test]
+    fn production_lines_skip_test_items_and_comments() {
+        let source = "fn keep() {}\n// fs::remove_file(x)\n#[cfg(test)]\n/// doc\nmod tests {\n    fn f() {\n        fs::remove_file(x);\n    }\n}\n#[cfg(all(test, unix))]\nmod tests_two;\n#[cfg(test)]\nuse std::fs;\n    fs::create_dir(y)?;\n";
+        let (lines, modules) = production(source);
+        assert_eq!(
+            lines,
+            [(1, "fn keep() {}"), (14, "    fs::create_dir(y)?;")]
+        );
+        assert_eq!(modules, ["tests_two"]);
+        assert_eq!(
+            module_file("src/verification/publication/mod.rs", "tests"),
+            "src/verification/publication/tests.rs"
+        );
+        assert_eq!(module_file("src/a/b.rs", "c"), "src/a/b/c.rs");
+        assert!(reads_validated_path(
+            "letb=read_small(&safe_path(root,x)?)?;"
+        ));
+        assert!(reads_validated_path(
+            "crate::read_small(&crate::safe_path(r,x)?)"
+        ));
+        assert!(!reads_validated_path("read_small(&path)?"));
+    }
+
+    /// No production code outside the owners removes, creates directories or reads managed files by path.
+    #[test]
+    fn path_based_mutation_stays_in_filesystem() {
+        let crate_root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let mut files = Vec::new();
+        sources(crate_root, &crate_root.join("src"), &mut files);
+        files.sort();
+        let mut test_only = BTreeSet::new();
+        for file in &files {
+            let source = fs::read_to_string(crate_root.join(file)).unwrap();
+            for name in production(&source).1 {
+                test_only.insert(module_file(file, &name));
+            }
+        }
+        let mut used = BTreeSet::new();
+        let mut violations = Vec::new();
+        for file in files
+            .iter()
+            .filter(|file| !OWNERS.contains(&file.as_str()) && !test_only.contains(*file))
+        {
+            let source = fs::read_to_string(crate_root.join(file)).unwrap();
+            let (lines, _) = production(&source);
+            for (number, line) in &lines {
+                if !(line.contains("remove_file") || line.contains("create_dir")) {
+                    continue;
+                }
+                match ALLOWED
+                    .iter()
+                    .position(|(allowed, text, _)| allowed == file && *text == line.trim())
+                {
+                    Some(index) => {
+                        used.insert(index);
+                    }
+                    None => violations.push(format!("{file}:{number}: {}", line.trim())),
+                }
+            }
+            let compact: String = lines
+                .iter()
+                .flat_map(|(_, line)| line.chars())
+                .filter(|c| !c.is_whitespace())
+                .collect();
+            if reads_validated_path(&compact) {
+                violations.push(format!(
+                    "{file}: read_small(&safe_path(..)) on a managed path"
+                ));
+            }
+        }
+        assert!(
+            violations.is_empty(),
+            "path-based managed access outside src/filesystem.rs; use filesystem::remove, \
+             ensure_parent, read_managed or optional_bytes instead:\n{}",
+            violations.join("\n")
+        );
+        let stale: Vec<_> = ALLOWED
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| !used.contains(index))
+            .map(|(_, (file, text, reason))| format!("{file}: {text} ({reason})"))
+            .collect();
+        assert!(stale.is_empty(), "stale allowances: {stale:?}");
+    }
+}
