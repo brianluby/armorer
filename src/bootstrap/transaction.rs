@@ -38,13 +38,7 @@ impl State {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields)]
-struct Write {
-    path: String,
-    before: Option<String>,
-    after: String,
-}
+use crate::transaction::Write;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -161,7 +155,7 @@ fn operations(plan: &Plan, state_bytes: Option<&str>) -> Result<Vec<Write>> {
         writes.push(Write {
             path: change.path.clone(),
             before: change.before_content.clone(),
-            after: change.proposed_content.clone(),
+            after: Some(change.proposed_content.clone()),
         });
         managed.insert(
             change.path.clone(),
@@ -182,7 +176,7 @@ fn operations(plan: &Plan, state_bytes: Option<&str>) -> Result<Vec<Write>> {
     writes.push(Write {
         path: STATE.into(),
         before: state_bytes.map(str::to_owned),
-        after: text(&json(&next)?)?,
+        after: Some(text(&json(&next)?)?),
     });
     Ok(writes)
 }
@@ -192,39 +186,7 @@ fn guard_legacy(root: &Path) -> Result<()> {
     crate::upgrade::guard_previous(root)
 }
 
-/// Create only required parents, sync each creation, and recheck for symlinks.
-/// Empty created directories are retained on rollback; unrelated directories are never removed.
-pub(crate) fn ensure_parent(root: &Path, relative: &str) -> Result<()> {
-    let parent = Path::new(relative)
-        .parent()
-        .ok_or(Error::Transaction("invalid bootstrap parent"))?;
-    let mut current = std::path::PathBuf::new();
-    for component in parent.components() {
-        current.push(component);
-        let relative = current
-            .to_str()
-            .ok_or(Error::Transaction("invalid bootstrap path"))?;
-        let directory = safe_path(root, relative)?;
-        match fs::create_dir(&directory) {
-            Ok(()) => sync_directory(
-                directory
-                    .parent()
-                    .ok_or(Error::Transaction("invalid directory parent"))?,
-            )?,
-            Err(error)
-                if error.kind() == std::io::ErrorKind::AlreadyExists
-                    && fs::symlink_metadata(&directory)?.is_dir() => {}
-            Err(error) => return Err(error.into()),
-        }
-    }
-    safe_path(root, relative)?;
-    Ok(())
-}
-
-/// Compare the current optional file bytes with the approved image without adopting a mismatch.
-fn matches(current: Option<&[u8]>, content: Option<&str>) -> bool {
-    current == content.map(str::as_bytes)
-}
+use crate::transaction::matches;
 /// Remove the completed journal and sync its parent after the caller has verified recovery state.
 fn remove_journal(root: &Path) -> Result<()> {
     fs::remove_file(safe_path(root, JOURNAL)?)?;
@@ -236,29 +198,14 @@ fn rollback(root: &Path, journal: &Journal) -> Result<()> {
     for write in &journal.operations {
         let current = optional_bytes(root, &write.path)?;
         if !matches(current.as_deref(), write.before.as_deref())
-            && !matches(current.as_deref(), Some(&write.after))
+            && !matches(current.as_deref(), write.after.as_deref())
         {
             return Err(Error::Transaction(
                 "bootstrap recovery conflicts with intervening edit; journal preserved",
             ));
         }
     }
-    for write in journal.operations.iter().rev() {
-        let current = optional_bytes(root, &write.path)?;
-        if matches(current.as_deref(), write.before.as_deref()) {
-            continue;
-        }
-        if let Some(before) = &write.before {
-            replace(root, &write.path, before.as_bytes(), current.is_none())?;
-        } else {
-            let path = safe_path(root, &write.path)?;
-            fs::remove_file(&path)?;
-            sync_directory(
-                path.parent()
-                    .ok_or(Error::Transaction("invalid recovery parent"))?,
-            )?;
-        }
-    }
+    crate::transaction::restore(root, &journal.operations, "invalid recovery parent")?;
     remove_journal(root)
 }
 
@@ -367,24 +314,13 @@ fn transaction(
     };
     replace(&root, JOURNAL, &json(&journal)?, true)?;
     let result = (|| {
-        for (index, write) in journal.operations.iter().enumerate() {
-            if !matches(
-                optional_bytes(&root, &write.path)?.as_deref(),
-                write.before.as_deref(),
-            ) {
-                return Err(Error::Transaction(
-                    "bootstrap target changed before atomic replacement",
-                ));
-            }
-            ensure_parent(&root, &write.path)?;
-            replace(
-                &root,
-                &write.path,
-                write.after.as_bytes(),
-                write.before.is_none(),
-            )?;
-            after_write(index)?;
-        }
+        crate::transaction::apply_writes(
+            &root,
+            &journal.operations,
+            "bootstrap target changed before atomic replacement",
+            "invalid recovery parent",
+            &mut after_write,
+        )?;
         let fresh = plan::inspect_bytes(&root, plan.policy_content.as_bytes())?;
         if !plan::same_intent(plan, &fresh)?
             || !replay_matches(
@@ -476,7 +412,7 @@ pub fn recover(root: &Path, expected: &str) -> Result<Receipt> {
         for write in &journal.operations {
             if !matches(
                 optional_bytes(&root, &write.path)?.as_deref(),
-                Some(&write.after),
+                write.after.as_deref(),
             ) {
                 return Err(Error::Transaction(
                     "committed bootstrap inventory conflicts with intervening edit",
@@ -742,9 +678,9 @@ mod tests {
                 }
                 2 => journal.operations.insert(0, journal.operations[0].clone()),
                 3 => journal.operations.swap(0, 1),
-                4 => journal.operations.last_mut().unwrap().after = "{}".into(),
+                4 => journal.operations.last_mut().unwrap().after = Some("{}".into()),
                 5 => journal.operations[0].before = Some("forged preimage".into()),
-                6 => journal.operations[0].after = "forged policy".into(),
+                6 => journal.operations[0].after = Some("forged policy".into()),
                 _ => unreachable!(),
             }
             let bytes = json(&journal).unwrap();
