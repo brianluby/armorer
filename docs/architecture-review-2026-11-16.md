@@ -375,7 +375,7 @@ the Go adapter has proven the boundary.
 
 1. S1, S2: run Armorer's own gates on Armorer; bump `rustix`; add `SECURITY.md`, `CODEOWNERS`, update bot.
 2. S3: define and implement the runtime compatibility rule.
-3. A4: remove superseded pre-release contracts as decided in [ADR 0012](../docs/adr/0012-pre-release-contract-consolidation.md).
+3. A4: remove superseded pre-release contracts as decided in [ADR 0012](adr/0012-pre-release-contract-consolidation.md).
 4. S7: meaningful `check` exit codes.
 
 **Next (makes the product match its purpose)**
