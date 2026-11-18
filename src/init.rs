@@ -15,7 +15,6 @@ use crate::{
     discovery::{self, Package, Workspace},
     filesystem::{lock, optional_bytes, replace},
     plan::Finding,
-    safe_path,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -430,11 +429,7 @@ fn proposed_file(path: &str, content: String) -> ProposedFile {
 
 /// Report whether a plain relative path exists, refusing symlinks in it.
 fn exists(root: &Path, relative: &str) -> Result<bool> {
-    match std::fs::symlink_metadata(safe_path(root, relative)?) {
-        Ok(_) => Ok(true),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
-        Err(error) => Err(error.into()),
-    }
+    crate::filesystem::exists(root, relative)
 }
 
 /// Refuse an existing (or symlinked) `armorer.toml`.

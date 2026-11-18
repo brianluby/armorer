@@ -11,11 +11,10 @@ use crate::{
     config::load_config,
     digest,
     discovery::discover,
-    filesystem::{decode, json, lock, optional_bytes, replace, sync_directory},
-    safe_path,
+    filesystem::{decode, json, lock, optional_bytes, remove, replace},
 };
 use serde::{Deserialize, Serialize};
-use std::{fs, path::Path};
+use std::path::Path;
 
 /// Marker for the confirmed post-deletion directory-sync failure; the outer rollback
 /// error keys off it to prove restoration completed before the journal was deleted.
@@ -314,11 +313,12 @@ fn remove_journal(root: &Path, expected: &[u8]) -> Result<()> {
             "upgrade journal changed; preserved for explicit recovery",
         ));
     }
-    fs::remove_file(safe_path(root, JOURNAL)?)?;
+    let removed = remove(root, JOURNAL, "invalid migration parent")?;
     // The journal is already gone here: recovery is no longer available, so the
     // failure must not instruct the operator to run it. Phase-neutral: this runs on
-    // commit, recovery and rollback paths alike.
-    sync_directory(&safe_path(root, ".armorer")?).map_err(|cause| Error::TransactionCause {
+    // commit, recovery and rollback paths alike. The sync uses the held `.armorer`
+    // handle that performed the unlink.
+    removed.sync().map_err(|cause| Error::TransactionCause {
         message: JOURNAL_SYNC_FAILED,
         cause: Box::new(cause),
     })
@@ -559,6 +559,7 @@ pub fn recover(root: &Path, expected: &str) -> Result<Receipt> {
 mod tests {
     use super::*;
     use std::collections::BTreeMap;
+    use std::fs;
     /// Managed paths of the bootstrap-v2 catalog these fixtures provision.
     fn managed() -> Vec<&'static str> {
         crate::catalog::reviewed_v2().unwrap().managed_paths()

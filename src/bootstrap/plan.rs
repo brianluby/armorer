@@ -193,6 +193,17 @@ pub fn inspect(root: &Path, policy: &Path) -> Result<Plan> {
     inspect_bytes(root, &bytes)
 }
 
+/// Generate the same preview as [`inspect`] from a policy file inside the repository,
+/// such as the managed `.armorer/ci-policy.toml`, named relative to `root`.
+///
+/// The policy is read through held directory handles: a symlink at any component
+/// is refused and never followed, with the bounds and errors of [`inspect`].
+pub fn inspect_managed(root: &Path, policy: &str) -> Result<Plan> {
+    let bytes = crate::filesystem::read_managed(root, policy)?;
+    ci_policy::parse_at(&bytes, ci_policy::today()?)?;
+    inspect_bytes(root, &bytes)
+}
+
 /// The exact approved policy is self-contained; its external filename is not authority.
 pub(super) fn inspect_bytes(root: &Path, policy: &[u8]) -> Result<Plan> {
     // Read-only inspection stays usable under upgrade ownership (check reports
