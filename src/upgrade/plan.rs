@@ -5,7 +5,10 @@ use super::{
 };
 use crate::{
     Error, Result, bootstrap, catalog, ci_policy,
-    config::{Config, Lock, ToolPin, hex_digest, identifier, load_config, repository_name},
+    config::{
+        Config, Lock, RepositoryFiles, ToolPin, hex_digest, identifier, load_config,
+        repository_name,
+    },
     digest,
     discovery::{Workspace, discover},
     filesystem::{decode, json, optional_bytes, text},
@@ -109,9 +112,11 @@ fn hash(content: Option<&str>) -> Option<String> {
     content.map(|s| digest(s.as_bytes()))
 }
 /// Validate the individually selected import paths against the target catalog's
-/// managed set: only a file the target renders can be adopted.
+/// unconditional set: only a file the target renders for every configuration can be
+/// adopted. Optional repository files are not importable yet; an identical unowned
+/// copy already stays unowned and unchanged without an import.
 fn imports(files: &[String], target: &Authority) -> Result<()> {
-    let allowed = catalog::reviewed_for(&target.id)?.managed_paths();
+    let allowed = catalog::reviewed_for(&target.id)?.selected_paths(&RepositoryFiles::default());
     if files.len() > allowed.len()
         || files.iter().collect::<BTreeSet<_>>().len() != files.len()
         || files.iter().any(|path| !allowed.contains(&path.as_str()))
@@ -178,12 +183,24 @@ fn known_bases(
                     semver::Version::parse(&channel)
                         .is_ok_and(|v| v.pre.is_empty() && v.build.is_empty())
                         && catalog
-                            .bootstrap_files(&"0".repeat(64), &channel, "")
+                            .bootstrap_files(
+                                &"0".repeat(64),
+                                &channel,
+                                "",
+                                crate::catalog::Selection {
+                                    repository: "",
+                                    files: &RepositoryFiles::default(),
+                                },
+                            )
                             .is_ok_and(|files| files.get("rust-toolchain.toml") == Some(base))
                 }),
             ".armorer/ci-policy.toml" => true, // owner-selected policy, not publisher/catalog authority
-            // A fixed catalog file must equal the catalog's own bytes; anything else fails.
-            _ => fixed.get(path) == Some(base),
+            // Bootstrap ownership records no configuration, so an optional file's base must
+            // be exactly what this catalog renders for some valid configuration; a fixed
+            // catalog file must equal the catalog's own bytes; anything else fails.
+            _ => catalog
+                .renders_optional_base(path, base)
+                .unwrap_or_else(|| fixed.get(path) == Some(base)),
         };
         if !matches {
             return Err(Error::Transaction(
@@ -476,6 +493,7 @@ pub(super) fn inspect_bytes(
         &config_sha256,
         &intent.toolchain,
         std::str::from_utf8(policy).map_err(|_| Error::Toml)?,
+        catalog::Selection::from(&intent),
     )?;
     let mut input_preimages = BTreeMap::new();
     for path in [&intent.policy.license_file, &"rust-toolchain".into()] {
@@ -705,10 +723,12 @@ pub(super) fn validate(plan: &Plan, expected: &str) -> Result<()> {
         || plan.contract != "armorer-upgrade-plan"
         || plan.runtime_version != env!("CARGO_PKG_VERSION")
         || plan.target_catalog != authority::select(&plan.target_catalog.id)?
-        // At least the target's set and at most every compiled path; the exact
-        // source-and-target scope is checked once ownership is decoded below.
+        // At least the set the target selects for the plan's intent and at most every
+        // compiled path; the exact source-and-target scope is checked once ownership is
+        // decoded below.
         || !catalog::reviewed_for(&plan.target_catalog.id).is_ok_and(|target| {
-            (target.managed_paths().len()..=catalog::all_managed_paths().len())
+            (target.selected_paths(&plan.intent.repository_files).len()
+                ..=catalog::all_managed_paths().len())
                 .contains(&plan.changes.len())
         })
     {
@@ -752,6 +772,7 @@ pub(super) fn validate(plan: &Plan, expected: &str) -> Result<()> {
         &plan.config_sha256,
         &plan.intent.toolchain,
         &plan.policy_content,
+        catalog::Selection::from(&plan.intent),
     )?;
     let scope = scope(generated, &origin.bases);
     if scope.len() != plan.changes.len() {

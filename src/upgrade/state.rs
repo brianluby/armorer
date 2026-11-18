@@ -6,7 +6,7 @@ use super::{
 };
 use crate::{
     Error, Result, bootstrap, catalog,
-    config::hex_digest,
+    config::{RepositoryFiles, hex_digest, repository_name},
     digest,
     filesystem::{decode, json, text},
 };
@@ -31,6 +31,13 @@ pub(super) struct State {
     pub config_sha256: String,
     pub toolchain: String,
     pub generated_policy: String,
+    /// Repository name the optional files were rendered with. Recorded only with a
+    /// non-default `repository_files`, so states without optional files keep their bytes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repository: Option<String>,
+    /// Optional-file switches the generated bases were rendered with; omitted at default.
+    #[serde(default, skip_serializing_if = "RepositoryFiles::is_default")]
+    pub repository_files: RepositoryFiles,
     pub managed: BTreeMap<String, Image>,
 }
 
@@ -73,10 +80,27 @@ pub(super) fn decode_state(bytes: &[u8]) -> Result<State> {
             "invalid upgrade ownership toolchain; no fallback",
         ));
     }
+    // The optional-file inputs are recorded together or not at all. Without them the
+    // state selects no optional file, so it cannot list one either.
+    if state.repository.is_some() == state.repository_files.is_default()
+        || state
+            .repository
+            .as_deref()
+            .is_some_and(|repository| !repository_name(repository))
+        || state.repository_files.validate().is_err()
+    {
+        return Err(Error::Transaction(
+            "invalid upgrade ownership repository-file inputs; no fallback",
+        ));
+    }
     let generated = catalog.bootstrap_files(
         &state.config_sha256,
         &state.toolchain,
         &state.generated_policy,
+        catalog::Selection {
+            repository: state.repository.as_deref().unwrap_or_default(),
+            files: &state.repository_files,
+        },
     )?;
     let fixed = catalog.fixed_files()?;
     for (path, image) in &state.managed {
@@ -97,6 +121,10 @@ pub(super) fn decode_state(bytes: &[u8]) -> Result<State> {
                 merge::caller_extension(&image.applied, &image.generated, "build")
             }
             ".armorer/ci-policy.toml" => true,
+            // Optional repository files admit no customization yet.
+            "SECURITY.md" | ".github/dependabot.yml" | ".github/CODEOWNERS" => {
+                image.applied == image.generated
+            }
             // A fixed catalog file admits no customization; every other path fails closed.
             _ => fixed.contains_key(path) && image.applied == image.generated,
         };
@@ -147,6 +175,11 @@ pub(super) fn next(plan: &Plan) -> Result<State> {
         config_sha256: plan.config_sha256.clone(),
         toolchain: plan.intent.toolchain.clone(),
         generated_policy: plan.policy_content.clone(),
+        // Record the optional-file inputs only when the intent selects any, so a
+        // state without optional files is byte-identical to one written before them.
+        repository: (!plan.intent.repository_files.is_default())
+            .then(|| plan.intent.repository.clone()),
+        repository_files: plan.intent.repository_files.clone(),
         managed,
     };
     decode_state(&json(&state)?)?;

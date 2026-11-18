@@ -34,7 +34,9 @@ Unknown IDs, moving branches/tags, source substitution and failed catalog
 authentication never trigger import or downgrade fallback; `--allow-downgrade`
 cannot make an unknown authority trusted.
 
-Review the complete JSON. Each of the five fixed local targets shows its stored
+Review the complete JSON. Each managed local target (the five fixed targets, any
+[optional repository file](bootstrap-v2.md#optional-repository-files) the
+configuration selects, and any owned file the target no longer selects) shows its stored
 generated base, exact current bytes, target-generated candidate, proposed bytes,
 all digests, merge decision and both candidate/proposed unified diffs. Pin changes
 include removals and additions of target-qualified native distributions; workflow
@@ -66,9 +68,18 @@ change, resolve the conflict through owner review before generating a fresh plan
 
 ## Explicit imports and apply
 
-V2 ownership supplies its five recorded generated bases; those workflow/lock
+V2 ownership supplies its recorded generated bases; those workflow/lock
 bases are checked against independent compiled catalog identity rather than
-trusting their self-declared hashes. Leftover version-one ownership
+trusting their self-declared hashes. Bootstrap ownership records no configuration,
+so an optional file's base must be exactly what the catalog renders for some valid
+configuration: the fixed Dependabot bytes, the security policy for some valid
+`owner/name`, or code owners for some valid owner list. Upgrade ownership records
+the repository name and the `[repository_files]` switches beside the configuration
+digest, only when any switch is on, and every optional base must equal the bytes
+re-derived from those recorded inputs; a state that lists an optional file without
+them is rejected. Optional files admit no customization and cannot be named with
+`--import` yet. An owned optional file that the configuration no longer selects is
+a blocking conflict, never a deletion. Leftover version-one ownership
 (`.armorer/state.json`/`journal.json`) is refused explicitly and requires owner
 removal review; it is never imported (ADR 0012). New
 upgrade ownership retains generated and approved customized images separately, so
