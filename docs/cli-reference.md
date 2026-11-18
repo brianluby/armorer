@@ -102,6 +102,42 @@ operation.
 
 Exact approval binds your word to exact intent. **This is the way.**
 
+## Choose the output format
+
+```sh
+armorer --format text bootstrap plan --policy /path/to/reviewed-policy.toml
+armorer check --format text
+```
+
+`--format <json|text>` is accepted before or after the subcommand. The default is
+`json`: every command prints exactly the pretty JSON documented here, byte for byte,
+and `--format json` is the same as no flag. `text` is opt-in and exists so a human
+can review a plan. It changes only stdout. Exit statuses and stderr are identical in
+both formats, with one exception below.
+
+| Output | What `--format text` shows |
+| --- | --- |
+| Error | `error [code]: message` |
+| Bootstrap plan (`bootstrap plan`, `bootstrap check`, `check`) | Plan digest and catalog id; one line per change with disposition, owned or unowned, and path; the `unified_diff` of every change that is not `unchanged`; findings as `code: detail`; the `bootstrap apply --plan <file> --expect-plan-sha256 <digest>` hint |
+| `init` proposal | Repository, toolchain, each proposed file with its path and full content, findings, digest and the `--write --expect-proposal-sha256` hint |
+| `upgrade plan`, `upgrade rollback-plan` | Direction, source and target catalogs, one line per change with its decision and path, the proposed diff for changes that are not `unchanged`, pin changes, compatibility notes or limitations, digest and the matching apply hint |
+| Receipts (`init --write`, `bootstrap apply`, `bootstrap recover`, `upgrade apply`, `upgrade recover`, `upgrade rollback-apply`) | `outcome` first, then every other field as `name: value`; arrays are comma-separated |
+| `catalog` | Workflow repository and commit, then a table of tool, version and platforms |
+| Anything else (schemas, release verification, historical comparison, publication) | No summary exists. Armorer prints the same pretty JSON as `json` mode and writes `armorer: no text view for this output; showing JSON` on stderr. This line is the only stderr difference between the formats. |
+
+Text mode escapes terminal-hostile characters. It prints file contents and names that
+come from the repository you are inspecting, so every character for which Rust's
+`char::is_control()` is true, except newline and tab, is replaced by a visible
+escape: `\x1b` (lowercase hex up to 0xFF, `\u{...}` above it), and a carriage return
+becomes `\r`. The Unicode bidirectional embedding, override and isolate characters
+U+202A through U+202E and U+2066 through U+2069 are escaped the same way, for example
+`\u{202e}`. Text mode adds no color or terminal control sequences of its own and ends
+with exactly one newline.
+
+The text view is a summary, never an approval input. Approval digests are computed
+over the JSON document and never over the text view. To approve a plan, save the JSON
+output, review it, and pass its digest to the matching apply command.
+
 ## Inspect contract schemas
 
 ```sh
