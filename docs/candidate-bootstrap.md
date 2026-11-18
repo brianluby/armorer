@@ -125,11 +125,11 @@ restoration. Recover v1 transactions with v1 `recover`; use
 
 The [source contract and fault coverage](https://github.com/brianluby/armorer/blob/56d7380a5534583b7973b5eedc55a1223b46b60e/docs/bootstrap-v2.md)
 give the detailed version limits. The
-[context-ordering review](../reviews/2026-10-02-pr21-context-ordering.md) retains
+context-ordering review (`reviews/2026-10-02-pr21-context-ordering.md`) retains
 the previous head's receipt. The
-[feature review](../reviews/2026-10-02-pr21-resolved-features.md) retains the
+feature review (`reviews/2026-10-02-pr21-resolved-features.md`) retains the
 preceding head's failed ARM receipt. The
-[latest review](../reviews/2026-10-03-pr21-evidence-and-locks.md) records the lock
+latest review (`reviews/2026-10-03-pr21-evidence-and-locks.md`) records the lock
 repair, affected-scope tests and remaining contributor-guide finding.
 Hosted production, final-byte
 producer evidence, publication and pilots remain separate gates.

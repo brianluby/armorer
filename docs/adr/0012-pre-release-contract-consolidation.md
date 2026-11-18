@@ -34,7 +34,7 @@ cost. Main currently carries:
 
 Every retained version needs its own schema, examples, tests, guards against
 cross-version confusion, and documentation. The 2026-11-16 review
-(`reviews/2026-11-16-architecture-security-roadmap-review.md`, finding A4)
+([the architecture review](../architecture-review-2026-11-16.md), finding A4)
 identified this as the main obstacle to unifying the transaction engine and to
 adding other language ecosystems.
 

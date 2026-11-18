@@ -143,9 +143,9 @@ validator-build step and all 24 intake tests. A temporary CPython 3.14 environme
 uses the candidate's hash-pinned development wheels; no global dependency or
 consuming repository changes are needed. The build tests exercise candidate/
 inherited Cargo overrides, scratch-ancestor rejection and fixed-control
-substitution. The [integration review](../reviews/2026-10-03-workflow-integration.md)
+substitution. The integration review (`reviews/2026-10-03-workflow-integration.md`)
 preserves the preceding source's import failure and the new distinct results.
-The [cleanup continuation](../reviews/2026-10-03-workflow-cleanup.md) checks the
+The cleanup continuation (`reviews/2026-10-03-workflow-cleanup.md`) checks the
 seven-file successor patch and passes 48 affected local tests. The source/controller
 and mapped-worker readers now attempt to terminate their owned process group even
 when its leader has exited. This does not contain a child that escaped that group.
@@ -154,7 +154,7 @@ nonempty schema validity alone cannot prove the complete expected selection set.
 The `9d857a80f094` combined rehearsal fails Linux x64/ARM collection while macOS passes;
 it is distinct from the preceding all-host success. Successor `3fac9a1cef3d` adds
 the [OIDC startup environment guard](credential-boundaries.md#match-the-candidate-helpers-exact-read-interface);
-its new hosted receipts are separate. The [transport continuation](../reviews/2026-10-03-workflow-transport-cleanup.md)
+its new hosted receipts are separate. The transport continuation (`reviews/2026-10-03-workflow-transport-cleanup.md`)
 records the preceding `3fac9a1cef3d` joined success and its shared-reader fault,
 then the two-file `b2b9fbc9846d` cleanup repair and separate hosted receipts. The
 capability adapter uses its own `response` entry point and cleanup. Hosted qualification remains

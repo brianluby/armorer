@@ -70,30 +70,34 @@ Use [the source map](development-status.md) and [documentation coverage](documen
 for the current guide boundary. The [support-policy draft](support-policy-draft.md)
 prepares the missing maintenance/deprecation decision without promising a window.
 
-Design decisions live in [the ADR directory](adr/). The retained
+Design decisions live in [the ADR directory](adr/).
+Review receipts and rehearsal evidence are retained outside the repository; see
+[the contributor note](../CONTRIBUTING.md#review-receipts-and-rehearsal-evidence)
+for where they live and how to read the earlier tracked copies. The
+[architecture and roadmap review](architecture-review-2026-11-16.md) stays tracked. The retained
 [ticket #2 validation record](trust-contract-validation.md) describes its original
-delivery and remediation checks. Historical PR review evidence is recorded in
-[the original review packet](../reviews/2026-10-02-open-prs.md),
-[continuation](../reviews/2026-10-02-pr-review-continuation.md) and
-[combined-source review](../reviews/2026-10-02-integration-pr21.md) and
-[successor review](../reviews/2026-10-02-integration-pr21-successor.md), followed
-by the [context-ordering continuation](../reviews/2026-10-02-pr21-context-ordering.md)
-and [resolved-feature review](../reviews/2026-10-02-pr21-resolved-features.md), then
-the [evidence and lock continuation](../reviews/2026-10-03-pr21-evidence-and-locks.md).
-The [contributor repair record](../reviews/2026-10-03-pr23-schema-guide.md)
+delivery and remediation checks. Historical PR review evidence was recorded in
+the original review packet (`reviews/2026-10-02-open-prs.md`),
+continuation (`reviews/2026-10-02-pr-review-continuation.md`) and
+combined-source review (`reviews/2026-10-02-integration-pr21.md`) and
+successor review (`reviews/2026-10-02-integration-pr21-successor.md`), followed
+by the context-ordering continuation (`reviews/2026-10-02-pr21-context-ordering.md`)
+and resolved-feature review (`reviews/2026-10-02-pr21-resolved-features.md`), then
+the evidence and lock continuation (`reviews/2026-10-03-pr21-evidence-and-locks.md`).
+The contributor repair record (`reviews/2026-10-03-pr23-schema-guide.md`)
 retains the failing literal command and #23's validated 24-schema correction.
 The current contributor procedure stages all 25 schemas; #23 is superseded.
-The separate [workflow prerequisite review](../reviews/2026-10-02-workflow-prerequisites.md)
-and [integration continuation](../reviews/2026-10-03-workflow-integration.md)
+The separate workflow prerequisite review (`reviews/2026-10-02-workflow-prerequisites.md`)
+and integration continuation (`reviews/2026-10-03-workflow-integration.md`)
 retain the source and qualification boundary behind the operational preparation.
-The [identity-interface continuation](../reviews/2026-10-03-identity-prerequisites.md)
+The identity-interface continuation (`reviews/2026-10-03-identity-prerequisites.md`)
 checks implemented credential names and original-proof export lifetimes.
-The [cleanup continuation](../reviews/2026-10-03-workflow-cleanup.md) retains the
+The cleanup continuation (`reviews/2026-10-03-workflow-cleanup.md`) retains the
 latest process/schema regressions and failed Linux collection receipt.
-The [transport continuation](../reviews/2026-10-03-workflow-transport-cleanup.md)
+The transport continuation (`reviews/2026-10-03-workflow-transport-cleanup.md`)
 records the successor's terminal joined rehearsal, shared-reader fault and tested successor repair.
 
-The [producer startup continuation](../reviews/2026-10-03-workflow-producer-startup.md)
+The producer startup continuation (`reviews/2026-10-03-workflow-producer-startup.md`)
 retains the initial native-test skip and its wiring repair with renewed hosted
 startup and combined-handoff qualification.
 

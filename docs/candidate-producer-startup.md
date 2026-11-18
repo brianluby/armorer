@@ -106,7 +106,7 @@ and dies with the fresh worker. Copied audit JSON cannot recreate it or authoriz
 a later protected step. Complete controller/private-proof integration is still
 required.
 
-The [dated review](../reviews/2026-10-03-workflow-producer-startup.md) separates
+The dated review (`reviews/2026-10-03-workflow-producer-startup.md`) separates
 local native startup controls, the earlier hosted skip and the fixture-wiring
 successor. Fixtures use synthetic credentials and an ephemeral RSA issuer.
 Accepted Node catalog/signatures, live protected OIDC, effective approval,
