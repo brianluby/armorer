@@ -77,6 +77,28 @@ contents read. Neither exposes shell, inputs, custom provenance, OIDC, signing
 credentials, environments or inherited secrets. Existing custom workflows/jobs
 stay separate; this renderer does not write or adopt files.
 
+## Managed file set
+
+Each compiled catalog entry declares its own managed file set as one ordered table
+in `src/catalog.rs`. An entry names a repository-relative path and how its bytes
+are produced: a caller template, the toolchain template, the rendered lock, the
+owner's approved policy bytes, or a fixed template. Rendering walks that table,
+and `AuthenticatedCatalog::managed_paths` derives the sorted path list from the
+same table, so the declared set and the rendered set cannot drift apart. Plans,
+ownership states, journals, import scope and upgrade bounds ask the catalog that
+governs the document; nothing else lists the files ([ADR 0013](adr/0013-catalog-defined-managed-file-set.md)).
+`bootstrap-v2` declares five: the project CI policy, the two callers, the lock
+and the toolchain file.
+
+Adding a managed file means adding a table entry and its template under
+`catalogs/templates/`, then regenerating the example packets. It changes every
+consumer's plan, so it ships as a reviewed catalog successor, never as an edit
+to an accepted entry. Guards that run before a catalog is known, such as the
+license-path overlap check, use the union of every compiled set.
+
+Count the files the catalog declares, not the files you expect.
+**This is the way.**
+
 [GitHub's reusable-workflow documentation](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows)
 confirms job-level full-SHA calls and that nested permissions cannot be elevated.
 [GitHub release asset API](https://docs.github.com/en/rest/releases/assets)
