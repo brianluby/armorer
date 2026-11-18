@@ -16,6 +16,7 @@ test-predecessor = []
 
 [dev-dependencies]
 armorer = { path = ".", features = ["test-predecessor"] }
+proptest = { version = "=1.12.0", default-features = false, features = ["std"] }
 
 [dependencies]
 base64 = "=0.23.1"
