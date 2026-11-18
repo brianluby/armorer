@@ -711,7 +711,27 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
 /// Operation errors become JSON errors with status 1. Serialization or stdout
 /// write failures also exit with status 1; argument parsing is handled by clap.
 fn main() {
-    let (value, code) = match run(Cli::parse()) {
+    let cli = Cli::parse();
+    // `cfg!` keeps this block type-checked on every host (and free of
+    // unreachable-code warnings) while refusing up front on non-Unix hosts.
+    if !cfg!(unix) {
+        let refusal = json!({"error": {
+            "code": "unsupported-host",
+            "message": "Armorer supports Linux and macOS hosts only"
+        }});
+        let written = serde_json::to_vec_pretty(&refusal).is_ok_and(|bytes| {
+            let mut stdout = std::io::stdout().lock();
+            stdout
+                .write_all(&bytes)
+                .and_then(|()| stdout.write_all(b"\n"))
+                .is_ok()
+        });
+        if !written {
+            eprintln!("armorer: failed to write JSON output to stdout");
+        }
+        std::process::exit(1);
+    }
+    let (value, code) = match run(cli) {
         Ok(result) => result,
         Err(error) => (
             json!({"error": {"code": error.code(), "message": error.to_string()}}),
