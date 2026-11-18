@@ -5,3 +5,7 @@ target/
 /.veans.yml
 .DS_Store
 /.armorer/apply.lock
+
+# Review receipts and rehearsal evidence are kept locally and not tracked.
+/reviews/
+/code_reviews/

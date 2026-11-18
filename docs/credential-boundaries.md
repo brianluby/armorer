@@ -127,7 +127,7 @@ within their [documented lifetimes](candidate-producer-evidence.md#use-original-
 
 No operator token-export command belongs here. The owner keeps credential values
 within platform/local provisioning. The
-[identity-interface review](../reviews/2026-10-03-identity-prerequisites.md)
+identity-interface review (`reviews/2026-10-03-identity-prerequisites.md`)
 records source checks and synthetic test scope. Actual protected signing,
 administrative-read App bindings and publication setup still require their
 accepted production adapters.
@@ -140,7 +140,7 @@ running helper cannot undo startup changes. Start the fixed helper from its
 reviewed clean launcher. Do not remove the rejection or switch TLS/proxy settings
 to make an issuer request pass. This environment guard does not authenticate the
 launcher or repair arbitrary code already running in the process.
-The [successor review](../reviews/2026-10-03-workflow-cleanup.md#reject-startup-transport-overrides)
+The successor review (`reviews/2026-10-03-workflow-cleanup.md`)
 records synthetic issuer/mapped tests; production OIDC acceptance remains open.
 
 At `9980f975d4cf`, the credentialed Node-first exports are retired: they fail
@@ -152,7 +152,7 @@ non-authorizing audit output. Its internal worker modules retain the issuer and
 mapped proof checks; importing those workers into caller-controlled Node is
 unsupported. The old four-variable presence guard alone cannot detect a preload
 that already ran and erased its marker. The
-[startup review](../reviews/2026-10-03-workflow-producer-startup.md) retains that
+startup review (`reviews/2026-10-03-workflow-producer-startup.md`) retains that
 boundary and the `4cdf5d786aeb` fixture-wiring successor.
 
 Name the interface. Keep the credential inside it. **This is the way.**

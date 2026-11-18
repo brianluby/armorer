@@ -129,11 +129,11 @@ historical reversal and uncommitted recovery. Restored bytes establish no
 historical authenticity or safe fallback after failed signature verification.
 
 The [exact source guide](https://github.com/brianluby/armorer/blob/56d7380a5534583b7973b5eedc55a1223b46b60e/docs/upgrades.md)
-and [previous review](../reviews/2026-10-02-pr21-context-ordering.md) retain detailed
+and previous review (`reviews/2026-10-02-pr21-context-ordering.md`) retain detailed
 contracts, fault-test evidence and the missing two-accepted-catalog gate. The
-[feature review](../reviews/2026-10-02-pr21-resolved-features.md) keeps the preceding
+feature review (`reviews/2026-10-02-pr21-resolved-features.md`) keeps the preceding
 head's passing local tests separate from its hosted ARM failure.
-The [latest continuation](../reviews/2026-10-03-pr21-evidence-and-locks.md) records
+The latest continuation (`reviews/2026-10-03-pr21-evidence-and-locks.md`) records
 the shared lock repair, 21 passing upgrade tests and the successor's fresh hosted
 receipt. Recovery still requires matching journal/preimages and independent
 reverse approval; a lock-lifetime repair grants no broader restoration authority.

@@ -129,13 +129,13 @@ parity by omitting those executables. Protected Developer ID finalization,
 notarization, final-byte attestation and strict complete consumer verification
 remain required, alongside immutable publication, recovery and both pilots.
 
-The preceding `e88e25fc46c1` [integration review](../reviews/2026-10-03-workflow-integration.md) records
+The preceding `e88e25fc46c1` integration review (`reviews/2026-10-03-workflow-integration.md`) records
 eight passing local combined-collector tests and 12 policy boundary tests, with
 one real scanner/public-feed control skipped locally. It retains exact hosted
 test/build/policy/transport results and the separate combined caller rehearsal's
 three passing native collection/writer-join jobs. Their nine-selection fixture
 does not supply production mapped-OIDC or own signed release acceptance.
-The [preceding review](../reviews/2026-10-02-workflow-prerequisites.md)
+The preceding review (`reviews/2026-10-02-workflow-prerequisites.md`)
 keeps its historical source and receipts. This guide adds no live private
 producer-OIDC positive, complete signed rehearsal or human acceptance.
 The [final payload guide](candidate-final-payloads.md) follows the fixed
@@ -182,7 +182,7 @@ source/job/writer binding and approvals; an old draft's owner identity is separa
 
 The [credential guide](credential-boundaries.md#match-the-candidate-helpers-exact-read-interface)
 names the implemented read/runtime/OIDC interfaces without collecting values.
-The [identity review](../reviews/2026-10-03-identity-prerequisites.md) records
+The identity review (`reviews/2026-10-03-identity-prerequisites.md`) records
 synthetic issuer/protocol tests. Those fixtures and native PR reader qualification
 do not supply an authorized live protected OIDC producer or current-attempt
 environment approval.
@@ -203,7 +203,7 @@ Keep the failed attempt and inspect the fixed phase/code or retained receipt.
 Do not widen source/job/byte/freshness expectations or remove a target to force
 collection through. A new attempt needs a complete new binding; successful build
 or policy siblings cannot substitute for failed collection. The
-[cleanup review](../reviews/2026-10-03-workflow-cleanup.md) records the verified
+cleanup review (`reviews/2026-10-03-workflow-cleanup.md`) records the verified
 step outcomes without attributing an unproven root cause.
 
 Keep the failure visible. Earn the whole handoff again. **This is the way.**
@@ -214,7 +214,7 @@ At `3fac9a1cef3d`, the source/controller/mapped-worker readers have the
 exited-leader group cleanup repair. The shared `QualifiedGhApi` used for artifact
 and policy collection still gates group termination on a live leader. An owned
 fault control reproduces a surviving pipe-holding descendant after read timeout.
-The [transport review](../reviews/2026-10-03-workflow-transport-cleanup.md) records
+The transport review (`reviews/2026-10-03-workflow-transport-cleanup.md`) records
 the exact method, affected callers and fixture limitation; it does not establish
 that pinned genuine `gh` creates this fault. A failed read supplies no completed
 cleanup proof. Qualify the shared reader repair before relying on complete native
@@ -230,7 +230,7 @@ release is earned by either receipt.
 Successor `b2b9fbc9846d` removes the shared reader's live-leader guard and adds
 its own exited-leader regression. It still uses the fixed request/credential
 boundary; workflow/action/tool/lock pins are unchanged. The same method now
-attempts group termination on exit and timeout. The [transport review](../reviews/2026-10-03-workflow-transport-cleanup.md)
+attempts group termination on exit and timeout. The transport review (`reviews/2026-10-03-workflow-transport-cleanup.md`)
 records 32 passing affected tests and exact-host receipts; this does not contain a child
 that escapes its process group or prove descendant termination when the OS denies
 signaling. Review those assumptions before granting protected operation authority.

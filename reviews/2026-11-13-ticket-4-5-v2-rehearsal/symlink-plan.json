@@ -1,6 +1,0 @@
-{
-  "error": {
-    "code": "unsafe-path",
-    "message": "unsafe or unsupported repository path: symlinks require migration before discovery"
-  }
-}

@@ -220,6 +220,8 @@ pub fn inspect(root: &Path, policy: &Path) -> Result<Plan> {
 /// is refused and never followed, with the bounds and errors of [`inspect`].
 pub fn inspect_managed(root: &Path, policy: &str) -> Result<Plan> {
     let bytes = crate::filesystem::read_managed(root, policy)?;
+    // Deliberate second parse: `inspect` validates in `ci_policy::load` before `inspect_bytes`,
+    // so a policy error must precede the version-one state rejection here too.
     ci_policy::parse_at(&bytes, ci_policy::today()?)?;
     inspect_bytes(root, &bytes)
 }
