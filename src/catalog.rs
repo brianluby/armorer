@@ -242,37 +242,33 @@ const CI_CALLER_TEMPLATE: &str = include_str!("../catalogs/templates/armorer-ci.
 const BUILD_CALLER_TEMPLATE: &str = include_str!("../catalogs/templates/armorer-build.yml.tmpl");
 const TOOLCHAIN_TEMPLATE: &str = include_str!("../catalogs/templates/rust-toolchain.toml.tmpl");
 
-/// Render a template with fixed `@@NAME@@` placeholders in one left-to-right pass.
+/// Render a template with fixed `%%NAME%%` placeholders in one left-to-right pass.
 /// Substituted values are never rescanned, so a value cannot introduce or complete
-/// a placeholder. `@@` followed by an uppercase letter or underscore must be a
-/// complete declared placeholder; any other `@` is literal text. Errors never echo values.
+/// a placeholder. Every `%%` opens a placeholder whose name is one or more of `A-Z`
+/// and `_`, closed by `%%`; anything else after `%%` is an error. A lone `%` is
+/// literal text. Errors never echo values.
 fn render_template(template: &str, values: &[(&str, &str)]) -> Result<String> {
     let invalid = || Error::Invalid("invalid file template".into());
     if values
         .iter()
-        .any(|(_, v)| v.contains("@@") || v.chars().any(char::is_control))
+        .any(|(_, v)| v.contains("%%") || v.chars().any(char::is_control))
     {
         return Err(invalid());
     }
     let mut used = vec![false; values.len()];
     let mut out = String::with_capacity(template.len());
     let mut rest = template;
-    while let Some(at) = rest.find('@') {
+    while let Some(at) = rest.find("%%") {
         out.push_str(&rest[..at]);
-        rest = &rest[at..];
-        let named = rest
-            .strip_prefix("@@")
-            .filter(|r| r.starts_with(|c: char| c.is_ascii_uppercase() || c == '_'));
-        let Some(after) = named else {
-            out.push('@');
-            rest = &rest[1..];
-            continue;
-        };
+        let after = &rest[at + 2..];
         let len = after
-            .find(|c: char| !(c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_'))
+            .find(|c: char| !(c.is_ascii_uppercase() || c == '_'))
             .unwrap_or(after.len());
         let (name, tail) = after.split_at(len);
-        let tail = tail.strip_prefix("@@").ok_or_else(invalid)?;
+        if name.is_empty() {
+            return Err(invalid());
+        }
+        let tail = tail.strip_prefix("%%").ok_or_else(invalid)?;
         let index = values
             .iter()
             .position(|(n, _)| *n == name)
@@ -348,28 +344,39 @@ mod tests {
     #[test]
     fn renderer_rejects_unknown_unused_and_unsafe_values() {
         assert_eq!(
-            render_template("a @@X@@ b", &[("X", "1")]).unwrap(),
+            render_template("a %%X%% b", &[("X", "1")]).unwrap(),
             "a 1 b"
         );
-        assert!(render_template("a @@Y@@", &[("X", "1")]).is_err());
-        assert!(render_template("a @@X", &[("X", "1")]).is_err());
+        assert!(render_template("a %%Y%%", &[("X", "1")]).is_err());
+        assert!(render_template("a %%X", &[("X", "1")]).is_err());
         assert!(render_template("a", &[("X", "1")]).is_err());
-        for bad in ["a@@b", "a\nb", "a\u{7}b", "a\rb"] {
-            assert!(render_template("@@X@@", &[("X", bad)]).is_err(), "{bad:?}");
+        for bad in ["a%%b", "a\nb", "a\u{7}b", "a\rb"] {
+            assert!(render_template("%%X%%", &[("X", bad)]).is_err(), "{bad:?}");
         }
-        let err = render_template("@@X@@", &[("X", "se@@cret")]).unwrap_err();
+        let err = render_template("%%X%%", &[("X", "se%%cret")]).unwrap_err();
         assert!(!err.to_string().contains("secret"));
     }
 
     #[test]
     fn renderer_never_reexpands_values_and_passes_literals_through() {
-        let out = render_template("@@A@@|@@B@@", &[("A", "@B"), ("B", "x")]).unwrap();
-        assert_eq!(out, "@B|x");
-        let out = render_template("@@A@@|@@B@@", &[("A", "B@"), ("B", "@x")]).unwrap();
-        assert_eq!(out, "B@|@x");
+        let out = render_template("%%A%%|%%B%%", &[("A", "%B"), ("B", "x")]).unwrap();
+        assert_eq!(out, "%B|x");
+        let out = render_template("%%A%%|%%B%%", &[("A", "B%"), ("B", "%x")]).unwrap();
+        assert_eq!(out, "B%|%x");
         let lit = "g: ${{ github.ref }} ${{ a == 'b' }} me@example.com\n";
         assert_eq!(render_template(lit, &[]).unwrap(), lit);
-        assert_eq!(render_template("x@@@A@@", &[("A", "1")]).unwrap(), "x@1");
+        assert_eq!(
+            render_template("a@%%A%%@b", &[("A", "1")]).unwrap(),
+            "a@1@b"
+        );
+    }
+
+    #[test]
+    fn renderer_allows_lone_percent_but_rejects_malformed_placeholders() {
+        assert_eq!(render_template("100% a%b", &[]).unwrap(), "100% a%b");
+        for bad in ["%%", "%%%%", "%%A", "%%a%%", "%%A_1%%", "%%A %%", "x%%"] {
+            assert!(render_template(bad, &[("A", "1")]).is_err(), "{bad:?}");
+        }
     }
 
     /// The settled v2 successor pins workflows main e5e9c0d and authenticates the same
