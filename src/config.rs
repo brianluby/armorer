@@ -67,7 +67,7 @@ pub struct RepositoryFiles {
     #[schemars(length(max = 16))]
     #[schemars(extend("uniqueItems" = true))]
     #[schemars(inner(regex(
-        pattern = "^@(?=[A-Za-z0-9-]{1,39}(?:/|$(?![\\s\\S])))[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*(?:/[A-Za-z0-9_.-]{1,100})?$(?![\\s\\S])"
+        pattern = "^@(?=[A-Za-z0-9-]{1,39}(?:/|$(?![\\s\\S])))[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*(?:/[A-Za-z0-9][A-Za-z0-9_.-]{0,99})?$(?![\\s\\S])"
     )))]
     pub code_owners: Vec<String>,
 }
@@ -117,7 +117,8 @@ fn github_login(value: &str) -> bool {
 }
 
 /// Accept exactly `@user` or `@org/team`, where a team slug is 1–100 ASCII
-/// alphanumerics, `-`, `_` or `.`. Nothing else, including e-mail addresses.
+/// alphanumerics, `-`, `_` or `.` and starts with an alphanumeric. Nothing else,
+/// including e-mail addresses.
 pub fn code_owner(value: &str) -> bool {
     let Some(rest) = value.strip_prefix('@') else {
         return false;
@@ -126,8 +127,9 @@ pub fn code_owner(value: &str) -> bool {
         None => github_login(rest),
         Some((org, team)) => {
             github_login(org)
-                && !team.is_empty()
                 && team.len() <= 100
+                // A slug starts with an alphanumeric, so `.`, `..` and `-x` are refused.
+                && team.as_bytes().first().is_some_and(u8::is_ascii_alphanumeric)
                 && team
                     .bytes()
                     .all(|c| c.is_ascii_alphanumeric() || b"-_.".contains(&c))
@@ -505,6 +507,11 @@ mod tests {
             &long_login,
             "@org/",
             "@/team",
+            "@org/.",
+            "@org/..",
+            "@org/.hidden",
+            "@org/-team",
+            "@org/_team",
             "@org/team/x",
             "@org/te am",
             &long_team,
