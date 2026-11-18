@@ -802,3 +802,18 @@ fn toolchain_file_mismatch_is_a_finding() {
     let proposal = cli(root.path(), &["init", "--repo-name", "example/pilot"], 0);
     assert!(differs(&proposal));
 }
+
+#[test]
+/// `discover_workspace` refuses anything but an exact `x.y.z` toolchain before touching rustup
+/// or the workspace.
+fn discover_workspace_refuses_inexact_toolchains_first() {
+    let root = single_binary();
+    for toolchain in ["stable", "1.95", "1.95.0-beta.1", "v1.95.0", ""] {
+        let error = armorer::discovery::discover_workspace(root.path(), toolchain).unwrap_err();
+        assert!(
+            matches!(error, armorer::Error::Invalid(_)),
+            "{toolchain:?}: {error}"
+        );
+    }
+    assert_inert(root.path());
+}

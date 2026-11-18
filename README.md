@@ -31,7 +31,7 @@ Bring a consuming workspace. Let `init` propose its `armorer.toml` and a policy 
   --repo-name owner/name --toolchain 1.95.0 > /path/outside-workspace/init-proposal.json
 ```
 
-Inspect every proposed byte and finding. Prune the targets you do not ship; change a long-running binary's profile to `service`. Retain the reviewed `proposal_sha256`, then create both files:
+Inspect every proposed byte and finding. Retain the reviewed `proposal_sha256`, then create both files. The write recomputes the original proposal, so edit the created files afterwards, not the saved JSON:
 
 ```sh
 ./target/debug/armorer --repository /path/to/workspace init \
@@ -39,7 +39,7 @@ Inspect every proposed byte and finding. Prune the targets you do not ship; chan
   --write --expect-proposal-sha256 REVIEWED_PROPOSAL_SHA256
 ```
 
-`init` never overwrites a file. Edit the created `armorer.toml` where your intent differs; [the CLI example](examples/armorer.toml) shows the format. Complete `armorer-policy.draft.toml`: list the dependency licenses you accept, review every other section, and save the reviewed policy. Armorer has no default dependency policy, and `bootstrap plan` rejects the draft until you finish it.
+`init` never overwrites a file. Then edit the created `armorer.toml` where your intent differs (prune the targets you do not ship; change a long-running binary's profile to `service`); [the CLI example](examples/armorer.toml) shows the format. Complete `armorer-policy.draft.toml`: list the dependency licenses you accept, review every other section, and save the reviewed policy. Armorer has no default dependency policy, and `bootstrap plan` rejects the draft until you finish it.
 
 ```sh
 ./target/debug/armorer --repository /path/to/workspace bootstrap plan \
