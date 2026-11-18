@@ -177,6 +177,7 @@ pub fn propose(root: &Path, repository: &str, toolchain: Option<&str>) -> Result
     }
     let root = root.canonicalize()?;
     require_uninitialized(&root)?;
+    let toolchain_differs = toolchain_file_differs(&root, toolchain)?;
     let toolchain = select_toolchain(&root, toolchain)?;
     let workspace = discovery::discover_workspace(&root, &toolchain)?;
     let selection = select_deliverables(&workspace.packages)?;
@@ -256,6 +257,12 @@ pub fn propose(root: &Path, repository: &str, toolchain: Option<&str>) -> Result
                 selection.skipped_packages
             ),
         });
+    }
+    if toolchain_differs {
+        findings.push(finding(
+            "toolchain-file-differs",
+            "An existing rust-toolchain.toml or legacy rust-toolchain file does not pin the proposed toolchain; bootstrap plan will report it as a conflict until the owner resolves it.",
+        ));
     }
     if exists(&root, POLICY_DRAFT_PATH)? {
         findings.push(finding(
@@ -441,6 +448,37 @@ fn select_toolchain(root: &Path, explicit: Option<&str>) -> Result<String> {
         .filter(|channel| config::exact_version(channel))
         .map(str::to_owned)
         .ok_or_else(missing)
+}
+
+/// Report whether an existing toolchain file disagrees with the proposal.
+///
+/// A legacy `rust-toolchain` file always differs: bootstrap treats it as a
+/// conflict. With an explicit toolchain, a readable `rust-toolchain.toml` whose
+/// `toolchain.channel` is not exactly that version differs. Absent files, and
+/// `rust-toolchain.toml` bytes that are not UTF-8 TOML, add nothing; without an
+/// explicit toolchain the file is the toolchain's source and [`select_toolchain`]
+/// handles it. Filesystem and unsafe-path errors propagate.
+fn toolchain_file_differs(root: &Path, explicit: Option<&str>) -> Result<bool> {
+    if exists(root, "rust-toolchain")? {
+        return Ok(true);
+    }
+    let Some(toolchain) = explicit else {
+        return Ok(false);
+    };
+    let Some(bytes) = optional_bytes(root, "rust-toolchain.toml")? else {
+        return Ok(false);
+    };
+    let Some(value) = std::str::from_utf8(&bytes)
+        .ok()
+        .and_then(|text| toml::from_str::<toml::Value>(text).ok())
+    else {
+        return Ok(false);
+    };
+    Ok(value
+        .get("toolchain")
+        .and_then(|t| t.get("channel"))
+        .and_then(toml::Value::as_str)
+        != Some(toolchain))
 }
 
 /// The first candidate that is a regular file directly under the root.
@@ -786,6 +824,33 @@ mod tests {
             select_toolchain(root.path(), Some("1.95.0")).unwrap(),
             "1.95.0"
         );
+    }
+
+    #[test]
+    /// Only an existing, readable toolchain file that does not pin the proposal differs.
+    fn toolchain_file_difference() {
+        let root = tempfile::tempdir().unwrap();
+        assert!(!toolchain_file_differs(root.path(), Some("1.95.0")).unwrap());
+        let file = root.path().join("rust-toolchain.toml");
+        for (content, differs) in [
+            ("[toolchain]\nchannel = \"1.95.0\"\n", false),
+            ("[toolchain]\nchannel = \"1.94.0\"\n", true),
+            ("[toolchain]\nchannel = \"stable\"\n", true),
+            ("[toolchain]\nprofile = \"minimal\"\n", true),
+            ("not toml [", false),
+        ] {
+            std::fs::write(&file, content).unwrap();
+            assert_eq!(
+                toolchain_file_differs(root.path(), Some("1.95.0")).unwrap(),
+                differs,
+                "{content}"
+            );
+            // Without a flag the file is the source, not a difference.
+            assert!(!toolchain_file_differs(root.path(), None).unwrap());
+        }
+        std::fs::write(root.path().join("rust-toolchain"), "1.95.0\n").unwrap();
+        assert!(toolchain_file_differs(root.path(), Some("1.95.0")).unwrap());
+        assert!(toolchain_file_differs(root.path(), None).unwrap());
     }
 
     #[test]

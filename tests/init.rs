@@ -768,3 +768,37 @@ fn committed_init_proposal_schema_matches_runtime() {
     assert!(output.status.success());
     assert_eq!(output.stdout, committed);
 }
+
+#[test]
+/// An explicit toolchain that a rust-toolchain.toml or legacy rust-toolchain file does not
+/// pin is reported without echoing the file's channel.
+fn toolchain_file_mismatch_is_a_finding() {
+    let differs = |proposal: &Value| codes(proposal).contains(&"toolchain-file-differs");
+    let root = single_binary();
+    assert!(!differs(&propose(root.path(), "example/pilot")));
+    let pin = root.path().join("rust-toolchain.toml");
+    fs::write(&pin, "[toolchain]\nchannel = \"1.95.0\"\n").unwrap();
+    assert!(!differs(&propose(root.path(), "example/pilot")));
+    for channel in ["1.94.1", "stable"] {
+        fs::write(&pin, format!("[toolchain]\nchannel = \"{channel}\"\n")).unwrap();
+        let before = snapshot(root.path());
+        let proposal = propose(root.path(), "example/pilot");
+        assert_eq!(snapshot(root.path()), before);
+        assert!(differs(&proposal), "{channel}");
+        let detail = proposal["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|f| f["code"] == "toolchain-file-differs")
+            .unwrap()["detail"]
+            .as_str()
+            .unwrap();
+        assert!(detail.contains("bootstrap plan") && !detail.contains(channel));
+    }
+    fs::write(&pin, "[toolchain]\nchannel = \"1.95.0\"\n").unwrap();
+    fs::write(root.path().join("rust-toolchain"), "1.95.0\n").unwrap();
+    assert!(differs(&propose(root.path(), "example/pilot")));
+    // The legacy file is reported even when rust-toolchain.toml supplies the toolchain.
+    let proposal = cli(root.path(), &["init", "--repo-name", "example/pilot"], 0);
+    assert!(differs(&proposal));
+}
