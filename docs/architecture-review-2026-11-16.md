@@ -6,10 +6,13 @@ This is guidance for continued development, not a release qualification.
 ## Follow-up status (origin/main `292e9b6`, 2026-11-18)
 
 - **Done:** S1, S2, S3 and S7 (PR #39); A4 (ADR 0012; PRs #46, #47 and #48);
-  A1, the shared journaled write and restore core (PR #49); S8 (PR #51); S4 and
-  F5 (PR #52); A3 (PR #53); S5 (PR #54); F1 (PR #56); A2 (PR #58, ADR 0013);
-  the `sha2` 0.11 bump (PRs #59 and #45). There are now 25 schemas.
-- **Partly done:** S6 (PR #55 covers `lock`, `replace` and managed reads;
+  S8 (PR #51); S4 and F5 (PR #52); A3 (PR #53); S5 (PR #54); F1 (PR #56);
+  A2 (PR #58, ADR 0013); the `sha2` 0.11 bump (PRs #59 and #45). There are now
+  25 schemas.
+- **Partly done:** A1 (PR #49 shares the journaled write and restore core;
+  bootstrap and upgrade still each own their journal format, validation, and
+  commit and cleanup error handling, so it is not yet one engine). S6 (PR #55
+  covers `lock`, `replace` and managed reads;
   directory creation, file removal and the configuration readers are still
   path-based). A6 (PR #57 adds `--format text`; the manifest file for the
   `verify-release` and `publication` flags is not built). F4 (the drift check
