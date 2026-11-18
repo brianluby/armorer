@@ -83,6 +83,12 @@ fn bare(bytes: Vec<u8>) -> Result<UnverifiedBundle> {
     Ok(UnverifiedBundle { bytes, statement })
 }
 
+/// Fuzz-only hook: `bare` is the bytes entry point behind `load_one`.
+#[cfg(feature = "fuzzing")]
+pub(crate) fn fuzz_bare(bytes: &[u8]) -> bool {
+    bare(bytes.to_vec()).is_ok()
+}
+
 /// One exact bare Sigstore v0.2/v0.3 bundle, bounded to 64 MiB. No array or
 /// JSONL subset selection; published inventory slots use this representation.
 pub fn load_one(path: &Path) -> Result<UnverifiedBundle> {

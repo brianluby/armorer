@@ -15,6 +15,9 @@ pub mod ci_policy;
 pub mod config;
 pub mod discovery;
 mod filesystem;
+#[cfg(feature = "fuzzing")]
+#[doc(hidden)]
+pub mod fuzzing;
 pub mod plan;
 mod runtime;
 mod schema_bounds;
