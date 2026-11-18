@@ -166,11 +166,42 @@ pub(crate) fn read_small(path: &Path) -> Result<Vec<u8>> {
 /// Return the SHA-256 digest of the exact bytes as lowercase hexadecimal.
 pub(crate) fn digest(bytes: &[u8]) -> String {
     use sha2::{Digest, Sha256};
-    format!("{:x}", Sha256::digest(bytes))
+    hex_lower(&Sha256::digest(bytes)[..])
+}
+
+/// Lowercase hexadecimal encoding of `bytes`, independent of digest-type formatting traits.
+pub(crate) fn hex_lower(bytes: &[u8]) -> String {
+    use std::fmt::Write;
+    bytes
+        .iter()
+        .fold(String::with_capacity(bytes.len() * 2), |mut out, byte| {
+            let _ = write!(out, "{byte:02x}");
+            out
+        })
 }
 
 #[cfg(test)]
 mod tests {
+    /// Known SHA-256 vectors pin `digest` so a hashing-API change cannot alter output.
+    #[test]
+    fn digest_matches_known_sha256_vectors() {
+        assert_eq!(
+            super::digest(b""),
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
+        assert_eq!(
+            super::digest(b"abc"),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+    }
+
+    /// Hex encoding is lowercase and zero-padded per byte.
+    #[test]
+    fn hex_lower_encodes_bytes() {
+        assert_eq!(super::hex_lower(&[]), "");
+        assert_eq!(super::hex_lower(&[0x00, 0x0f, 0xa0, 0xff]), "000fa0ff");
+    }
+
     #[cfg(unix)]
     #[test]
     /// The read guard rejects symlinks, directories and oversized inputs before returning bytes.

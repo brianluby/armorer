@@ -209,7 +209,7 @@ fn stream_hash(path: &Path, max: u64, mut writer: Option<&mut File>) -> Result<B
         }
     }
     let value = ByteIdentity {
-        sha256: format!("{:x}", hash.finalize()),
+        sha256: crate::hex_lower(&hash.finalize()[..]),
         size,
     };
     value.validate()?;

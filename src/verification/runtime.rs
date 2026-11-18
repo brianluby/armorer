@@ -193,7 +193,7 @@ fn decode(
             remaining -= count as u64;
         }
         require(
-            format!("{:x}", hash.finalize()) == member.bytes.sha256,
+            crate::hex_lower(&hash.finalize()[..]) == member.bytes.sha256,
             "runtime-member-byte-mismatch",
         )?;
         native_header(&prefix, target)?;
