@@ -1,0 +1,27 @@
+# Managed by Armorer from repository_files.dependabot in armorer.toml.
+# Every update is a reviewed pull request. The cooldown keeps freshly published
+# releases out until they have had time to be reported or yanked.
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    groups:
+      cargo-minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    ignore:
+      # The reusable workflow pin is managed by Armorer and moves only through
+      # `armorer upgrade`.
+      - dependency-name: %%WORKFLOW_REPOSITORY%%*

@@ -95,8 +95,19 @@ fn paths(changes: impl IntoIterator<Item = String>) -> Vec<String> {
     changes.into_iter().collect()
 }
 
-/// Managed paths the named catalog declares.
+/// Managed paths the named catalog selects for these fixtures, whose configuration
+/// switches every optional repository file off.
 fn managed(id: &str) -> Vec<String> {
+    catalog::reviewed_for(id)
+        .unwrap()
+        .selected_paths(&armorer::config::RepositoryFiles::default())
+        .into_iter()
+        .map(str::to_owned)
+        .collect()
+}
+
+/// The maximal set the named catalog declares: every path it can ever render.
+fn maximal(id: &str) -> Vec<String> {
     catalog::reviewed_for(id)
         .unwrap()
         .managed_paths()
@@ -146,7 +157,14 @@ fn declared_set_equals_rendered_set_for_every_compiled_catalog() {
             "{id}"
         );
         assert!(p.changes.iter().all(|c| c.decision == Decision::Create));
-        union.extend(declared);
+        // The selected set is a subset of the maximal set, which is sorted and unique.
+        let all = maximal(id);
+        let mut sorted = all.clone();
+        sorted.sort();
+        sorted.dedup();
+        assert_eq!(all, sorted, "{id}: maximal set sorted and unique");
+        assert!(declared.iter().all(|path| all.contains(path)), "{id}");
+        union.extend(all);
     }
     assert_eq!(
         catalog::all_managed_paths(),
@@ -155,6 +173,9 @@ fn declared_set_equals_rendered_set_for_every_compiled_catalog() {
     assert_eq!(managed("bootstrap-v2").len(), 5);
     assert_eq!(managed(WIDE).len(), 6);
     assert!(managed(WIDE).contains(&EXTRA.to_owned()));
+    // The three optional entries widen only the maximal sets.
+    assert_eq!(maximal("bootstrap-v2").len(), 8);
+    assert_eq!(maximal(WIDE).len(), 9);
 }
 
 #[test]
@@ -411,6 +432,14 @@ fn bootstrap_journal_listing_a_path_outside_its_catalog_set_is_rejected() {
         if replace {
             // Same count as a genuine inventory, but one path is outside the set.
             ops.remove(0);
+        } else {
+            // Exceed the count bound, which is the catalog's maximal set plus the state.
+            while ops.len() <= maximal("bootstrap-v2").len() + 1 {
+                ops.insert(
+                    ops.len() - 1,
+                    serde_json::json!({ "path": EXTRA, "before": null, "after": EXTRA_CONTENT }),
+                );
+            }
         }
         let journal = serde_json::json!({
             "schema_version": 2,
@@ -445,9 +474,12 @@ fn upgrade_journal_listing_a_path_outside_its_catalog_set_is_rejected() {
         .iter()
         .map(|c| serde_json::json!({ "path": c.path, "before": null, "after": c.proposed_content }))
         .collect();
-    // bootstrap-v2 bounds an inventory at five files plus two ownership slots.
-    operations.push(serde_json::json!({ "path": EXTRA, "before": null, "after": EXTRA_CONTENT }));
-    operations.push(serde_json::json!({ "path": EXTRA, "before": null, "after": EXTRA_CONTENT }));
+    // bootstrap-v2 bounds an inventory at its maximal set (eight files) plus two
+    // ownership slots; pad with outside paths until that bound is exceeded.
+    while operations.len() <= maximal("bootstrap-v2").len() + 1 {
+        operations
+            .push(serde_json::json!({ "path": EXTRA, "before": null, "after": EXTRA_CONTENT }));
+    }
     operations.push(serde_json::json!({ "path": UPGRADE_STATE, "before": null, "after": "{}" }));
     let journal = serde_json::json!({
         "schema_version": 1,
@@ -535,7 +567,13 @@ fn upgrade_plans_must_list_exactly_their_source_and_target_scope() {
                     } else {
                         EXTRA.into()
                     };
-                    forged.changes.insert(1, c);
+                    forged.changes.insert(1, c.clone());
+                    if target == WIDE {
+                        // Past every compiled path (the union of the maximal sets).
+                        while forged.changes.len() <= catalog::all_managed_paths().len() {
+                            forged.changes.insert(1, c.clone());
+                        }
+                    }
                 }
                 "reordered" => forged.changes.swap(0, 1),
                 _ => unreachable!(),

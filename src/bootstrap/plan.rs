@@ -93,13 +93,33 @@ pub(crate) fn diff(path: &str, before: Option<&str>, after: &str) -> String {
     output
 }
 
-/// Exact compiled template set. Consuming input selects neither paths nor templates.
+/// Exact compiled template set selected by the plan's intent. Consuming input selects
+/// neither paths nor templates; the intent only switches compiled optional entries on.
 pub(super) fn generated(plan: &Plan) -> Result<BTreeMap<String, String>> {
     catalog::reviewed_for(&plan.catalog_id)?.bootstrap_files(
         &plan.config_sha256,
         &plan.intent.toolchain,
         &plan.policy_content,
+        catalog::Selection::from(&plan.intent),
     )
+}
+
+/// Refuse an owned managed file that the configuration no longer selects. Releasing
+/// or removing it has no approved behavior yet, so the plan fails closed rather than
+/// silently dropping ownership or deleting bytes.
+fn require_owned_selected<'a>(
+    owned: impl IntoIterator<Item = &'a String>,
+    selected: &[&str],
+) -> Result<()> {
+    if owned
+        .into_iter()
+        .any(|path| !selected.contains(&path.as_str()))
+    {
+        return Err(Error::Transaction(
+            "an owned managed file is no longer selected by the configuration; releasing or removing it is not supported yet",
+        ));
+    }
+    Ok(())
 }
 
 /// Ownership is checked before comparing the new candidate: deletion or an edit
@@ -231,12 +251,21 @@ pub(super) fn inspect_bytes(root: &Path, policy: &[u8]) -> Result<Plan> {
     let state = load_state(root)?;
     // An upgrade owner may record bootstrap-v1; the v2 default only applies when
     // neither owner records a catalog.
+    let upgrade_owner = crate::upgrade::owner(root)?;
     let catalog_id = state
         .as_ref()
         .and_then(|(state, _)| state.catalog_id())
         .map(str::to_owned)
-        .or(crate::upgrade::owner_catalog_id(root)?)
+        .or(upgrade_owner.as_ref().map(|(id, _)| id.clone()))
         .unwrap_or_else(|| "bootstrap-v2".into());
+    // Either owner may hold an optional file the configuration has since switched off.
+    require_owned_selected(
+        state
+            .iter()
+            .flat_map(|(state, _)| state.managed.keys())
+            .chain(upgrade_owner.iter().flat_map(|(_, owned)| owned)),
+        &catalog::reviewed_for(&catalog_id)?.selected_paths(&intent.repository_files),
+    )?;
     let mut input_preimages = BTreeMap::new();
     input_preimages.insert(
         intent.policy.license_file.clone(),
@@ -347,8 +376,11 @@ pub(super) fn validate(plan: &Plan, expected: &str) -> Result<()> {
         || catalog::reviewed_for(&plan.catalog_id).is_err()
         || !hex_digest(&plan.config_sha256, 64)
         || plan.capability_state != "unknown"
-        || !catalog::reviewed_for(&plan.catalog_id)
-            .is_ok_and(|catalog| catalog.managed_paths().len() == plan.changes.len())
+        // Exactly the set the plan's own intent selects; the paths and their order are
+        // compared one by one against the rendered set below.
+        || !catalog::reviewed_for(&plan.catalog_id).is_ok_and(|catalog| {
+            catalog.selected_paths(&plan.intent.repository_files).len() == plan.changes.len()
+        })
         || plan
             .state_sha256
             .as_ref()

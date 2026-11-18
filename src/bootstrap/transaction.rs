@@ -470,9 +470,12 @@ pub fn recover(root: &Path, expected: &str) -> Result<Receipt> {
 mod tests {
     use super::*;
     use std::fs;
-    /// Managed paths of the default bootstrap-v2 catalog these fixtures provision.
+    /// Managed paths of the default bootstrap-v2 catalog these fixtures provision: the
+    /// set selected by a configuration with every optional file switched off.
     fn managed() -> Vec<&'static str> {
-        catalog::reviewed_v2().unwrap().managed_paths()
+        catalog::reviewed_v2()
+            .unwrap()
+            .selected_paths(&crate::config::RepositoryFiles::default())
     }
     const POLICY: &str = "schema_version = 1\n[licenses]\nallow = [\"MIT\"]\n[advisories]\nexceptions = []\n[sources]\nallow_git = []\n[bans]\nmultiple_versions = \"warn\"\ndeny = []\n";
     /// Create an isolated repository fixture with explicit inputs for the surrounding transaction tests.

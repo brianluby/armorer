@@ -25,10 +25,17 @@ pub(crate) fn reject_v1(root: &std::path::Path) -> crate::Result<()> {
     Ok(())
 }
 
-/// The catalog recorded by the upgrade owner, validated against compiled authority.
-pub(crate) fn owner_catalog_id(root: &std::path::Path) -> crate::Result<Option<String>> {
+/// The catalog recorded by the upgrade owner, validated against compiled authority,
+/// and the managed paths it owns.
+pub(crate) fn owner(root: &std::path::Path) -> crate::Result<Option<(String, Vec<String>)>> {
     match crate::filesystem::optional_bytes(root, STATE)? {
-        Some(bytes) => Ok(Some(state::decode_state(&bytes)?.authority.id)),
+        Some(bytes) => {
+            let state = state::decode_state(&bytes)?;
+            Ok(Some((
+                state.authority.id,
+                state.managed.into_keys().collect(),
+            )))
+        }
         None => Ok(None),
     }
 }
