@@ -11,10 +11,10 @@ Accepted main provides `verify-release` and `verify-historical-bytes`. Use a bin
 built from a reviewed accepted checkout for current verification, or the exact
 source above to reproduce its retained qualification. That successor repaired the earlier
 artifact-scope defect and added independently approved resolved root features; the
-[feature-authority review](../reviews/2026-10-02-pr21-resolved-features.md) records
+feature-authority review (`reviews/2026-10-02-pr21-resolved-features.md`) records
 that source boundary. Complete own signed producer/consumer qualification and
 production acceptance remain open. The latest
-[evidence and lock review](../reviews/2026-10-03-pr21-evidence-and-locks.md)
+evidence and lock review (`reviews/2026-10-03-pr21-evidence-and-locks.md`)
 records exact observation/exception binding and transaction lifetime repairs.
 
 Inspect the evidence. Earn the verdict. **This is the way.**
@@ -191,9 +191,9 @@ define byte/count/time bounds. Keep failed evidence and obtain corrected files o
 a newly independently approved policy. Explicit historical matching never becomes
 a fallback after authenticated verification fails.
 
-The [feature-authority review](../reviews/2026-10-02-pr21-resolved-features.md) retains
+The feature-authority review (`reviews/2026-10-02-pr21-resolved-features.md`) retains
 the preceding head's focused tests and failed ARM receipt. The
-[latest review](../reviews/2026-10-03-pr21-evidence-and-locks.md) records the evidence
+latest review (`reviews/2026-10-03-pr21-evidence-and-locks.md`) records the evidence
 and lock repairs, affected-scope validation and remaining contributor-guide typo
 separately from these open gates: a complete signed rehearsal of Armorer's own
 producer/consumer flow, protected Apple production, immutable publication and pilots.
