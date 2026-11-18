@@ -240,10 +240,11 @@ fn single_binary_crate_is_proposed_read_only() {
     for f in &typed.files {
         assert_eq!(
             f.sha256,
-            format!(
-                "{:x}",
-                <sha2::Sha256 as sha2::Digest>::digest(f.content.as_bytes())
-            )
+            // Hex-encoded per byte so it compiles across sha2 major versions.
+            <sha2::Sha256 as sha2::Digest>::digest(f.content.as_bytes())
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>()
         );
     }
 }
