@@ -3,31 +3,19 @@
 Reviewed at `caf7b89` (branch `claude/rust-setup-architecture-review-c722d8`).
 This is guidance for continued development, not a release qualification.
 
-## Follow-up status (same branch, uncommitted as of 2026-11-16)
+## Follow-up status (origin/main `6a3b45a`, 2026-11-17)
 
-- **S1 addressed locally:** `rustix` 1.1.6; Armorer bootstrapped onto itself
-  (`armorer.toml`, `armorer.lock`, `.armorer/`, `armorer-ci.yml`,
-  `armorer-build.yml`). The hosted workflow has not run yet.
-- **S2 addressed locally:** `SECURITY.md`, `.github/CODEOWNERS`,
-  `.github/dependabot.yml`. Private vulnerability reporting and Dependabot
-  security updates still need enabling in repository settings.
-- **S3 addressed locally:** locks and ownership state follow a patch-line rule
-  (`src/runtime.rs`); catalogs record the frozen contract `0.1.0`. Release
-  contexts and the native catalog accept an approved runtime that is a later
-  patch of the locked contract. Plans and
-  journals stay exact. Committed example packets must be regenerated at each
-  version bump.
-- **S7 addressed locally for `bootstrap check`:** exit 0 when provisioning is in
-  sync, exit 2 with reasons on stderr for drift, and `--release-ready` for the
-  strict release gate. Top-level version-one `check` still always exits 2; it
-  is scheduled for replacement under ADR 0012.
-- **S8 (CI cancellation) addressed:** the catalog template now cancels
-  superseded `armorer-ci.yml` runs only for pull requests. It was changed in
-  place under ADR 0012; example packets were regenerated and this repository
-  was re-bootstrapped.
-- **A4 decided:** the owner accepted removal of superseded contracts before
-  0.1.0; see [ADR 0012](../docs/adr/0012-pre-release-contract-consolidation.md).
-  The removals themselves are not implemented.
+- **Done:** S1, S2, S3, S7 and the CI-cancellation part of S8 (PR #39); A4
+  (ADR 0012; PRs #46, #47 and #48). Schemas went from 27 to 24. Top-level
+  `check` now reads the bootstrap contract and exits 0 in sync or 2 on drift.
+- **In progress:** A1 (PR #49 shares the journaled write and restore core;
+  commit and cleanup logic stay per contract).
+- **Not started at this snapshot:** S4, S5, S6, the two remaining S8 items
+  (`trusted_rustup` directory check, non-Unix startup message), A2, A3, A5, A6,
+  A7, F1–F3, F5–F8, and the Go and Python adapters. F4 is partly done: the
+  drift check exists, but nothing runs it on a schedule.
+- **Repository settings:** private vulnerability reporting, Dependabot security
+  updates and secret scanning with push protection are enabled.
 
 ## Scope and confidence
 
