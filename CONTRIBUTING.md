@@ -51,7 +51,7 @@ bytes. **This is the way.**
 ## Keep the contracts exact
 
 Regenerate schemas after changing serialized contracts. Build the checkout's
-binary in a fixed target directory and stage all 25 outputs before replacing
+binary in a fixed target directory and stage all 26 outputs before replacing
 committed files. Missing binaries or failed generation preserve the old schemas;
 an installed `armorer` on PATH is never used. Stage the whole set. Keep the old
 schemas if generation fails. **This is the way.**
@@ -75,7 +75,8 @@ schemas if generation fails. **This is the way.**
     native-catalog-v2:native-catalog-v2 runtime-distribution-v1:runtime-distribution-v1 \
     verification-context-v3:verification-context-v3 \
     publication-policy:publication-policy-v1 publication-plan:publication-plan-v1 \
-    publication-approval:publication-approval-v1; do
+    publication-approval:publication-approval-v1 \
+    release-inputs-manifest:release-inputs-manifest-v1; do
     kind="${entry%%:*}"
     filename="${entry#*:}"
     target/debug/armorer schema "$kind" > "$armorer_schema_staging/$filename.json"
@@ -86,7 +87,7 @@ schemas if generation fails. **This is the way.**
 )
 ```
 
-This procedure covers all 25 current schemas. After regeneration, run
+This procedure covers all 26 current schemas. After regeneration, run
 `cargo test --locked` to check committed-schema equality. Run
 `scripts/validate-contract-examples.py` with the development dependencies from
 `requirements-schema.txt` to independently validate examples; CI installs those

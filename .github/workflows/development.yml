@@ -113,7 +113,7 @@ jobs:
             target/debug/armorer schema "$kind" > "$RUNNER_TEMP/armorer-$kind.json"
             diff -u "schemas/$kind.json" "$RUNNER_TEMP/armorer-$kind.json"
           done
-          for kind in publication-policy publication-plan publication-approval; do
+          for kind in publication-policy publication-plan publication-approval release-inputs-manifest; do
             target/debug/armorer schema "$kind" > "$RUNNER_TEMP/armorer-$kind.json"
             diff -u "schemas/$kind-v1.json" "$RUNNER_TEMP/armorer-$kind.json"
           done
