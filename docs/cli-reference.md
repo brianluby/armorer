@@ -130,7 +130,8 @@ come from the repository you are inspecting, so every character for which Rust's
 `char::is_control()` is true, except newline and tab, is replaced by a visible
 escape: `\x1b` (lowercase hex up to 0xFF, `\u{...}` above it), and a carriage return
 becomes `\r`. The Unicode bidirectional embedding, override and isolate characters
-U+202A through U+202E and U+2066 through U+2069 are escaped the same way, for example
+U+202A through U+202E and U+2066 through U+2069, and the line and paragraph
+separators U+2028 and U+2029, are escaped the same way, for example
 `\u{202e}`. Text mode adds no color or terminal control sequences of its own and ends
 with exactly one newline.
 

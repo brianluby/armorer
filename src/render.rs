@@ -18,7 +18,11 @@ use serde_json::Value;
 pub fn sanitize(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     for c in text.chars() {
-        let bidi = matches!(c, '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}');
+        // Bidirectional overrides/isolates reorder a line; U+2028/U+2029 break one in some terminals.
+        let bidi = matches!(
+            c,
+            '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}' | '\u{2028}' | '\u{2029}'
+        );
         if c == '\r' {
             out.push_str("\\r");
         } else if (c.is_control() && c != '\n' && c != '\t') || bidi {
@@ -455,7 +459,7 @@ mod tests {
                 "\u{2066}\u{2067}\u{2068}\u{2069}",
                 "\\u{2066}\\u{2067}\\u{2068}\\u{2069}",
             ),
-            ("\u{2028}", "\u{2028}"),
+            ("\u{2028}\u{2029}", "\\u{2028}\\u{2029}"),
             ("caf\u{e9} \u{1f600}", "caf\u{e9} \u{1f600}"),
             ("\\x1b already", "\\x1b already"),
         ];
