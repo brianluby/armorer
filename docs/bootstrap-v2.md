@@ -15,7 +15,10 @@ and unknown IDs never fall back. See [catalog source and limits](bootstrap-catal
 ## Review and apply
 
 Build this CLI with the exact installed Rust 1.95.0 toolchain and `cargo build --locked`.
-Author `armorer.toml` with exact package/binary/feature/target selections. Author an
+Author `armorer.toml` with exact package/binary/feature/target selections. To start,
+[`armorer init`](cli-reference.md#initialize-a-workspace) proposes `armorer.toml` and an
+unreviewed `armorer-policy.draft.toml` from read-only discovery and creates them only
+under a reviewed proposal digest. Author an
 explicit project CI policy in a regular UTF-8 file. Every section is required:
 `licenses.allow`, `advisories.exceptions`, `sources.allow_git` and
 `bans.multiple_versions` / `bans.deny`. There is no generated license allowlist,

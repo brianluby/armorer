@@ -31,7 +31,7 @@ their own gates. **This is the way.**
 ## Keep the contracts exact
 
 Regenerate schemas after changing serialized contracts. Build the checkout's
-binary in a fixed target directory and stage all 24 outputs before replacing
+binary in a fixed target directory and stage all 25 outputs before replacing
 committed files. Missing binaries or failed generation preserve the old schemas;
 an installed `armorer` on PATH is never used. Stage the whole set. Keep the old
 schemas if generation fails. **This is the way.**
@@ -49,7 +49,7 @@ schemas if generation fails. **This is the way.**
     capability-config:capability-config-v1 catalog:catalog-v1 \
     capability-observation:capability-observation-v1 lifecycle-record:lifecycle-record-v1 \
     github-receipt:github-receipt-v1 publish-set:publish-set-v1 registry-receipt:registry-receipt-v1 \
-    ci-policy:ci-policy-v1 bootstrap-plan:bootstrap-plan-v2 \
+    ci-policy:ci-policy-v1 bootstrap-plan:bootstrap-plan-v2 init-proposal:init-proposal-v1 \
     upgrade-plan:upgrade-plan-v1 upgrade-rollback:upgrade-rollback-v1 \
     cargo-graph-v2:cargo-graph-v2 \
     native-catalog-v2:native-catalog-v2 runtime-distribution-v1:runtime-distribution-v1 \
@@ -66,7 +66,7 @@ schemas if generation fails. **This is the way.**
 )
 ```
 
-This procedure covers all 24 current schemas. After regeneration, run
+This procedure covers all 25 current schemas. After regeneration, run
 `cargo test --locked` to check committed-schema equality. Run
 `scripts/validate-contract-examples.py` with the development dependencies from
 `requirements-schema.txt` to independently validate examples; CI installs those
