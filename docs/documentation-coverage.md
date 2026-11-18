@@ -20,7 +20,7 @@ Neither word supplies production qualification.
 
 | Explicit deliverable | Guide / present evidence | Remaining requirement |
 | --- | --- | --- |
-| MIT license and contribution policy | [LICENSE](../LICENSE), [contributor guide](../CONTRIBUTING.md); exact main checks and all 25 schema exporters | No new license decision pending; final release acceptance remains separate |
+| MIT license and contribution policy | [LICENSE](../LICENSE), [contributor guide](../CONTRIBUTING.md); exact main checks and all 26 schema exporters | No new license decision pending; final release acceptance remains separate |
 | Mandalorian voice and frequent creed | [Writing guide](writing-guide.md); resolute openings/checkpoints, exact technical identifiers and repeated “This is the way” throughout behavior guides | Retain this voice in future behavior changes; preserve historical receipts |
 | Onboarding for library, CLI and service | [Onboarding](onboarding.md), [profiles](profiles.md), [workspace example](../examples/profile-workspace/README.md); validated metadata selections and temporary native fixture builds | Accepted full packaging/release adoption remains pending |
 | New versus existing adoption | [Profiles](profiles.md#bring-an-existing-project), [candidate bootstrap](candidate-bootstrap.md), [candidate upgrades](candidate-upgrades.md); unowned/owned conflicts and preserved custom files tested | Implementation is accepted; qualify adopter-specific prerequisites |
