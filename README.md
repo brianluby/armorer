@@ -47,7 +47,7 @@ Inspect every proposed byte and finding. Retain the reviewed `proposal_sha256`, 
 ./target/debug/armorer --repository /path/to/workspace check
 ```
 
-Read the JSON. `init` exits 0 for a proposal or completed write. `bootstrap plan` exits 0 for valid inspection, including unmet setup requirements. `check` reads the managed `.armorer/ci-policy.toml`: exit 0 when provisioning is in sync, exit 2 with reasons on stderr on drift, and a JSON error when no managed policy exists yet. Invalid input/discovery exits 1 with a JSON error. Argument errors use Clap's stderr diagnostics. Init proposals, check and plan preserve consuming files, contact no GitHub service, and run no repository build scripts.
+Read the JSON; add `--format text` to read a plan, proposal or receipt as a terminal-safe summary (JSON stays the default and is what the approval digest covers). `init` exits 0 for a proposal or completed write. `bootstrap plan` exits 0 for valid inspection, including unmet setup requirements. `check` reads the managed `.armorer/ci-policy.toml`: exit 0 when provisioning is in sync, exit 2 with reasons on stderr on drift, and a JSON error when no managed policy exists yet. Invalid input/discovery exits 1 with a JSON error. Argument errors use Clap's stderr diagnostics. Init proposals, check and plan preserve consuming files, contact no GitHub service, and run no repository build scripts.
 
 Follow [your first inspection](docs/onboarding.md) for a complete local exercise. Before changing a real project, read [reviewed bootstrap and recovery](docs/bootstrap-v2.md). Inspect the plan. Retain the approved digest. Apply the exact intent.
 
