@@ -292,16 +292,27 @@ fn upgrade_plan(out: &mut Out, plan: &Value) {
             continue;
         }
         let diff = text(change, "proposed_diff");
-        if diff.is_empty() {
+        if !diff.is_empty() {
+            out.blank();
+            out.line(&format!(
+                "Proposed diff for {} ({}):",
+                text(change, "path"),
+                text(change, "decision")
+            ));
+            out.block(diff);
             continue;
         }
-        out.blank();
-        out.line(&format!(
-            "Proposed diff for {} ({}):",
-            text(change, "path"),
-            text(change, "decision")
-        ));
-        out.block(diff);
+        // A blocked change has no proposal; show what disagrees so it can be resolved.
+        let candidate = text(change, "candidate_diff");
+        if !candidate.is_empty() {
+            out.blank();
+            out.line(&format!(
+                "Unresolved candidate diff for {} ({}); not part of an approved proposal:",
+                text(change, "path"),
+                text(change, "decision")
+            ));
+            out.block(candidate);
+        }
     }
     let pins = array(plan, "pin_changes");
     if !pins.is_empty() {
@@ -567,6 +578,17 @@ mod tests {
         assert!(text.contains("  update     w.yml\n"));
         assert!(text.contains("Proposed diff for w.yml (update):\n--- a\n+++ b\n+x\n"));
         assert!(!text.contains("Proposed diff for k"));
+        let mut blocked = value.clone();
+        blocked["changes"] = json!([
+            {"path": "c.yml", "decision": "conflict", "proposed_diff": null,
+             "candidate_diff": "--- a/c.yml\n+++ b/c.yml\n-mine\x1b\n+theirs\n"}
+        ]);
+        let text = render(&blocked).unwrap();
+        assert!(text.contains(
+            "Unresolved candidate diff for c.yml (conflict); not part of an approved proposal:\n--- a/c.yml\n+++ b/c.yml\n-mine\\x1b\n+theirs\n"
+        ));
+        assert!(!text.contains("Proposed diff for c.yml"));
+        assert!(!text.contains('\x1b'));
         assert!(text.contains("  t: 1.0.0 -> none\n"));
         assert!(text.contains("  c1 [ok]: d1\n"));
         assert!(text.contains("upgrade apply --plan <file> --expect-plan-sha256 u1\n"));
