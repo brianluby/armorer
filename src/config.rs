@@ -1,6 +1,10 @@
 //! Version-one intent and resolved pin contracts.
 
-use crate::{Error, Result, read_small, safe_path};
+use crate::{
+    Error, Result,
+    filesystem::{optional_bytes, read_managed},
+    safe_path,
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -206,7 +210,7 @@ fn require(condition: bool, message: &str) -> Result<()> {
 /// (including unknown fields). Propagates path, I/O, size-limit, and
 /// [`Config::validate`] errors.
 pub fn load_config(root: &Path) -> Result<(Config, Vec<u8>)> {
-    let bytes = read_small(&safe_path(root, "armorer.toml")?)?;
+    let bytes = read_managed(root, "armorer.toml")?;
     let config = parse_config(&bytes, root)?;
     Ok((config, bytes))
 }
@@ -343,12 +347,9 @@ impl Config {
 /// and `Error::Invalid` for oversized input or invalid or incompatible lock
 /// contents. Propagates path and I/O errors.
 pub fn load_lock(root: &Path, config_digest: &str) -> Result<Option<(Lock, Vec<u8>)>> {
-    let path = safe_path(root, "armorer.lock")?;
-    // One metadata step: a dangling symlink is an error, never a silent "no lock".
-    let bytes = match std::fs::symlink_metadata(&path) {
-        Ok(_) => read_small(&path)?,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(error) => return Err(error.into()),
+    // Held-handle read: a symlink anywhere, dangling or not, is an error, never a silent "no lock".
+    let Some(bytes) = optional_bytes(root, "armorer.lock")? else {
+        return Ok(None);
     };
     let lock: Lock = toml::from_str(std::str::from_utf8(&bytes).map_err(|_| Error::Toml)?)
         .map_err(toml_error)?;

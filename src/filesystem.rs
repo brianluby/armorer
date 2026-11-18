@@ -1,13 +1,16 @@
 //! Bounded, symlink-refusing transaction I/O shared by every provisioning path.
 //! Owner-only staging primitives. Unsupported platforms fail before creating anything.
 //!
-//! On Unix every managed read and write below a repository root goes through
-//! directory handles: the root is opened once, each intermediate component is
-//! opened relative to its parent with `O_DIRECTORY | O_NOFOLLOW`, and the leaf
-//! is opened, created or renamed relative to the held parent handle. A symlink
-//! at any component is refused and never followed, so a component swapped after
-//! validation cannot redirect the operation away from the directory inode that
-//! was walked.
+//! On Unix every managed read, write, removal and parent-directory creation
+//! below a repository root goes through directory handles: the root is opened
+//! once, each intermediate component is opened (or created with `mkdirat`)
+//! relative to its parent with `O_DIRECTORY | O_NOFOLLOW`, and the leaf is
+//! opened, created, renamed or unlinked relative to the held parent handle,
+//! which is also the handle fsynced afterwards. A symlink at any component is
+//! refused and never followed, so a component swapped after validation cannot
+//! redirect the operation away from the directory inode that was walked.
+//! Outside this module and `lib.rs`, nothing removes, creates directories or
+//! reads managed files by path; a source guard test enforces that.
 
 use crate::{Error, Result};
 use serde::{Deserialize, Serialize};
@@ -630,6 +633,153 @@ mod tests {
     }
 }
 
+/// Not-found in the I/O category, as a by-path open of a missing entry reports it.
+#[cfg(unix)]
+fn not_found() -> Error {
+    Error::Io(rustix::io::Errno::NOENT.into())
+}
+
+/// Read a bounded regular managed file under `root`, reporting absence as an I/O not-found error.
+///
+/// The Unix walk holds directory handles, so this keeps every guarantee of
+/// `read_small(&safe_path(root, relative)?)` (symlink refusal at any component,
+/// the regular-file rule, the 1 MiB bound and the same error variants) while a
+/// component swapped after validation cannot redirect the read.
+pub(crate) fn read_managed(root: &Path, relative: &str) -> Result<Vec<u8>> {
+    #[cfg(unix)]
+    {
+        optional_bytes(root, relative)?.ok_or_else(not_found)
+    }
+    #[cfg(not(unix))]
+    {
+        crate::read_small(&crate::safe_path(root, relative)?)
+    }
+}
+
+/// Report whether a managed entry of any type exists under `root`.
+///
+/// Symlinks are refused at every component, including the leaf, exactly as
+/// `safe_path` refuses them; a missing root or intermediate directory is absence.
+pub(crate) fn exists(root: &Path, relative: &str) -> Result<bool> {
+    #[cfg(unix)]
+    {
+        match handles::open_parent(root, relative)? {
+            Some(parent) => handles::probe_at(&parent.directory, &parent.leaf),
+            None => Ok(false),
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        match std::fs::symlink_metadata(crate::safe_path(root, relative)?) {
+            Ok(_) => Ok(true),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+            Err(error) => Err(error.into()),
+        }
+    }
+}
+
+/// Create only the missing parent directories of a managed path, syncing each creation.
+///
+/// On Unix every intermediate component is created with `mkdirat` relative to
+/// its held parent and then opened with `O_DIRECTORY | O_NOFOLLOW`; the parent
+/// of each directory actually created is fsynced before descending. A symlink or
+/// non-directory at an intermediate component is refused, as is a symlinked leaf.
+/// Empty created directories are retained on rollback; unrelated directories are
+/// never removed.
+pub(crate) fn ensure_parent(root: &Path, relative: &str) -> Result<()> {
+    #[cfg(unix)]
+    {
+        Path::new(relative)
+            .parent()
+            .ok_or(Error::Transaction("invalid bootstrap parent"))?;
+        handles::create_parents(root, relative)
+    }
+    #[cfg(not(unix))]
+    {
+        let parent = Path::new(relative)
+            .parent()
+            .ok_or(Error::Transaction("invalid bootstrap parent"))?;
+        let mut current = std::path::PathBuf::new();
+        for component in parent.components() {
+            current.push(component);
+            let relative = current
+                .to_str()
+                .ok_or(Error::Transaction("invalid bootstrap path"))?;
+            let directory = crate::safe_path(root, relative)?;
+            match std::fs::create_dir(&directory) {
+                Ok(()) => sync_directory(
+                    directory
+                        .parent()
+                        .ok_or(Error::Transaction("invalid directory parent"))?,
+                )?,
+                Err(error)
+                    if error.kind() == std::io::ErrorKind::AlreadyExists
+                        && std::fs::symlink_metadata(&directory)?.is_dir() => {}
+                Err(error) => return Err(error.into()),
+            }
+        }
+        crate::safe_path(root, relative)?;
+        Ok(())
+    }
+}
+
+/// A managed leaf already unlinked from its parent directory, whose removal is not yet durable.
+///
+/// The caller decides how a failed directory sync is reported; on Unix the sync
+/// goes through the parent handle that performed the unlink, never a fresh walk.
+#[must_use = "a removal is durable only after its parent directory is synced"]
+pub(crate) struct Removed {
+    #[cfg(unix)]
+    parent: File,
+    #[cfg(not(unix))]
+    parent: std::path::PathBuf,
+}
+
+impl Removed {
+    /// Sync the parent directory so the removed entry stays removed after a crash.
+    pub(crate) fn sync(self) -> Result<()> {
+        #[cfg(unix)]
+        {
+            self.parent.sync_all()?;
+            Ok(())
+        }
+        #[cfg(not(unix))]
+        {
+            sync_directory(&self.parent)
+        }
+    }
+}
+
+/// Unlink one regular managed file relative to its held parent directory.
+///
+/// A symlink at any component, including the leaf, is refused and nothing is
+/// unlinked; any other non-regular leaf is refused with the regular-file rule.
+/// A missing leaf or parent directory is an I/O not-found error, as a by-path
+/// `remove_file` reported it. `parent_msg` is the refusal for a path without a
+/// parent directory, which only the non-Unix path walk can reach.
+pub(crate) fn remove(root: &Path, relative: &str, parent_msg: &'static str) -> Result<Removed> {
+    #[cfg(unix)]
+    {
+        let _ = parent_msg;
+        let parent = handles::open_parent(root, relative)?.ok_or_else(not_found)?;
+        handles::remove_at(&parent.directory, &parent.leaf)?;
+        Ok(Removed {
+            parent: parent.directory,
+        })
+    }
+    #[cfg(not(unix))]
+    {
+        let path = crate::safe_path(root, relative)?;
+        std::fs::remove_file(&path)?;
+        Ok(Removed {
+            parent: path
+                .parent()
+                .ok_or(Error::Transaction(parent_msg))?
+                .to_path_buf(),
+        })
+    }
+}
+
 /// Read a regular optional input while preserving absence and propagating unsafe-file failures.
 pub(crate) fn optional_bytes(root: &Path, relative: &str) -> Result<Option<Vec<u8>>> {
     #[cfg(unix)]
@@ -829,18 +979,16 @@ pub(crate) fn lock(root: &Path) -> Result<TransactionLock> {
 }
 
 /// Sync parent metadata so completed file replacements have a durable directory entry.
-pub(crate) fn sync_directory(path: &Path) -> Result<()> {
+///
+/// Only the non-Unix path walk reaches this by path; on Unix every managed
+/// directory (and the repository root) is synced through a held handle.
+#[cfg(not(unix))]
+fn sync_directory(path: &Path) -> Result<()> {
     // Initial mutation support is Unix, matching the supported host platforms.
-    #[cfg(unix)]
-    File::open(path)?.sync_all()?;
-    #[cfg(not(unix))]
-    {
-        let _ = path;
-        return Err(Error::Transaction(
-            "durable transactions require a supported Unix host",
-        ));
-    }
-    Ok(())
+    let _ = path;
+    Err(Error::Transaction(
+        "durable transactions require a supported Unix host",
+    ))
 }
 
 /// Write and sync a temporary regular file, then atomically replace the approved destination.
@@ -1057,6 +1205,89 @@ mod handles {
             return Err(Error::Path(INPUT_CHANGED.into()));
         }
         read_limited(File::from(fd)).map(Some)
+    }
+
+    /// Report whether `leaf` exists in a held directory, refusing a symlinked leaf.
+    pub(crate) fn probe_at(directory: &File, leaf: &OsStr) -> Result<bool> {
+        Ok(entry(directory.as_fd(), leaf)?.is_some())
+    }
+
+    /// Unlink a regular `leaf` relative to an already held directory handle.
+    ///
+    /// The leaf is inspected with a non-following stat first: absence is an
+    /// I/O not-found error, a symlink is refused with the shared symlink
+    /// refusal and any other non-regular entry with the regular-file rule, so
+    /// nothing unexpected is ever unlinked. `unlinkat` itself never follows
+    /// the leaf, and the directory is not synced here; the caller syncs it.
+    pub(crate) fn remove_at(directory: &File, leaf: &OsStr) -> Result<()> {
+        let held = directory.as_fd();
+        let stat = entry(held, leaf)?.ok_or_else(|| os(Errno::NOENT))?;
+        if kind(&stat) != FileType::RegularFile {
+            return Err(Error::Path(REGULAR_INPUT.into()));
+        }
+        rustix::fs::unlinkat(held, leaf, AtFlags::empty())
+            .map_err(|error| refused(held, leaf, error))
+    }
+
+    /// Open the child directory `name` of a held directory, creating it first when missing.
+    ///
+    /// A new directory requests mode 0777 under the process umask, as
+    /// `fs::create_dir` did, and the held parent is fsynced after a creation.
+    /// A symlink is refused; an existing non-directory reports the creation
+    /// conflict (`AlreadyExists`) a by-path `create_dir` reported.
+    pub(crate) fn directory_at(parent: &File, name: &OsStr) -> Result<File> {
+        let held = parent.as_fd();
+        let created = match entry(held, name)? {
+            Some(stat) if kind(&stat) == FileType::Directory => false,
+            Some(_) => return Err(os(Errno::EXIST)),
+            None => match rustix::fs::mkdirat(held, name, Mode::from_raw_mode(0o777)) {
+                Ok(()) => {
+                    parent.sync_all()?;
+                    true
+                }
+                // Created concurrently: the open below decides whether it is usable.
+                Err(Errno::EXIST) => false,
+                Err(error) => return Err(os(error)),
+            },
+        };
+        match rustix::fs::openat(
+            held,
+            name,
+            OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+            Mode::empty(),
+        ) {
+            Ok(fd) => Ok(File::from(fd)),
+            Err(error) => Err(match refused(held, name, error) {
+                Error::Io(_) if !created => os(Errno::EXIST),
+                other => other,
+            }),
+        }
+    }
+
+    /// Create every missing intermediate directory of `relative` through held handles.
+    ///
+    /// Lexical validation is shared with `safe_path` and happens before any
+    /// creation. The leaf itself is only inspected: a symlinked leaf is refused,
+    /// matching the final `safe_path` check of the path-based walk.
+    pub(crate) fn create_parents(root: &Path, relative: &str) -> Result<()> {
+        let components = plain_components(relative)?;
+        let Some((leaf, intermediate)) = components.split_last() else {
+            return Err(Error::Path("expected a plain relative path".into()));
+        };
+        let Some(directory) = root_directory(root)? else {
+            // A missing root only fails once a directory has to be created in it.
+            return if intermediate.is_empty() {
+                Ok(())
+            } else {
+                Err(os(Errno::NOENT))
+            };
+        };
+        let mut directory = File::from(directory);
+        for name in intermediate {
+            directory = directory_at(&directory, name)?;
+        }
+        entry(directory.as_fd(), leaf)?;
+        Ok(())
     }
 
     /// Choose an unpredictable staging name; `O_EXCL` turns a collision into a retry, never a reuse.

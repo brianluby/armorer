@@ -3,11 +3,10 @@
 //! error classification; this module owns the mechanical file transitions.
 use crate::{
     Error, Result,
-    filesystem::{optional_bytes, replace, sync_directory},
-    safe_path,
+    filesystem::{ensure_parent, optional_bytes, remove, replace},
 };
 use serde::{Deserialize, Serialize};
-use std::{fs, path::Path};
+use std::path::Path;
 
 /// One approved file transition. `None` before means absent; `None` after means
 /// deletion. Serde encodes `Some` exactly like a plain field, so journals written
@@ -25,36 +24,8 @@ pub(crate) fn matches(current: Option<&[u8]>, image: Option<&str>) -> bool {
     current == image.map(str::as_bytes)
 }
 
-/// Create only required parents, sync each creation, and recheck for symlinks.
-/// Empty created directories are retained on rollback; unrelated directories are never removed.
-pub(crate) fn ensure_parent(root: &Path, relative: &str) -> Result<()> {
-    let parent = Path::new(relative)
-        .parent()
-        .ok_or(Error::Transaction("invalid bootstrap parent"))?;
-    let mut current = std::path::PathBuf::new();
-    for component in parent.components() {
-        current.push(component);
-        let relative = current
-            .to_str()
-            .ok_or(Error::Transaction("invalid bootstrap path"))?;
-        let directory = safe_path(root, relative)?;
-        match fs::create_dir(&directory) {
-            Ok(()) => sync_directory(
-                directory
-                    .parent()
-                    .ok_or(Error::Transaction("invalid directory parent"))?,
-            )?,
-            Err(error)
-                if error.kind() == std::io::ErrorKind::AlreadyExists
-                    && fs::symlink_metadata(&directory)?.is_dir() => {}
-            Err(error) => return Err(error.into()),
-        }
-    }
-    safe_path(root, relative)?;
-    Ok(())
-}
-
 /// Replace or delete one approved image, preserving mode and syncing the parent.
+/// Parents are created and files removed only through held directory handles.
 pub(crate) fn write_image(
     root: &Path,
     path: &str,
@@ -71,9 +42,7 @@ pub(crate) fn write_image(
         }
         None => {
             if optional_bytes(root, path)?.is_some() {
-                let path = safe_path(root, path)?;
-                fs::remove_file(&path)?;
-                sync_directory(path.parent().ok_or(Error::Transaction(parent_msg))?)?;
+                remove(root, path, parent_msg)?.sync()?;
             }
             Ok(())
         }
