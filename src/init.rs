@@ -9,7 +9,8 @@
 use crate::{
     Error, Result,
     config::{
-        self, Attestations, Config, Deliverable, FeatureSet, Policy, Profile, TARGETS, hex_digest,
+        self, Attestations, Config, Deliverable, FeatureSet, Policy, Profile, RepositoryFiles,
+        TARGETS, hex_digest,
     },
     digest,
     discovery::{self, Package, Workspace},
@@ -198,6 +199,7 @@ pub fn propose(root: &Path, repository: &str, toolchain: Option<&str>) -> Result
             license_file: license.unwrap_or(LICENSE_CANDIDATES[0]).to_owned(),
             attestations: Attestations::Required,
         },
+        repository_files: RepositoryFiles::default(),
     };
     let config_text = render_config(&proposed)?;
     // Valid by construction; re-check with the loader and discovery selection rules anyway.
@@ -839,6 +841,7 @@ mod tests {
                 license_file: "LICENSE".into(),
                 attestations: Attestations::Required,
             },
+            repository_files: RepositoryFiles::default(),
         };
         let text = render_config(&config).unwrap();
         assert!(text.starts_with("# Proposed by `armorer init`"));

@@ -41,6 +41,98 @@ pub struct Config {
     #[schemars(extend("minProperties" = 1, "maxProperties" = 128, "propertyNames" = serde_json::json!({"pattern":"^(?!.*--)[A-Za-z0-9][A-Za-z0-9_-]{0,99}$(?![\\s\\S])"})))]
     pub feature_sets: BTreeMap<String, FeatureSet>,
     pub policy: Policy,
+    /// Optional managed repository files. Omitted from every serialization while
+    /// all switches are off, so existing configurations, plans and digests keep
+    /// their exact bytes.
+    #[serde(default, skip_serializing_if = "RepositoryFiles::is_default")]
+    pub repository_files: RepositoryFiles,
+}
+
+/// Most code owners one configuration may list.
+pub const MAX_CODE_OWNERS: usize = 16;
+
+/// Opt-in switches for the optional managed repository files. Every switch is off
+/// by default; an absent table selects none of these files.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RepositoryFiles {
+    /// Manage `SECURITY.md` from the fixed catalog template.
+    #[serde(default)]
+    pub security_policy: bool,
+    /// Manage `.github/dependabot.yml` from the fixed catalog template.
+    #[serde(default)]
+    pub dependabot: bool,
+    /// Manage `.github/CODEOWNERS` for these owners; an empty list leaves it unmanaged.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[schemars(length(max = 16))]
+    #[schemars(extend("uniqueItems" = true))]
+    #[schemars(inner(regex(
+        pattern = "^@(?=[A-Za-z0-9-]{1,39}(?:/|$(?![\\s\\S])))[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*(?:/[A-Za-z0-9_.-]{1,100})?$(?![\\s\\S])"
+    )))]
+    pub code_owners: Vec<String>,
+}
+
+impl RepositoryFiles {
+    /// True when no optional file is selected; the table is then never serialized.
+    pub fn is_default(&self) -> bool {
+        *self == Self::default()
+    }
+
+    /// Check the owner list: at most 16 unique `@user` or `@org/team` entries.
+    ///
+    /// # Errors
+    /// Returns `Error::Invalid` with a fixed message that never echoes a value.
+    pub fn validate(&self) -> Result<()> {
+        require(
+            self.code_owners.len() <= MAX_CODE_OWNERS,
+            "repository_files.code_owners exceeds 16 entries",
+        )?;
+        let mut seen = BTreeSet::new();
+        for owner in &self.code_owners {
+            require(
+                code_owner(owner),
+                "repository_files.code_owners entries must be @user or @org/team",
+            )?;
+            // GitHub logins and slugs are case-insensitive; one owner listed twice is a duplicate.
+            require(
+                seen.insert(owner.to_ascii_lowercase()),
+                "duplicate repository_files.code_owners entry",
+            )?;
+        }
+        Ok(())
+    }
+}
+
+/// GitHub user or organization login: 1–39 ASCII alphanumerics and single hyphens,
+/// neither starting nor ending with a hyphen.
+fn github_login(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 39
+        && !value.starts_with('-')
+        && !value.ends_with('-')
+        && !value.contains("--")
+        && value
+            .bytes()
+            .all(|c| c.is_ascii_alphanumeric() || c == b'-')
+}
+
+/// Accept exactly `@user` or `@org/team`, where a team slug is 1–100 ASCII
+/// alphanumerics, `-`, `_` or `.`. Nothing else, including e-mail addresses.
+pub fn code_owner(value: &str) -> bool {
+    let Some(rest) = value.strip_prefix('@') else {
+        return false;
+    };
+    match rest.split_once('/') {
+        None => github_login(rest),
+        Some((org, team)) => {
+            github_login(org)
+                && !team.is_empty()
+                && team.len() <= 100
+                && team
+                    .bytes()
+                    .all(|c| c.is_ascii_alphanumeric() || b"-_.".contains(&c))
+        }
+    }
 }
 
 /// Use the workspace-root manifest when configuration omits `manifest`.
@@ -331,7 +423,7 @@ impl Config {
                 )?;
             }
         }
-        Ok(())
+        self.repository_files.validate()
     }
 }
 
@@ -381,6 +473,67 @@ pub fn load_lock(root: &Path, config_digest: &str) -> Result<Option<(Lock, Vec<u
 
 #[cfg(test)]
 mod tests {
+    use super::{RepositoryFiles, code_owner};
+
+    #[test]
+    /// GitHub's two owner forms are accepted exactly; e-mail and path forms never are.
+    fn code_owner_forms_follow_github_rules() {
+        let login = format!("@a{}", "b".repeat(38));
+        let team = format!("@org/{}", "t".repeat(100));
+        for good in [
+            "@a",
+            "@a-b",
+            "@A1",
+            &login,
+            "@org/team",
+            "@org/a.b_c-d",
+            &team,
+        ] {
+            assert!(code_owner(good), "{good}");
+        }
+        let long_login = format!("@a{}", "b".repeat(39));
+        let long_team = format!("@org/{}", "t".repeat(101));
+        for bad in [
+            "",
+            "@",
+            "a",
+            "@-a",
+            "@a-",
+            "@a--b",
+            "@a_b",
+            "@a b",
+            &long_login,
+            "@org/",
+            "@/team",
+            "@org/team/x",
+            "@org/te am",
+            &long_team,
+            "@-org/team",
+            "a@example.com",
+            "@a\n",
+            "/.github/",
+        ] {
+            assert!(!code_owner(bad), "{bad:?}");
+        }
+    }
+
+    #[test]
+    /// Every switch is off by default; at most 16 owners, unique ignoring ASCII case.
+    fn repository_files_defaults_and_owner_bounds() {
+        let files = RepositoryFiles::default();
+        assert!(files.is_default());
+        files.validate().unwrap();
+        let mut owners = RepositoryFiles {
+            code_owners: (0..17).map(|i| format!("@o{i}")).collect(),
+            ..RepositoryFiles::default()
+        };
+        assert!(owners.validate().is_err());
+        owners.code_owners.truncate(16);
+        owners.validate().unwrap();
+        owners.code_owners[1] = owners.code_owners[0].to_ascii_uppercase();
+        assert!(owners.validate().is_err());
+    }
+
     #[test]
     /// A prerelease crate version would make the x.y.z lock schema unsatisfiable for every input.
     fn crate_version_matches_lock_schema_pattern() {
