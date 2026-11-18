@@ -18,7 +18,7 @@ Their latest push validation passes. **This is the way.**
 | Armorer [#27](https://github.com/brianluby/armorer/pull/27) | `ab526d7a0d3b547cc39041b52262e60173223b49` | OCR remediation: private staging hardening and tightened verification contracts |
 
 Main exposes `check`, `catalog`, `bootstrap`, `upgrade`, `verify-release`,
-`verify-historical-bytes`, `publication` and `schema`. There are 24 schema exporters. Follow the
+`verify-historical-bytes`, `publication` and `schema`. There are 25 schema exporters. Follow the
 [command reference](cli-reference.md), [bootstrap](bootstrap-v2.md),
 [upgrades](upgrades.md), [complete verifier](verify-release-cli.md),
 [historical policy](historical-verification.md) and
@@ -31,7 +31,7 @@ No `init` command is provided.
 PRs #15–#19 target old parent branches, but their exact heads are ancestors of
 the accepted source baseline. They are closed as superseded by #21. PR #20's
 two preview files are byte-identical to main, so that docstring PR is also closed.
-The schema repair from #23 is incorporated in the current 27-schema contributor
+The schema repair from #23 is incorporated in the current 25-schema contributor
 procedure; its old stacked PR is closed. #21 is already merged. This documentation
 reconciliation is delivered through #22. Original branches and dated receipts
 retain their evidence; closing a duplicate PR does not add release qualification.
