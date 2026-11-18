@@ -387,6 +387,29 @@ fn wait_bounded(child: &mut Supervised, code: &'static str) -> Result<()> {
 pub fn discover(root: &Path, config: &Config) -> Result<Workspace> {
     let root = root.canonicalize()?;
     config.validate(&root)?;
+    let workspace = discover_workspace(&root, &config.toolchain)?;
+    validate_selection(config, &workspace.packages)?;
+    Ok(workspace)
+}
+
+/// Read workspace metadata for an exact installed toolchain without any configuration.
+///
+/// This is the isolated snapshot and `cargo metadata --no-deps --offline --locked`
+/// step of [`discover`], with the same cleared environment, private snapshot,
+/// time/size limits and exclusion of repository Cargo configuration. It selects
+/// nothing: callers validate deliverable selections separately.
+///
+/// # Errors
+/// Returns `Error::Invalid` unless `toolchain` is an exact stable `x.y.z`
+/// version, and otherwise the same errors as [`discover`] apart from selection
+/// validation.
+pub fn discover_workspace(root: &Path, toolchain: &str) -> Result<Workspace> {
+    if !crate::config::exact_version(toolchain) {
+        return Err(Error::Invalid(
+            "toolchain must be an exact stable x.y.z version".into(),
+        ));
+    }
+    let root = root.canonicalize()?;
     let rustup = trusted_rustup(&root)?;
     let temporary_parent = std::env::temp_dir().canonicalize()?;
     if temporary_parent.starts_with(&root) {
@@ -430,7 +453,7 @@ pub fn discover(root: &Path, config: &Config) -> Result<Workspace> {
     let lookup_stdout = std::fs::File::create(&lookup_path)?;
     let mut lookup = Command::new(&rustup);
     lookup
-        .args(["which", "--toolchain", &config.toolchain, "cargo"])
+        .args(["which", "--toolchain", toolchain, "cargo"])
         .current_dir(&snapshot_root)
         .env_clear()
         .env("RUSTUP_AUTO_INSTALL", "0")
@@ -553,13 +576,39 @@ pub fn discover(root: &Path, config: &Config) -> Result<Workspace> {
     if packages.is_empty() {
         return Err(Error::Metadata);
     }
-    validate_selection(config, &packages)?;
     Ok(Workspace {
         packages,
         cargo_lock_present: snapshot.inputs.contains_key("Cargo.lock"),
         inputs: snapshot.inputs,
         cargo_config_present: snapshot.cargo_config_present,
     })
+}
+
+/// Expand `active` to the transitive closure of declared package features, adding
+/// `default` first when requested and declared; cycles terminate without an error.
+pub(crate) fn enable_closure(
+    package: &Package,
+    default_features: bool,
+    active: &mut BTreeSet<String>,
+) {
+    if default_features && package.features.contains_key("default") {
+        active.insert("default".into());
+    }
+    loop {
+        let before = active.len();
+        for feature in active.clone() {
+            if let Some(edges) = package.features.get(&feature) {
+                for edge in edges {
+                    if package.features.contains_key(edge) {
+                        active.insert(edge.clone());
+                    }
+                }
+            }
+        }
+        if active.len() == before {
+            break;
+        }
+    }
 }
 
 /// Check selected packages, minimum Rust versions, and targets against metadata.
@@ -574,7 +623,7 @@ pub fn discover(root: &Path, config: &Config) -> Result<Workspace> {
 ///
 /// # Panics
 /// Panics if a deliverable references an absent feature set.
-fn validate_selection(config: &Config, packages: &[Package]) -> Result<()> {
+pub(crate) fn validate_selection(config: &Config, packages: &[Package]) -> Result<()> {
     let compiler = semver::Version::parse(&config.toolchain).map_err(|_| Error::Metadata)?;
     for deliverable in &config.deliverables {
         let candidates: Vec<_> = packages
@@ -610,24 +659,7 @@ fn validate_selection(config: &Config, packages: &[Package]) -> Result<()> {
                 "selected feature is not declared by the package".into(),
             ));
         }
-        if case.default_features && package.features.contains_key("default") {
-            active.insert("default".into());
-        }
-        loop {
-            let before = active.len();
-            for feature in active.clone() {
-                if let Some(edges) = package.features.get(&feature) {
-                    for edge in edges {
-                        if package.features.contains_key(edge) {
-                            active.insert(edge.clone());
-                        }
-                    }
-                }
-            }
-            if active.len() == before {
-                break;
-            }
-        }
+        enable_closure(package, case.default_features, &mut active);
         let valid = package.targets.iter().any(|target| {
             let selected = match &deliverable.binary {
                 Some(binary) => {

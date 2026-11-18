@@ -174,7 +174,7 @@ pub fn repository_name(value: &str) -> bool {
 }
 
 /// Accept a complete semantic version without prerelease or build metadata.
-fn exact_version(value: &str) -> bool {
+pub(crate) fn exact_version(value: &str) -> bool {
     semver::Version::parse(value).is_ok_and(|v| v.pre.is_empty() && v.build.is_empty())
 }
 
@@ -207,10 +207,20 @@ fn require(condition: bool, message: &str) -> Result<()> {
 /// [`Config::validate`] errors.
 pub fn load_config(root: &Path) -> Result<(Config, Vec<u8>)> {
     let bytes = read_small(&safe_path(root, "armorer.toml")?)?;
-    let text = std::str::from_utf8(&bytes).map_err(|_| Error::Toml)?;
+    let config = parse_config(&bytes, root)?;
+    Ok((config, bytes))
+}
+
+/// Parse and validate exact `armorer.toml` bytes exactly as [`load_config`] does.
+///
+/// # Errors
+/// Returns `Error::Toml`/`Error::TomlAt` for invalid UTF-8, malformed TOML or a
+/// schema mismatch and propagates [`Config::validate`] errors.
+pub(crate) fn parse_config(bytes: &[u8], root: &Path) -> Result<Config> {
+    let text = std::str::from_utf8(bytes).map_err(|_| Error::Toml)?;
     let config: Config = toml::from_str(text).map_err(toml_error)?;
     config.validate(root)?;
-    Ok((config, bytes))
+    Ok(config)
 }
 
 /// Preserve the failure offset without echoing any untrusted config value.
