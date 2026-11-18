@@ -1,3 +1,4 @@
+use armorer::verification::manifest::{PublicationFiles, ReleaseContextKind, ReleaseInputs};
 use armorer::{
     Error, Result,
     config::{Config, Lock},
@@ -66,20 +67,8 @@ enum Operation {
 
     /// Authenticate the complete release set; Apple executables also require native macOS checks.
     VerifyRelease {
-        #[arg(long)]
-        directory: PathBuf,
-        #[arg(long)]
-        trusted_inputs: PathBuf,
-        #[arg(long)]
-        expect_context_sha256: String,
-        #[arg(long, value_enum)]
-        context_kind: ContextKind,
-        #[arg(long)]
-        gh: PathBuf,
-        #[arg(long)]
-        trusted_root: PathBuf,
-        #[arg(long)]
-        cyclonedx: PathBuf,
+        #[command(flatten)]
+        inputs: ReleaseArgs,
     },
     /// Explicitly compare independently approved historical bytes; establishes no provenance authentication.
     VerifyHistoricalBytes {
@@ -110,29 +99,133 @@ enum Operation {
     },
 }
 
+/// Release inputs as individual flags, or as one manifest pinned by its own digest.
+/// Both forms resolve into the same `ReleaseInputs` before any verification step runs.
+#[derive(Args)]
+struct ReleaseArgs {
+    #[arg(
+        long,
+        required_unless_present = "manifest",
+        conflicts_with = "manifest"
+    )]
+    directory: Option<PathBuf>,
+    #[arg(
+        long,
+        required_unless_present = "manifest",
+        conflicts_with = "manifest"
+    )]
+    trusted_inputs: Option<PathBuf>,
+    #[arg(
+        long,
+        required_unless_present = "manifest",
+        conflicts_with = "manifest"
+    )]
+    expect_context_sha256: Option<String>,
+    #[arg(
+        long,
+        value_enum,
+        required_unless_present = "manifest",
+        conflicts_with = "manifest"
+    )]
+    context_kind: Option<ContextKind>,
+    #[arg(
+        long,
+        required_unless_present = "manifest",
+        conflicts_with = "manifest"
+    )]
+    gh: Option<PathBuf>,
+    #[arg(
+        long,
+        required_unless_present = "manifest",
+        conflicts_with = "manifest"
+    )]
+    trusted_root: Option<PathBuf>,
+    #[arg(
+        long,
+        required_unless_present = "manifest",
+        conflicts_with = "manifest"
+    )]
+    cyclonedx: Option<PathBuf>,
+    /// JSON file naming the release (and publication) input flags; replaces them and needs its digest.
+    #[arg(long, requires = "expect_manifest_sha256")]
+    manifest: Option<PathBuf>,
+    /// Independently approved SHA-256 of the exact manifest bytes (lowercase hex).
+    #[arg(long, requires = "manifest")]
+    expect_manifest_sha256: Option<String>,
+}
+
 /// Independently approved inputs are authenticated before credentials or a native publication adapter are opened.
 #[derive(Args)]
 struct PublicationInputs {
-    #[arg(long)]
-    directory: PathBuf,
-    #[arg(long)]
-    trusted_inputs: PathBuf,
-    #[arg(long)]
-    expect_context_sha256: String,
-    #[arg(long, value_enum)]
-    context_kind: ContextKind,
-    #[arg(long)]
-    gh: PathBuf,
-    #[arg(long)]
-    trusted_root: PathBuf,
-    #[arg(long)]
-    cyclonedx: PathBuf,
-    #[arg(long)]
-    publication_policy: PathBuf,
-    #[arg(long)]
-    expect_publication_policy_sha256: String,
-    #[arg(long)]
-    release_attestation_root: PathBuf,
+    #[command(flatten)]
+    release: ReleaseArgs,
+    #[arg(
+        long,
+        required_unless_present = "manifest",
+        conflicts_with = "manifest"
+    )]
+    publication_policy: Option<PathBuf>,
+    #[arg(
+        long,
+        required_unless_present = "manifest",
+        conflicts_with = "manifest"
+    )]
+    expect_publication_policy_sha256: Option<String>,
+    #[arg(
+        long,
+        required_unless_present = "manifest",
+        conflicts_with = "manifest"
+    )]
+    release_attestation_root: Option<PathBuf>,
+}
+
+impl ReleaseArgs {
+    /// Authenticate the manifest first, or take the flags; both yield the same struct.
+    fn resolve(self) -> Result<ReleaseInputs> {
+        if let (Some(manifest), Some(digest)) = (&self.manifest, &self.expect_manifest_sha256) {
+            return ReleaseInputs::open(manifest, digest);
+        }
+        // clap guarantees every flag without a manifest; never panic if that changes.
+        let missing = || Error::Invalid("missing release input flag".into());
+        Ok(ReleaseInputs {
+            directory: self.directory.ok_or_else(missing)?,
+            trusted_inputs: self.trusted_inputs.ok_or_else(missing)?,
+            expect_context_sha256: self.expect_context_sha256.ok_or_else(missing)?,
+            context_kind: self.context_kind.ok_or_else(missing)?.into(),
+            gh: self.gh.ok_or_else(missing)?,
+            trusted_root: self.trusted_root.ok_or_else(missing)?,
+            cyclonedx: self.cyclonedx.ok_or_else(missing)?,
+            publication: None,
+            manifest: None,
+        })
+    }
+}
+
+impl PublicationInputs {
+    /// Resolve release and publication inputs from the manifest or from the flags.
+    fn resolve(self) -> Result<ReleaseInputs> {
+        let mut inputs = self.release.resolve()?;
+        if inputs.manifest.is_none() {
+            let missing = || Error::Invalid("missing publication input flag".into());
+            inputs.publication = Some(PublicationFiles {
+                policy: self.publication_policy.ok_or_else(missing)?,
+                expect_policy_sha256: self.expect_publication_policy_sha256.ok_or_else(missing)?,
+                release_attestation_root: self.release_attestation_root.ok_or_else(missing)?,
+            });
+        }
+        Ok(inputs)
+    }
+}
+
+/// Record the authenticated manifest identity in a success document; the flag form is unchanged.
+fn with_inputs_manifest(
+    mut value: serde_json::Value,
+    manifest: Option<&armorer::trust::ByteIdentity>,
+) -> serde_json::Value {
+    if let (Some(identity), Some(object)) = (manifest, value.as_object_mut()) {
+        object.insert("inputs_manifest".into(), json!(identity));
+    }
+    value
 }
 
 #[derive(Subcommand)]
@@ -177,6 +270,14 @@ enum PublicationOperation {
 #[derive(Clone, Copy, ValueEnum)]
 enum ContextKind {
     NativeV3,
+}
+
+impl From<ContextKind> for ReleaseContextKind {
+    fn from(kind: ContextKind) -> Self {
+        match kind {
+            ContextKind::NativeV3 => Self::NativeV3,
+        }
+    }
 }
 
 #[derive(Subcommand)]
@@ -256,6 +357,7 @@ enum SchemaKind {
     PublicationPolicy,
     PublicationPlan,
     PublicationApproval,
+    ReleaseInputsManifest,
     NativeCatalogV2,
     RuntimeDistributionV1,
     VerificationContextV3,
@@ -288,7 +390,8 @@ enum SchemaKind {
 /// output is left to the caller.
 /// Authenticate complete inert release bytes and native Apple evidence before creating publication intent.
 fn freeze_publication_inputs(
-    inputs: &PublicationInputs,
+    inputs: &ReleaseInputs,
+    publication: &PublicationFiles,
 ) -> Result<(
     armorer::verification::context::TrustedReleaseContext,
     armorer::verification::publication::TrustedPublicationPolicy,
@@ -302,8 +405,8 @@ fn freeze_publication_inputs(
     )?;
     // Publication intent is authenticated after the context and before executable adapters.
     let policy = TrustedPublicationPolicy::open(
-        &inputs.publication_policy,
-        &inputs.expect_publication_policy_sha256,
+        &publication.policy,
+        &publication.expect_policy_sha256,
         &context,
     )?;
     let (files, apple) = authenticate_release_files(
@@ -322,11 +425,11 @@ fn freeze_publication_inputs(
 fn open_trusted_context(
     trusted_inputs: &std::path::Path,
     expect_context_sha256: &str,
-    context_kind: ContextKind,
+    context_kind: ReleaseContextKind,
 ) -> Result<armorer::verification::context::TrustedReleaseContext> {
     use armorer::verification::context::TrustedReleaseContext;
     match context_kind {
-        ContextKind::NativeV3 => {
+        ReleaseContextKind::NativeV3 => {
             TrustedReleaseContext::open_native_v3(trusted_inputs, expect_context_sha256)
         }
     }
@@ -369,7 +472,10 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
             use armorer::verification::publication::{
                 ApprovedPublication, NativeGithub, OwnedDraftController,
             };
-            let (context, policy, frozen) = freeze_publication_inputs(&inputs)?;
+            // The manifest (if any) is authenticated first; a missing block fails before the context.
+            let inputs = inputs.resolve()?;
+            let publication = inputs.publication()?;
+            let (context, policy, frozen) = freeze_publication_inputs(&inputs, publication)?;
             // One exhaustive match: Plan returns before any credential access, and a new
             // variant must be handled here at compile time instead of reaching a panic.
             // Authenticate an independent action before reading credentials; inspect and
@@ -377,8 +483,11 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
             let (state_directory, owner_home, read_only, approval) = match &operation {
                 PublicationOperation::Plan => {
                     return Ok((
-                        json!({"plan":frozen.plan(), "plan_identity":frozen.identity(),
-                        "remote_mutations":false, "publication_authorized":false}),
+                        with_inputs_manifest(
+                            json!({"plan":frozen.plan(), "plan_identity":frozen.identity(),
+                            "remote_mutations":false, "publication_authorized":false}),
+                            inputs.manifest.as_ref(),
+                        ),
                         0,
                     ));
                 }
@@ -422,12 +531,12 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
                     })?;
                 NativeGithub::open_owner_read_only(
                     &inputs.gh,
-                    &inputs.release_attestation_root,
+                    &publication.release_attestation_root,
                     &policy,
                     &home,
                 )?
             } else {
-                NativeGithub::open(&inputs.gh, &inputs.release_attestation_root, &policy)?
+                NativeGithub::open(&inputs.gh, &publication.release_attestation_root, &policy)?
             }
             .bind_repository(&context, &policy)?;
             let mut controller =
@@ -454,7 +563,10 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
                     ));
                 }
             };
-            Ok((value.map_err(|_| Error::Json)?, 0))
+            Ok((
+                with_inputs_manifest(value.map_err(|_| Error::Json)?, inputs.manifest.as_ref()),
+                0,
+            ))
         }
         Operation::Upgrade { operation } => {
             let value = match operation {
@@ -588,48 +700,47 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
             warn_if_catalog_stale();
             Ok((value, 0))
         }
-        Operation::VerifyRelease {
-            directory,
-            trusted_inputs,
-            expect_context_sha256,
-            context_kind,
-            gh,
-            trusted_root,
-            cyclonedx,
-        } => {
+        Operation::VerifyRelease { inputs } => {
+            let inputs = inputs.resolve()?;
             // Authenticate independent intent before reading a release or opening
             // executable adapters; the sequence is shared with publication freezing.
-            let context =
-                open_trusted_context(&trusted_inputs, &expect_context_sha256, context_kind)?;
+            let context = open_trusted_context(
+                &inputs.trusted_inputs,
+                &inputs.expect_context_sha256,
+                inputs.context_kind,
+            )?;
             let (verified, apple) = authenticate_release_files(
-                &directory,
-                &trusted_inputs,
+                &inputs.directory,
+                &inputs.trusted_inputs,
                 &context,
-                &gh,
-                &trusted_root,
-                &cyclonedx,
+                &inputs.gh,
+                &inputs.trusted_root,
+                &inputs.cyclonedx,
             )?;
             Ok((
-                json!({
-                    "status": "authenticated-release-files",
-                    "cryptographic_release_authenticated": true,
-                    "provenance_verified": true,
-                    "publication_authorized": false,
-                    "slsa_build_level": null,
-                    "context": verified.context_identity(),
-                    "catalog": context.catalog_identity(),
-                    "inputs": context.inputs(),
-                    "inventory": verified.inventory_proof().subject(),
-                    "inventory_bundle": verified.inventory_proof().bundle(),
-                    "verification_policy": verified.inventory_proof().policy(),
-                    "verifier": verified.inventory_proof().verifier(),
-                    "trusted_root": verified.inventory_proof().trusted_root(),
-                    "assets": verified.inventory().assets,
-                    "attestation_bundles_verified": verified.verified_bundle_count(),
-                    "sboms_verified": verified.sboms().len(),
-                    "apple_verification": if apple.payloads().is_empty() { "not-required" } else { "native-verified" },
-                    "apple_payloads": apple.payloads(),
-                }),
+                with_inputs_manifest(
+                    json!({
+                        "status": "authenticated-release-files",
+                        "cryptographic_release_authenticated": true,
+                        "provenance_verified": true,
+                        "publication_authorized": false,
+                        "slsa_build_level": null,
+                        "context": verified.context_identity(),
+                        "catalog": context.catalog_identity(),
+                        "inputs": context.inputs(),
+                        "inventory": verified.inventory_proof().subject(),
+                        "inventory_bundle": verified.inventory_proof().bundle(),
+                        "verification_policy": verified.inventory_proof().policy(),
+                        "verifier": verified.inventory_proof().verifier(),
+                        "trusted_root": verified.inventory_proof().trusted_root(),
+                        "assets": verified.inventory().assets,
+                        "attestation_bundles_verified": verified.verified_bundle_count(),
+                        "sboms_verified": verified.sboms().len(),
+                        "apple_verification": if apple.payloads().is_empty() { "not-required" } else { "native-verified" },
+                        "apple_payloads": apple.payloads(),
+                    }),
+                    inputs.manifest.as_ref(),
+                ),
                 0,
             ))
         }
@@ -692,6 +803,9 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
                 }
                 SchemaKind::PublicationApproval => {
                     schemars::schema_for!(armorer::verification::publication::PublicationApproval)
+                }
+                SchemaKind::ReleaseInputsManifest => {
+                    schemars::schema_for!(armorer::verification::manifest::ReleaseInputsManifest)
                 }
                 SchemaKind::NativeCatalogV2 => {
                     schemars::schema_for!(armorer::trust::native::NativeCatalogV2)
@@ -832,5 +946,25 @@ fn main() {
             eprintln!("armorer: failed to write JSON output to stdout");
             std::process::exit(1)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The manifest form adds exactly one field; the flag form is byte-identical.
+    #[test]
+    fn inputs_manifest_is_added_only_for_the_manifest_form() {
+        let base = json!({"status": "authenticated-release-files"});
+        assert_eq!(with_inputs_manifest(base.clone(), None), base);
+        let identity = armorer::trust::ByteIdentity::from_bytes(b"manifest");
+        let annotated = with_inputs_manifest(base.clone(), Some(&identity));
+        assert_eq!(
+            annotated["inputs_manifest"],
+            json!({"sha256": identity.sha256, "size": 8})
+        );
+        assert_eq!(annotated.as_object().unwrap().len(), 2);
+        assert_eq!(annotated["status"], base["status"]);
     }
 }
