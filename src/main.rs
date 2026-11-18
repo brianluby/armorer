@@ -497,9 +497,13 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
                     let plan = armorer::bootstrap::inspect(&cli.repository, &policy)?;
                     // Reasons go to stderr; stdout stays the unchanged plan document.
                     let drift = plan.drift();
+                    warn_if_catalog_stale();
                     // The strict gate fails only while a blocker exists.
                     let blockers = if release_ready {
-                        plan.release_blockers()
+                        armorer::catalog::with_review_blocker(
+                            plan.release_blockers(),
+                            &armorer::catalog::freshness_now()?,
+                        )
                     } else {
                         Vec::new()
                     };
@@ -541,10 +545,15 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
             };
             Ok((value.map_err(|_| Error::Json)?, status))
         }
-        Operation::Catalog => Ok((
-            serde_json::to_value(armorer::catalog::reviewed_v2()?).map_err(|_| Error::Json)?,
-            0,
-        )),
+        Operation::Catalog => {
+            let mut value =
+                serde_json::to_value(armorer::catalog::reviewed_v2()?).map_err(|_| Error::Json)?;
+            // Static review facts only; the clock-dependent age never reaches stdout.
+            value["reviewed_on"] = armorer::catalog::CATALOG_REVIEWED_ON.into();
+            value["review_window_days"] = armorer::catalog::REVIEW_WINDOW_DAYS.into();
+            warn_if_catalog_stale();
+            Ok((value, 0))
+        }
         Operation::VerifyRelease {
             directory,
             trusted_inputs,
@@ -695,6 +704,7 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
                 &armorer::safe_path(&cli.repository, ".armorer/ci-policy.toml")?,
             )?;
             let drift = plan.drift();
+            warn_if_catalog_stale();
             let status = if drift.is_empty() {
                 0
             } else {
@@ -703,6 +713,16 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
             };
             Ok((serde_json::to_value(plan).map_err(|_| Error::Json)?, status))
         }
+    }
+}
+
+/// Print the single stale-catalog warning to stderr; never affects the exit status.
+fn warn_if_catalog_stale() {
+    if let Some(line) = armorer::catalog::freshness_now()
+        .ok()
+        .and_then(|f| armorer::catalog::stale_warning(&f))
+    {
+        eprintln!("{line}");
     }
 }
 

@@ -145,6 +145,12 @@ fn catalog_cli_needs_no_consumer_or_installed_build_tools() {
     let output: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
     assert_eq!(output["workflow"]["commit"], WORKFLOW_COMMIT_V2);
     assert_eq!(output["tools"].as_object().unwrap().len(), 6);
+    assert_eq!(output["reviewed_on"], armorer::catalog::CATALOG_REVIEWED_ON);
+    assert_eq!(output["review_window_days"], 180);
+    assert!(
+        !String::from_utf8_lossy(&result.stderr).contains("catalog pins were last reviewed"),
+        "catalog must be fresh today"
+    );
     assert_eq!(fs::read_dir(root.path()).unwrap().count(), 0);
 }
 
