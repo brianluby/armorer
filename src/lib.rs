@@ -18,6 +18,7 @@ mod filesystem;
 pub mod plan;
 mod runtime;
 mod schema_bounds;
+mod transaction;
 pub mod trust;
 pub mod upgrade;
 pub mod verification;
