@@ -6,9 +6,9 @@ guard_v1, LegacyV1 upgrade source) merged in PR #46 (`33ce192`). Row 3
 (legacy-v1/native-v2 context kinds, readers and standalone v1/v2 context
 schemas) merged in PR #47 (`00c44a7`). Row 4 (bootstrap-v1 as production
 authority) merged in PR #48 (`6a3b45a`): the predecessor survives only behind
-the `test-predecessor` feature for migration tests (rule 3); production builds
-reject it as an unknown catalog. This ADR authorizes no release, tag or
-publication.
+the `test-predecessor` feature for migration tests (rule 3); builds without
+that feature (the default, and what releases use) reject it as an unknown
+catalog. This ADR authorizes no release, tag or publication.
 
 ## Context
 
