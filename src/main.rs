@@ -497,13 +497,19 @@ fn run(cli: Cli) -> Result<(serde_json::Value, i32)> {
                     let plan = armorer::bootstrap::inspect(&cli.repository, &policy)?;
                     // Reasons go to stderr; stdout stays the unchanged plan document.
                     let drift = plan.drift();
-                    warn_if_catalog_stale();
+                    // One clock read feeds both the warning and the blocker: a clock
+                    // error is ignored for the warning but fails closed for the gate.
+                    let freshness = armorer::catalog::freshness_now();
+                    if let Some(line) = freshness
+                        .as_ref()
+                        .ok()
+                        .and_then(armorer::catalog::stale_warning)
+                    {
+                        eprintln!("{line}");
+                    }
                     // The strict gate fails only while a blocker exists.
                     let blockers = if release_ready {
-                        armorer::catalog::with_review_blocker(
-                            plan.release_blockers(),
-                            &armorer::catalog::freshness_now()?,
-                        )
+                        armorer::catalog::with_review_blocker(plan.release_blockers(), &freshness?)
                     } else {
                         Vec::new()
                     };
