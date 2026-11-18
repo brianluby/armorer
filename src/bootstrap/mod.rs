@@ -8,10 +8,5 @@ pub use transaction::{Receipt, apply, recover};
 pub(crate) const VERSION: u32 = 2;
 pub(crate) const STATE: &str = ".armorer/bootstrap-state-v2.json";
 pub(crate) const JOURNAL: &str = ".armorer/bootstrap-journal-v2.json";
-pub(crate) const TARGETS: [&str; 5] = [
-    ".armorer/ci-policy.toml",
-    ".github/workflows/armorer-build.yml",
-    ".github/workflows/armorer-ci.yml",
-    "armorer.lock",
-    "rust-toolchain.toml",
-];
+// The managed file set is not a constant here: each compiled catalog entry
+// declares it (`catalog::AuthenticatedCatalog::managed_paths`, ADR 0013).

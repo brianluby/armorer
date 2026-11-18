@@ -50,6 +50,9 @@ pub fn select(id: &str) -> Result<Authority> {
         #[cfg(feature = "test-predecessor")]
         "bootstrap-v1" => 1,
         "bootstrap-v2" => 2,
+        // Test-only wider file set (ADR 0013); production builds cannot select it.
+        #[cfg(feature = "test-predecessor")]
+        "bootstrap-test-wide" => 3,
         _ => {
             return Err(Error::Transaction(
                 "unknown upgrade catalog; no moving pin or fallback is supported",
@@ -127,6 +130,9 @@ mod tests {
         assert_eq!(v2.tools_sha256, catalog::TOOLS_SHA256);
         assert_eq!(v2.workflow_repository, catalog::WORKFLOW_REPOSITORY);
         assert_eq!(v2.runtime_version, v1.runtime_version);
+        let wide = select("bootstrap-test-wide").unwrap();
+        assert_eq!(wide.revision, 3);
+        assert_eq!(wide.workflow_commit, catalog::WORKFLOW_COMMIT_TEST_WIDE);
         for id in [
             "main",
             "v1",

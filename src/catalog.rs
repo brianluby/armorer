@@ -8,7 +8,10 @@ use crate::{
     digest,
 };
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, path::Path};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    path::Path,
+};
 
 pub const WORKFLOW_REPOSITORY: &str = "brianluby/armorer-workflows";
 /// Test-only predecessor pin (ADR 0012 rule 3); production builds cannot select it.
@@ -120,6 +123,9 @@ pub struct AuthenticatedCatalog {
     workflow: WorkflowPin,
     tools_sha256: &'static str,
     tools: BTreeMap<String, Tool>,
+    /// Compiled managed-file table of this catalog entry; not part of the printed catalog.
+    #[serde(skip)]
+    files: &'static [ManagedFile],
 }
 
 /// Authenticate exact bytes before structural interpretation. The expected identity
@@ -129,11 +135,16 @@ pub struct AuthenticatedCatalog {
 /// Rejects oversized, substituted or malformed catalog bytes. No network or
 /// consuming-repository operation occurs; upgrades require a reviewed CLI source change.
 pub fn authenticate(bytes: &[u8]) -> Result<AuthenticatedCatalog> {
-    authenticate_with(bytes, WORKFLOW_COMMIT_V2)
+    authenticate_with(bytes, WORKFLOW_COMMIT_V2, BOOTSTRAP_FILES)
 }
 
-/// Hash-before-parse against the compiled digest, binding the given compiled workflow pin.
-fn authenticate_with(bytes: &[u8], workflow_commit: &str) -> Result<AuthenticatedCatalog> {
+/// Hash-before-parse against the compiled digest, binding the given compiled workflow
+/// pin and managed-file table.
+fn authenticate_with(
+    bytes: &[u8],
+    workflow_commit: &str,
+    files: &'static [ManagedFile],
+) -> Result<AuthenticatedCatalog> {
     if bytes.len() > 1_048_576 || digest(bytes) != TOOLS_SHA256 {
         return Err(Error::Invalid(
             "bootstrap catalog authentication failed".into(),
@@ -151,6 +162,7 @@ fn authenticate_with(bytes: &[u8], workflow_commit: &str) -> Result<Authenticate
         },
         tools_sha256: TOOLS_SHA256,
         tools: catalog.tools,
+        files,
     })
 }
 
@@ -158,35 +170,82 @@ fn authenticate_with(bytes: &[u8], workflow_commit: &str) -> Result<Authenticate
 /// production builds; bootstrap-v2 is the only production authority.
 #[cfg(feature = "test-predecessor")]
 pub fn reviewed() -> Result<AuthenticatedCatalog> {
-    authenticate_with(TOOLS, WORKFLOW_COMMIT)
+    reviewed_for("bootstrap-v1")
 }
 
 /// Load the reviewed bootstrap-v2 successor: same authenticated tool bytes, accepted workflows head.
 pub fn reviewed_v2() -> Result<AuthenticatedCatalog> {
-    authenticate_with(TOOLS, WORKFLOW_COMMIT_V2)
+    reviewed_for("bootstrap-v2")
 }
 
-/// Select the compiled catalog for a registry id. Unknown ids never fall back.
-pub fn reviewed_for(id: &str) -> Result<AuthenticatedCatalog> {
+/// Every compiled catalog id. Production builds compile only `bootstrap-v2`; the
+/// test-only entries exist solely behind the `test-predecessor` feature.
+const COMPILED: &[&str] = &[
+    #[cfg(feature = "test-predecessor")]
+    "bootstrap-v1",
+    "bootstrap-v2",
+    #[cfg(feature = "test-predecessor")]
+    "bootstrap-test-wide",
+];
+
+/// Compiled registry entry: workflow pin and managed-file table. Unknown ids have none.
+fn registry(id: &str) -> Option<(&'static str, &'static [ManagedFile])> {
     match id {
         #[cfg(feature = "test-predecessor")]
-        "bootstrap-v1" => reviewed(),
-        "bootstrap-v2" => reviewed_v2(),
-        _ => Err(Error::Invalid("unknown bootstrap catalog authority".into())),
-    }
-}
-
-/// Map a compiled workflow pin back to its registry id. Unknown commits have no authority.
-pub(crate) fn id_for_commit(commit: &str) -> Option<&'static str> {
-    match commit {
+        "bootstrap-v1" => Some((WORKFLOW_COMMIT, BOOTSTRAP_FILES)),
+        "bootstrap-v2" => Some((WORKFLOW_COMMIT_V2, BOOTSTRAP_FILES)),
         #[cfg(feature = "test-predecessor")]
-        WORKFLOW_COMMIT => Some("bootstrap-v1"),
-        WORKFLOW_COMMIT_V2 => Some("bootstrap-v2"),
+        "bootstrap-test-wide" => Some((WORKFLOW_COMMIT_TEST_WIDE, TEST_WIDE_FILES)),
         _ => None,
     }
 }
 
+/// Ids of every catalog compiled into this build, in registry order.
+pub fn compiled_ids() -> &'static [&'static str] {
+    COMPILED
+}
+
+/// Select the compiled catalog for a registry id. Unknown ids never fall back.
+pub fn reviewed_for(id: &str) -> Result<AuthenticatedCatalog> {
+    let (commit, files) =
+        registry(id).ok_or_else(|| Error::Invalid("unknown bootstrap catalog authority".into()))?;
+    authenticate_with(TOOLS, commit, files)
+}
+
+/// Map a compiled workflow pin back to its registry id. Unknown commits have no authority.
+/// Every compiled entry has a distinct pin, so the mapping is unambiguous.
+pub(crate) fn id_for_commit(commit: &str) -> Option<&'static str> {
+    COMPILED
+        .iter()
+        .copied()
+        .find(|id| registry(id).is_some_and(|(pin, _)| pin == commit))
+}
+
+/// Sorted, unique union of the managed paths of every compiled catalog. This is a
+/// safe upper bound for guards that run before any catalog governs the document.
+pub fn all_managed_paths() -> Vec<&'static str> {
+    COMPILED
+        .iter()
+        .filter_map(|id| registry(id))
+        .flat_map(|(_, files)| files.iter().map(|file| file.path))
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
+}
+
 impl AuthenticatedCatalog {
+    /// Sorted, unique repository-relative paths this catalog renders and may own.
+    /// Derived from the same compiled table as [`AuthenticatedCatalog::bootstrap_files`],
+    /// so the declared set and the rendered set cannot diverge.
+    pub fn managed_paths(&self) -> Vec<&'static str> {
+        self.files
+            .iter()
+            .map(|file| file.path)
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect()
+    }
+
     /// Read the embedded catalog tool entries after the catalog authority has been authenticated.
     pub fn tools(&self) -> &BTreeMap<String, Tool> {
         &self.tools
@@ -240,14 +299,14 @@ impl AuthenticatedCatalog {
         toml::to_string_pretty(&lock).map_err(|_| Error::Toml)
     }
 
-    /// Fixed bootstrap file set for an already validated configuration and policy.
+    /// The complete managed file set for an already validated configuration and
+    /// policy, rendered entry by entry from this catalog's compiled table.
     pub(crate) fn bootstrap_files(
         &self,
         config_sha256: &str,
         toolchain: &str,
         policy: &str,
     ) -> Result<BTreeMap<String, String>> {
-        let mut files = self.caller_workflows();
         // Shared boundary: enforce the exact-stable contract here, not only at call sites.
         if !semver::Version::parse(toolchain).is_ok_and(|v| v.pre.is_empty() && v.build.is_empty())
         {
@@ -255,15 +314,21 @@ impl AuthenticatedCatalog {
                 "toolchain must be an exact stable x.y.z version".into(),
             ));
         }
-        files.insert(".armorer/ci-policy.toml".into(), policy.into());
-        files.insert(
-            "armorer.lock".into(),
-            self.lock_for_config_sha256(config_sha256)?,
-        );
-        files.insert(
-            "rust-toolchain.toml".into(),
-            render_template(TOOLCHAIN_TEMPLATE, &[("TOOLCHAIN", toolchain)])?,
-        );
+        let mut files = BTreeMap::new();
+        for file in self.files {
+            let content = match file.source {
+                Source::Caller(template) => self.render_caller(template),
+                Source::Toolchain => {
+                    render_template(TOOLCHAIN_TEMPLATE, &[("TOOLCHAIN", toolchain)])?
+                }
+                Source::Lock => self.lock_for_config_sha256(config_sha256)?,
+                Source::Policy => policy.into(),
+                Source::Fixed(template) => render_template(template, &[])?,
+            };
+            if files.insert(file.path.to_owned(), content).is_some() {
+                return Err(Error::Invalid("duplicate managed path in catalog".into()));
+            }
+        }
         Ok(files)
     }
 
@@ -277,21 +342,40 @@ impl AuthenticatedCatalog {
     /// constants, and `compiled_templates_render_for_every_catalog` renders every
     /// compiled catalog. A failure here is a build defect and fails closed.
     pub fn caller_workflows(&self) -> BTreeMap<String, String> {
+        self.files
+            .iter()
+            .filter_map(|file| match file.source {
+                Source::Caller(template) => {
+                    Some((file.path.to_owned(), self.render_caller(template)))
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Managed files whose bytes depend only on this catalog (no placeholders at all).
+    pub(crate) fn fixed_files(&self) -> Result<BTreeMap<String, String>> {
+        self.files
+            .iter()
+            .filter_map(|file| match file.source {
+                Source::Fixed(template) => {
+                    Some(render_template(template, &[]).map(|text| (file.path.to_owned(), text)))
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Render one caller template with this catalog's compiled workflow pin.
+    fn render_caller(&self, template: &str) -> String {
         let values = [
             ("WORKFLOW_REPOSITORY", self.workflow.repository.as_str()),
             ("WORKFLOW_COMMIT", self.workflow.commit.as_str()),
         ];
-        let mut callers = BTreeMap::new();
-        for (path, template) in [
-            (".github/workflows/armorer-ci.yml", CI_CALLER_TEMPLATE),
-            (".github/workflows/armorer-build.yml", BUILD_CALLER_TEMPLATE),
-        ] {
-            let Ok(text) = render_template(template, &values) else {
-                unreachable!("compiled caller template must render with compiled pins");
-            };
-            callers.insert(path.into(), text);
-        }
-        callers
+        let Ok(text) = render_template(template, &values) else {
+            unreachable!("compiled caller template must render with compiled pins");
+        };
+        text
     }
 
     /// The compiled workflow identity bound to this authenticated catalog.
@@ -303,6 +387,96 @@ impl AuthenticatedCatalog {
 const CI_CALLER_TEMPLATE: &str = include_str!("../catalogs/templates/armorer-ci.yml.tmpl");
 const BUILD_CALLER_TEMPLATE: &str = include_str!("../catalogs/templates/armorer-build.yml.tmpl");
 const TOOLCHAIN_TEMPLATE: &str = include_str!("../catalogs/templates/rust-toolchain.toml.tmpl");
+
+/// How a managed file's bytes are produced. Consuming input selects neither a path
+/// nor a source; both are compiled into the catalog entry.
+#[derive(Debug, Clone, Copy)]
+enum Source {
+    /// Unprivileged caller workflow rendered with the catalog's workflow pin.
+    Caller(&'static str),
+    /// Toolchain file rendered from the exact stable toolchain.
+    Toolchain,
+    /// Target-qualified lock bound to the approved configuration digest.
+    Lock,
+    /// Owner-supplied project policy bytes, carried verbatim.
+    Policy,
+    /// Fixed template text with no placeholders. Only the test-only wide catalog
+    /// uses it today, so production builds construct no such entry.
+    #[cfg_attr(not(feature = "test-predecessor"), allow(dead_code))]
+    Fixed(&'static str),
+}
+
+/// One repository-relative file a catalog renders and may own.
+#[derive(Debug, Clone, Copy)]
+struct ManagedFile {
+    path: &'static str,
+    source: Source,
+}
+
+/// The managed file set of `bootstrap-v2` (and the test-only `bootstrap-v1`), in
+/// sorted path order. This table is the single source of truth for which files a
+/// catalog manages: `bootstrap_files`, `caller_workflows` and `managed_paths` all
+/// derive from it. Adding an entry changes every consumer's plan.
+const BOOTSTRAP_FILES: &[ManagedFile] = &[
+    ManagedFile {
+        path: ".armorer/ci-policy.toml",
+        source: Source::Policy,
+    },
+    ManagedFile {
+        path: ".github/workflows/armorer-build.yml",
+        source: Source::Caller(BUILD_CALLER_TEMPLATE),
+    },
+    ManagedFile {
+        path: ".github/workflows/armorer-ci.yml",
+        source: Source::Caller(CI_CALLER_TEMPLATE),
+    },
+    ManagedFile {
+        path: "armorer.lock",
+        source: Source::Lock,
+    },
+    ManagedFile {
+        path: "rust-toolchain.toml",
+        source: Source::Toolchain,
+    },
+];
+
+/// Clearly fake, test-only workflow pin that gives `bootstrap-test-wide` a distinct
+/// identity for `id_for_commit`. It names no real commit; production builds lack it.
+#[cfg(feature = "test-predecessor")]
+pub const WORKFLOW_COMMIT_TEST_WIDE: &str = "7e577e577e577e577e577e577e577e577e577e57";
+
+#[cfg(feature = "test-predecessor")]
+const MANAGED_NOTE_TEMPLATE: &str = include_str!("../catalogs/templates/armorer-managed.md.tmpl");
+
+/// Test-only `bootstrap-test-wide` (ADR 0013): `bootstrap-v2` plus one fixed file,
+/// proving that a catalog defines its own managed file set end to end.
+#[cfg(feature = "test-predecessor")]
+const TEST_WIDE_FILES: &[ManagedFile] = &[
+    ManagedFile {
+        path: ".armorer/ci-policy.toml",
+        source: Source::Policy,
+    },
+    ManagedFile {
+        path: ".github/armorer-managed.md",
+        source: Source::Fixed(MANAGED_NOTE_TEMPLATE),
+    },
+    ManagedFile {
+        path: ".github/workflows/armorer-build.yml",
+        source: Source::Caller(BUILD_CALLER_TEMPLATE),
+    },
+    ManagedFile {
+        path: ".github/workflows/armorer-ci.yml",
+        source: Source::Caller(CI_CALLER_TEMPLATE),
+    },
+    ManagedFile {
+        path: "armorer.lock",
+        source: Source::Lock,
+    },
+    ManagedFile {
+        path: "rust-toolchain.toml",
+        source: Source::Toolchain,
+    },
+];
 
 /// Render a template with fixed `%%NAME%%` placeholders in one left-to-right pass.
 /// Substituted values are never rescanned, so a value cannot introduce or complete
@@ -461,11 +635,83 @@ mod tests {
         // Registry ids map back to their compiled pins; unknown commits have no authority.
         assert_eq!(id_for_commit(WORKFLOW_COMMIT), Some("bootstrap-v1"));
         assert_eq!(id_for_commit(WORKFLOW_COMMIT_V2), Some("bootstrap-v2"));
+        assert_eq!(
+            id_for_commit(WORKFLOW_COMMIT_TEST_WIDE),
+            Some("bootstrap-test-wide")
+        );
         assert_eq!(id_for_commit(&"a".repeat(40)), None);
         // Substituted or reformatted bytes fail successor authentication too.
         let mut bad = TOOLS.to_vec();
         bad.push(b'\n');
-        assert!(authenticate_with(&bad, WORKFLOW_COMMIT_V2).is_err());
+        assert!(authenticate_with(&bad, WORKFLOW_COMMIT_V2, BOOTSTRAP_FILES).is_err());
+    }
+
+    /// Each compiled table is sorted and unique, its declared paths are exactly the
+    /// keys it renders, and every compiled entry has its own workflow identity.
+    #[test]
+    fn every_compiled_table_declares_exactly_what_it_renders() {
+        let mut pins = BTreeSet::new();
+        for id in compiled_ids() {
+            let (pin, files) = registry(id).unwrap();
+            assert!(pins.insert(pin), "{id}: workflow pin reused");
+            assert_eq!(id_for_commit(pin), Some(*id));
+            assert!(
+                files.windows(2).all(|pair| pair[0].path < pair[1].path),
+                "{id}: table must be sorted and unique"
+            );
+            let catalog = reviewed_for(id).unwrap();
+            let rendered = catalog
+                .bootstrap_files(&"a".repeat(64), "1.95.0", "")
+                .unwrap();
+            let declared = catalog.managed_paths();
+            assert_eq!(
+                rendered.keys().map(String::as_str).collect::<Vec<_>>(),
+                declared,
+                "{id}"
+            );
+            for path in catalog.caller_workflows().keys() {
+                assert!(declared.contains(&path.as_str()), "{id}: {path}");
+            }
+            for path in &declared {
+                assert!(all_managed_paths().contains(path), "{id}: {path}");
+            }
+        }
+        assert!(reviewed_for("bootstrap-v3").is_err());
+    }
+
+    /// The test-only wide catalog is bootstrap-v2 plus exactly one fixed file.
+    #[test]
+    fn test_wide_catalog_is_bootstrap_v2_plus_one_fixed_file() {
+        let v2 = reviewed_v2().unwrap();
+        let wide = reviewed_for("bootstrap-test-wide").unwrap();
+        let mut expected = v2.managed_paths();
+        expected.push(".github/armorer-managed.md");
+        expected.sort_unstable();
+        assert_eq!(wide.managed_paths(), expected);
+        assert_eq!(wide.managed_paths().len(), 6);
+        assert_eq!(v2.managed_paths().len(), 5);
+        assert_eq!(all_managed_paths(), expected);
+        let fixed = wide.fixed_files().unwrap();
+        assert_eq!(fixed.len(), 1);
+        assert_eq!(fixed[".github/armorer-managed.md"], MANAGED_NOTE_TEMPLATE);
+        assert!(v2.fixed_files().unwrap().is_empty());
+        assert_eq!(wide.workflow().commit, WORKFLOW_COMMIT_TEST_WIDE);
+        let inputs = (&"b".repeat(64), "1.95.0", "policy");
+        let mut narrow = wide.bootstrap_files(inputs.0, inputs.1, inputs.2).unwrap();
+        narrow.remove(".github/armorer-managed.md");
+        let v2_files = v2.bootstrap_files(inputs.0, inputs.1, inputs.2).unwrap();
+        assert_eq!(
+            narrow.keys().collect::<Vec<_>>(),
+            v2_files.keys().collect::<Vec<_>>()
+        );
+        // Only the workflow pin differs between the shared files.
+        for (path, text) in &v2_files {
+            assert_eq!(
+                narrow[path],
+                text.replace(WORKFLOW_COMMIT_V2, WORKFLOW_COMMIT_TEST_WIDE),
+                "{path}"
+            );
+        }
     }
 
     #[test]
