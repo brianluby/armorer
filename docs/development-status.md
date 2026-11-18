@@ -24,7 +24,6 @@ Main exposes `check`, `init`, `catalog`, `bootstrap`, `upgrade`, `verify-release
 [historical policy](historical-verification.md) and
 [owned-draft controller](owned-draft-controller-v1.md).
 Version-one apply remains toolchain-only; bootstrap has its own approval contract.
-No `init` command is provided.
 
 ## Reconcile the earlier PRs
 

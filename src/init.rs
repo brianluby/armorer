@@ -355,7 +355,7 @@ pub fn write(
             POLICY_DRAFT_PATH,
             [
                 "armorer-policy.draft.toml was not created; nothing was written or deleted",
-                "armorer-policy.draft.toml exists but its directory sync failed, so it may not be durable; nothing was deleted, so inspect it and move it aside before rerunning init",
+                "armorer-policy.draft.toml exists but init could not confirm it wrote it durably (the write or its directory sync failed); nothing was deleted, so inspect it and move it aside before rerunning init",
                 "armorer-policy.draft.toml may or may not exist; nothing was deleted, so inspect the workspace and move any draft aside before rerunning init",
             ],
             cause,
@@ -367,7 +367,7 @@ pub fn write(
             CONFIG_PATH,
             [
                 "armorer-policy.draft.toml was created but armorer.toml was not; nothing was deleted, so move the draft aside before rerunning init",
-                "armorer-policy.draft.toml and armorer.toml exist but the directory sync failed, so armorer.toml may not be durable; nothing was deleted, so inspect both files before any recovery",
+                "armorer-policy.draft.toml and armorer.toml exist but init could not confirm it wrote armorer.toml durably (the write or its directory sync failed); nothing was deleted, so inspect both files before any recovery",
                 "armorer-policy.draft.toml was created and armorer.toml may or may not exist; nothing was deleted, so inspect both files before any recovery",
             ],
             cause,
