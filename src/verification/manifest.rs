@@ -122,8 +122,9 @@ impl ReleaseInputs {
             "invalid-release-inputs-manifest-digest",
         )?;
         let bytes = io::read_bounded(manifest, MAX_MANIFEST)?;
+        let identity = ByteIdentity::from_bytes(&bytes);
         require(
-            crate::digest(&bytes) == expected_sha256,
+            identity.sha256 == expected_sha256,
             "release-inputs-manifest-digest-mismatch",
         )?;
         let parsed: ReleaseInputsManifest = io::parse(&bytes)?;
@@ -156,7 +157,7 @@ impl ReleaseInputs {
             trusted_root: resolve(base, &parsed.trusted_root)?,
             cyclonedx: resolve(base, &parsed.cyclonedx)?,
             publication,
-            manifest: Some(ByteIdentity::from_bytes(&bytes)),
+            manifest: Some(identity),
         })
     }
 
