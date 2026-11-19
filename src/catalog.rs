@@ -756,11 +756,11 @@ mod tests {
     const V2_GOLDENS: &[(&str, &str)] = &[
         (
             ".github/workflows/armorer-build.yml",
-            "30ff9cbd05cd26659cf7f28274f236762ba2d3fc6518b57cfa7a0d47cc12b715",
+            "38cc52320734c1e870c63b981964d0a7be7446d58ae805b8ad55b4eecbb28f4e",
         ),
         (
             ".github/workflows/armorer-ci.yml",
-            "edfb0ff48f128193445b0f35e2022913a2e0adb71007fb59d8d535cdf4f392c5",
+            "7e18292d04022fce8fdeed06d3ea5bef0ecf45e060e1a79077684d61b25f2c0d",
         ),
         (
             "rust-toolchain.toml",
@@ -770,11 +770,11 @@ mod tests {
     const V1_GOLDENS: &[(&str, &str)] = &[
         (
             ".github/workflows/armorer-build.yml",
-            "d54919c9b41be91ffb665eb631a27aeed4ebb482339a64977a968798645f1ed1",
+            "36ba95e5901bb6fd4542a619d7a0daf7083555365dbfdd27cf8254e4aaaa552e",
         ),
         (
             ".github/workflows/armorer-ci.yml",
-            "2478570952c760df003bd956521b126d936bfc28098797082b2ad30767c005e8",
+            "1b795b1a3a24395ac7005443319af769c95f88cdefbab03ae4788df504cf09cc",
         ),
         (
             "rust-toolchain.toml",
