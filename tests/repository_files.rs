@@ -944,6 +944,30 @@ fn a_file_dropped_by_the_target_catalog_still_blocks_while_a_switched_off_file_i
     assert!(!owned(root.path(), UPGRADE_STATE).contains(&DEPENDABOT.to_owned()));
 }
 
+/// Each ownership file is valid on its own, but a bootstrap-v2 state beside a wide-catalog
+/// upgrade state names an owned file the plan's catalog cannot render: that has no approved
+/// outcome, so inspection fails closed instead of dropping ownership.
+#[test]
+fn an_owned_file_outside_the_plan_catalog_is_refused() {
+    let root = fixture(ALL);
+    provision(root.path());
+    let bootstrap_state = fs::read(root.path().join(BOOTSTRAP_STATE)).unwrap();
+    let wide = preview(root.path(), WIDE).unwrap();
+    upgrade::apply(root.path(), &wide, &wide.plan_sha256).unwrap();
+    assert_eq!(owned(root.path(), UPGRADE_STATE).len(), 9);
+    // Put the earlier bootstrap-v2 owner back beside the upgrade owner.
+    fs::write(root.path().join(BOOTSTRAP_STATE), bootstrap_state).unwrap();
+    let before = snapshot(root.path());
+    let error = inspect(root.path()).unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("an owned managed file is not part of the bootstrap catalog"),
+        "{error}"
+    );
+    assert_eq!(snapshot(root.path()), before);
+}
+
 /// One forged edit of an upgrade plan.
 type PlanMutation = Box<dyn Fn(&mut upgrade::Plan)>;
 

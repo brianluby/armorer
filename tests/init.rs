@@ -871,9 +871,18 @@ fn optional_repository_files_are_proposed_only_where_absent() {
         );
         let detail = repository_files_detail(&proposal);
         assert!(
-            detail.contains("Left off because the file already exists: SECURITY.md"),
+            detail.contains(&format!(
+                "Left off because the file already exists: {existing} (security_policy)."
+            )),
             "{detail}"
         );
+        if existing == "SECURITY.md" {
+            // The primary path keeps the exact text it always had.
+            assert_eq!(
+                detail,
+                "Optional managed files enabled in [repository_files]: .github/dependabot.yml (dependabot). Left off because the file already exists: SECURITY.md (security_policy). Set code_owners to manage .github/CODEOWNERS; owners cannot be inferred."
+            );
+        }
     }
 
     for existing in [".github/dependabot.yml", ".github/dependabot.yaml"] {
@@ -894,7 +903,36 @@ fn optional_repository_files_are_proposed_only_where_absent() {
             detail.starts_with("No optional managed file was enabled."),
             "{detail}"
         );
-        assert!(detail.contains(".github/dependabot.yml (dependabot)"));
+        // The finding names the file that was found, whichever recognized path it is at.
+        assert!(
+            detail.contains(&format!("{existing} (dependabot)")),
+            "{detail}"
+        );
+        if existing == ".github/dependabot.yaml" {
+            assert!(
+                detail.contains(
+                    "SECURITY.md (security_policy) and .github/dependabot.yaml (dependabot)"
+                ),
+                "{detail}"
+            );
+        } else {
+            assert_eq!(
+                detail,
+                "No optional managed file was enabled. Left off because the file already exists: SECURITY.md (security_policy) and .github/dependabot.yml (dependabot). Set code_owners in [repository_files] to manage .github/CODEOWNERS; owners cannot be inferred."
+            );
+        }
+    }
+
+    // Dependabot left off at the alternative path, security policy switched on.
+    {
+        let root = single_binary();
+        fs::create_dir_all(root.path().join(".github")).unwrap();
+        fs::write(root.path().join(".github/dependabot.yaml"), "version: 2\n").unwrap();
+        let detail = repository_files_detail(&propose(root.path(), "example/pilot")).to_owned();
+        assert_eq!(
+            detail,
+            "Optional managed files enabled in [repository_files]: SECURITY.md (security_policy). Left off because the file already exists: .github/dependabot.yaml (dependabot). Set code_owners to manage .github/CODEOWNERS; owners cannot be inferred."
+        );
     }
 
     // The handle-based probe refuses a symlinked policy instead of following it.

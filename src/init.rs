@@ -272,7 +272,7 @@ pub fn propose(root: &Path, repository: &str, toolchain: Option<&str>) -> Result
     }
     findings.push(finding(
         "repository-files-review",
-        repository_files.detail(),
+        &repository_files.detail(),
     ));
     if exists(&root, POLICY_DRAFT_PATH)? {
         findings.push(finding(
@@ -455,41 +455,51 @@ const DEPENDABOT_PATHS: [&str; 2] = [".github/dependabot.yml", ".github/dependab
 struct ProposedRepositoryFiles {
     security_policy: bool,
     dependabot: bool,
+    /// The recognized path that was found, when the switch was left off.
+    existing_security_policy: &'static str,
+    existing_dependabot: &'static str,
 }
 
 impl ProposedRepositoryFiles {
-    /// Fixed finding text naming what was enabled and what was left off; no value echoed.
-    fn detail(&self) -> &'static str {
+    /// Finding text naming what was enabled and what was left off. Only compiled path
+    /// constants appear in it; no file content or configuration value is echoed.
+    fn detail(&self) -> String {
+        let security = self.existing_security_policy;
+        let dependabot = self.existing_dependabot;
         match (self.security_policy, self.dependabot) {
             (true, true) => {
-                "Optional managed files enabled in [repository_files]: SECURITY.md (security_policy) and .github/dependabot.yml (dependabot). None was left off. Set code_owners to manage .github/CODEOWNERS; owners cannot be inferred."
+                "Optional managed files enabled in [repository_files]: SECURITY.md (security_policy) and .github/dependabot.yml (dependabot). None was left off. Set code_owners to manage .github/CODEOWNERS; owners cannot be inferred.".to_owned()
             }
-            (true, false) => {
-                "Optional managed files enabled in [repository_files]: SECURITY.md (security_policy). Left off because the file already exists: .github/dependabot.yml (dependabot). Set code_owners to manage .github/CODEOWNERS; owners cannot be inferred."
-            }
-            (false, true) => {
-                "Optional managed files enabled in [repository_files]: .github/dependabot.yml (dependabot). Left off because the file already exists: SECURITY.md (security_policy). Set code_owners to manage .github/CODEOWNERS; owners cannot be inferred."
-            }
-            (false, false) => {
-                "No optional managed file was enabled. Left off because the file already exists: SECURITY.md (security_policy) and .github/dependabot.yml (dependabot). Set code_owners in [repository_files] to manage .github/CODEOWNERS; owners cannot be inferred."
-            }
+            (true, false) => format!(
+                "Optional managed files enabled in [repository_files]: SECURITY.md (security_policy). Left off because the file already exists: {dependabot} (dependabot). Set code_owners to manage .github/CODEOWNERS; owners cannot be inferred."
+            ),
+            (false, true) => format!(
+                "Optional managed files enabled in [repository_files]: .github/dependabot.yml (dependabot). Left off because the file already exists: {security} (security_policy). Set code_owners to manage .github/CODEOWNERS; owners cannot be inferred."
+            ),
+            (false, false) => format!(
+                "No optional managed file was enabled. Left off because the file already exists: {security} (security_policy) and {dependabot} (dependabot). Set code_owners in [repository_files] to manage .github/CODEOWNERS; owners cannot be inferred."
+            ),
         }
     }
 }
 
 /// Probe the existing files through held directory handles; a symlink is refused.
 fn propose_repository_files(root: &Path) -> Result<ProposedRepositoryFiles> {
-    let any = |paths: &[&str]| -> Result<bool> {
+    let first = |paths: &[&'static str]| -> Result<Option<&'static str>> {
         for path in paths {
             if exists(root, path)? {
-                return Ok(true);
+                return Ok(Some(*path));
             }
         }
-        Ok(false)
+        Ok(None)
     };
+    let security = first(&SECURITY_POLICY_PATHS)?;
+    let dependabot = first(&DEPENDABOT_PATHS)?;
     Ok(ProposedRepositoryFiles {
-        security_policy: !any(&SECURITY_POLICY_PATHS)?,
-        dependabot: !any(&DEPENDABOT_PATHS)?,
+        security_policy: security.is_none(),
+        dependabot: dependabot.is_none(),
+        existing_security_policy: security.unwrap_or(SECURITY_POLICY_PATHS[0]),
+        existing_dependabot: dependabot.unwrap_or(DEPENDABOT_PATHS[0]),
     })
 }
 

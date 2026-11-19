@@ -15,6 +15,10 @@ for path in sorted((ROOT / "examples").rglob("armorer.toml")):
     if path not in paths:
         positive(checks["config"], document(path), str(path))
         count += 1
+# The verify-release inputs manifest example is the only JSON file under release-inputs.
+manifest = ROOT / "examples/release-inputs/manifest.example.json"
+positive(checks["release-inputs-manifest"], document(manifest), str(manifest))
+count += 1
 base = ROOT / "examples/trust-v1/linux-cli"
 cases = [
     ("verification-policy", "custom predicate", lambda x: x["signers"][0].update(predicate="https://attacker.invalid/custom"), "enum", ["signers", 0, "predicate"]),
@@ -41,5 +45,5 @@ rejection(checks["lock"], lock, "overflowed version", lambda x: x.update(schema_
 inventory = document(base / "release-inventory.json")
 rejection(checks["release-inventory"], inventory, "overflowed run id", lambda x: x["inputs"]["run"].update(id=2**64), "maximum", ["inputs", "run", "id"])
 negative = len(cases) + 8
-coverage("contract examples", count, negative, 60, 17)
+coverage("contract examples", count, negative, 61, 17)
 print(f"{len(checks)} schemas checked; {count} positive examples; {negative} structural rejections")
