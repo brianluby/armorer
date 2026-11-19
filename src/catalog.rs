@@ -932,6 +932,47 @@ mod tests {
         assert!(reviewed_for("bootstrap-v3").is_err());
     }
 
+    /// Only an optional entry whose switch is off is releasable; the result is sorted and
+    /// unique, and everything else in `owned` is ignored (ADR 0015).
+    #[test]
+    fn releasable_is_only_optional_switched_off_sorted_unique() {
+        let v2 = reviewed_v2().unwrap();
+        let owned = [
+            "SECURITY.md",
+            ".github/dependabot.yml",
+            "unlisted/outside-catalog.md",
+            ".github/workflows/armorer-ci.yml",
+            "rust-toolchain.toml",
+            "SECURITY.md",
+            ".github/CODEOWNERS",
+            ".github/dependabot.yml",
+        ];
+        // Everything off: the three optional paths, sorted, duplicates collapsed; the
+        // path outside the maximal set and the always-managed paths never appear.
+        assert_eq!(
+            v2.releasable(&OFF, owned),
+            [
+                ".github/CODEOWNERS",
+                ".github/dependabot.yml",
+                "SECURITY.md"
+            ]
+        );
+        // A switch that is on keeps its file out of the result.
+        let partial = RepositoryFiles {
+            security_policy: true,
+            ..RepositoryFiles::default()
+        };
+        assert_eq!(
+            v2.releasable(&partial, owned),
+            [".github/CODEOWNERS", ".github/dependabot.yml"]
+        );
+        assert!(v2.releasable(&all_on(), owned).is_empty());
+        assert!(
+            v2.releasable(&OFF, ["unlisted/outside-catalog.md"])
+                .is_empty()
+        );
+    }
+
     /// The test-only wide catalog is bootstrap-v2 plus exactly one fixed file.
     #[test]
     fn test_wide_catalog_is_bootstrap_v2_plus_one_fixed_file() {
