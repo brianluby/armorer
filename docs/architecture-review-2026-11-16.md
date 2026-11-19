@@ -3,26 +3,32 @@
 Reviewed at `caf7b89` (branch `claude/rust-setup-architecture-review-c722d8`).
 This is guidance for continued development, not a release qualification.
 
-## Follow-up status (origin/main `292e9b6`, 2026-11-18)
+## Follow-up status (origin/main `d18135c`, 2026-11-19)
 
 - **Done:** S1, S2, S3 and S7 (PR #39); A4 (ADR 0012; PRs #46, #47 and #48);
   S8 (PR #51); S4 and F5 (PR #52); A3 (PR #53); S5 (PR #54); F1 (PR #56);
-  A2 (PR #58, ADR 0013); the `sha2` 0.11 bump (PRs #59 and #45). There are now
-  25 schemas.
+  A2 (PR #58, ADR 0013); the `sha2` 0.11 bump (PRs #59 and #45); S6 (PRs #55
+  and #64: every managed read, write, removal and directory creation goes
+  through directory handles; the read-only discovery walk is still
+  path-based); A6 (PR #57 adds `--format text`, PR #65 adds the release-inputs
+  manifest); A7 (PR #62, ADR 0014). There are now 26 schemas.
 - **Partly done:** A1 (PR #49 shares the journaled write and restore core;
   bootstrap and upgrade still each own their journal format, validation, and
-  commit and cleanup error handling, so it is not yet one engine). S6 (PR #55
-  covers `lock`, `replace` and managed reads;
-  directory creation, file removal and the configuration readers are still
-  path-based). A6 (PR #57 adds `--format text`; the manifest file for the
-  `verify-release` and `publication` flags is not built). F4 (the drift check
-  runs in Armorer's own CI; adopters get no scheduled caller).
-- **Not started:** A5, A7, F2, F3, F6, F7, F8, and the Go and Python adapters.
+  commit and cleanup error handling, so it is not yet one engine). F2 (PRs #66
+  and #67, ADR 0015: optional `SECURITY.md`, `CODEOWNERS` and
+  `dependabot.yml`, released when switched off; `[lints]` defaults are not
+  built, and an existing hand-written file cannot be imported). F4 (the drift
+  check runs in Armorer's own CI; adopters get no scheduled check, and the
+  reusable CI workflow accepts no `schedule` trigger).
+- **Not started:** A5, F3, F6, F7, F8, and the Go and Python adapters.
 - **Gaps found while landing the above:** a CI run for a commit on `main` can be
-  cancelled when merges arrive faster than CI finishes; the live-GitHub
-  publication test fails if a merge to `main` lands while it runs; a downgrade
-  to a catalog with a narrower file set is a blocking conflict with no
-  supported path except rollback.
+  cancelled when merges arrive faster than CI finishes (fixed for
+  `development.yml` in PR #63; the provisioned callers still share one group
+  per branch); a file that a catalog successor drops, including a downgrade to
+  a narrower file set, is a blocking conflict with no supported path except
+  rollback; the macOS Developer ID check calls Apple's notarization service
+  and can fail without a code cause. The live-GitHub publication test now
+  retries when the repository changes mid-observation (PRs #61 and #68).
 - **Repository settings:** private vulnerability reporting, Dependabot security
   updates and secret scanning with push protection are enabled.
 
@@ -397,9 +403,15 @@ the Go adapter has proven the boundary.
 13. Go adapter; then Python (CI and hardening first).
 14. F3 online preflight, Apple signing, S6 directory-handle I/O, A6 CLI ergonomics.
 
-## Open decisions for the owner
+## Owner decisions (2026-11-19)
 
-- Is the Rust library a supported public API, or is only the binary supported?
-- Should Python CLI and service deliverables be in scope at all?
-- Is GitHub the only forge for the foreseeable future? The publication and
-  capability code assumes it throughout.
+The review left three questions open. The owner answered them on 2026-11-19.
+
+- **The Rust library is a supported public API**, not only the binary. Its
+  public surface therefore becomes part of what the 0.1.0 tag freezes
+  (ADR 0012). Not yet done: a review of what the crate exports, and a check
+  that catches an incompatible change to it.
+- **Python deliverables are in scope.** They follow the Go adapter, CI and
+  hardening first, as in the sequence above.
+- **GitHub is the only forge for now.** The publication and capability code
+  may keep assuming it.
