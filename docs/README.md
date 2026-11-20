@@ -70,7 +70,10 @@ Use [the source map](development-status.md) and [documentation coverage](documen
 for the current guide boundary. The [support-policy draft](support-policy-draft.md)
 prepares the missing maintenance/deprecation decision without promising a window.
 
-Design decisions live in [the ADR directory](adr/).
+Design decisions live in [the ADR directory](adr/). The library's exported surface
+is inventoried in [the public API inventory](public-api-inventory.md), and
+[ADR 0016](adr/0016-library-is-a-supported-public-api.md) proposes the rule that
+protects it.
 Review receipts and rehearsal evidence are retained outside the repository; see
 [the contributor note](../CONTRIBUTING.md#review-receipts-and-rehearsal-evidence)
 for where they live and how to read the earlier tracked copies. The
