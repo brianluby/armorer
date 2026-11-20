@@ -9,7 +9,7 @@ id = "armorer-cli"
 profile = "cli"
 package = "armorer"
 binary = "armorer"
-targets = ["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu", "aarch64-apple-darwin"]
+targets = ["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"]
 feature_set = "baseline"
 
 [feature_sets.baseline]
