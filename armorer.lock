@@ -1,5 +1,5 @@
 schema_version = 1
-config_sha256 = "03c6fa14657886d9973e9d1eef3a2a80342f353c37a1521297171c8028025c8f"
+config_sha256 = "b188b30076071698566f3e84772479a41fdae64749c26f7a3a8ef231b0cfd429"
 runtime_version = "0.1.0"
 
 [workflows]

@@ -63,6 +63,9 @@ required. The native controller still blocks writes until every required gate is
 Enforced and a separate publication approval is supplied; the two current-attempt
 gates are now observable through the pinned controller's attempt-bound deployment
 (PR32), while a settings-only inspect still reports them unsupported.
+The owner decided on 2026-11-19 that the first release, 0.1.0, is Linux-only.
+Apple finalization and Apple parity are deferred to a later release and no longer
+gate 0.1.0; the Apple code stays in the tree and stays tested.
 No SLSA level, publication or completed release rehearsal is inferred from CI.
 
 Use the [acceptance ledger](v01-acceptance.md) for each ticket's exact gate and
