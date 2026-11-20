@@ -9,6 +9,11 @@ provides a current read-only inspection and the remaining acceptance sequence.
 Development CI, external genuine signature fixtures and synthetic profile tests
 do not establish an own complete signed release rehearsal.
 
+Armorer's own first release, 0.1.0, is Linux-only by the owner's 2026-11-19
+decision, and its `armorer.toml` lists only the two Linux targets. Read the macOS
+and Apple steps below as deferred to a later release. The training config in the
+example below keeps its three targets.
+
 ## Inspect an isolated source copy
 
 From this documentation checkout, use the main-command binary built as described
