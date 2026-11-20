@@ -407,10 +407,13 @@ the Go adapter has proven the boundary.
 
 The review left three questions open. The owner answered them on 2026-11-19.
 
-- **The Rust library is a supported public API**, not only the binary. Its
-  public surface therefore becomes part of what the 0.1.0 tag freezes
-  (ADR 0012). Not yet done: a review of what the crate exports, and a check
-  that catches an incompatible change to it.
+- **The Rust library is a supported public API**, not only the binary. This
+  decision is the source of that commitment: ADR 0012 covers document IDs and
+  versions only and says nothing about crate exports. From the 0.1.0 tag an
+  incompatible change to an exported item needs a version that signals it.
+  Not yet done: a review of what the crate exports, a check that catches an
+  incompatible change to it, and a record in an ADR and in the 0.1.0 release
+  notes, so that a release reviewer following ADR 0012 does not miss it.
 - **Python deliverables are in scope.** They follow the Go adapter, CI and
   hardening first, as in the sequence above.
 - **GitHub is the only forge for now.** The publication and capability code
