@@ -16,7 +16,7 @@ keep. It changes no code.
 - Main finding: the surface follows the binary and the tests, not a design. Only 66 of 217 items are named by `src/main.rs`; 71 exist for tests alone.
 - All 38 public enums and all 93 structs with public fields are exhaustive; the crate has no `#[non_exhaustive]`. Any later field or variant is an incompatible change (section 3).
 - `Error` is an exhaustive 11-variant enum with free-text `String` payloads (section 4).
-- Pinned third-party versions and digests are exported as constants (section 5). Freezing them would make every tool bump a breaking change.
+- Pinned third-party versions and digests are exported as constants (section 5). Changing a constant's value does not break compilation, so it is not an incompatible change under Cargo's rules; whether callers may rely on the values is a contract decision for the owner.
 - A binary and an integration test are separate crates, so `restrict` below cannot be done with `pub(crate)` alone for the 71 + 16 items they use; see "Reading the tables".
 
 ## Method
@@ -67,7 +67,7 @@ Data types that mirror a versioned document (`schemas/*.json`) are `keep` here, 
 | Item | Kind | Users | Recommendation |
 | --- | --- | --- | --- |
 | `WORKFLOW_REPOSITORY`, `WORKFLOW_COMMIT_V2`, `TOOLS_SHA256` | const x3 | tests | restrict: a repository name, a pinned commit and a digest that change with each catalog revision |
-| `RUNTIME_VERSION` | const | none | restrict: the string `"0.1.0"`, tied to the crate version by hand |
+| `RUNTIME_VERSION` | const | none | restrict: the runtime contract the catalogs freeze (`"0.1.0"`). It is not the crate version: patch releases keep it, so a catalog renders the same lock bytes across a patch line (`src/runtime.rs`) |
 | `CATALOG_REVIEWED_ON`, `REVIEW_WINDOW_DAYS` | const x2 | bin, tests | restrict: freshness policy for the CLI warning |
 | `Freshness` (4 public fields), `freshness_at`, `freshness_now`, `stale_warning`, `with_review_blocker` | struct, function x4 | bin (not `freshness_at`, `Freshness`), tests | restrict: CLI reporting |
 | `AuthenticatedCatalog` (opaque; methods `managed_paths`, `selected_paths`, `tools`, `render_lock`, `caller_workflows`), `reviewed_v2` | struct, function | bin | keep |
@@ -85,7 +85,7 @@ Data types that mirror a versioned document (`schemas/*.json`) are `keep` here, 
 | `load` | function | tests | keep |
 | `utc_day`, `parse_at` | function x2 | tests | restrict: `parse_at` takes the current day as a parameter for tests |
 
-## `armorer::config` (23 items)
+## `armorer::config` (19 items)
 
 | Item | Kind | Users | Recommendation |
 | --- | --- | --- | --- |
@@ -185,7 +185,7 @@ Public trait implementations are also part of the contract. Of the 148 structs a
 
 ## 5. Unintended or risky to freeze
 
-- **Pinned third-party versions and digests as constants.** `catalog::TOOLS_SHA256`, `catalog::WORKFLOW_COMMIT_V2`, `catalog::WORKFLOW_REPOSITORY`, `catalog::RUNTIME_VERSION` (`"0.1.0"`, hand-synchronized with `Cargo.toml`), `catalog::CATALOG_REVIEWED_ON` and `REVIEW_WINDOW_DAYS`, `verification::cyclonedx::{VALIDATOR_VERSION, VALIDATOR_SOURCE}` and `verification::sigstore::VERIFIER_VERSION`. They change on every reviewed bump; as exports each bump is an incompatible change, or a rule is needed that exempts them.
+- **Pinned third-party versions and digests as constants.** `catalog::TOOLS_SHA256`, `catalog::WORKFLOW_COMMIT_V2`, `catalog::WORKFLOW_REPOSITORY`, `catalog::RUNTIME_VERSION` (`"0.1.0"`, the frozen runtime contract, which patch releases keep and which is not the crate version), `catalog::CATALOG_REVIEWED_ON` and `REVIEW_WINDOW_DAYS`, `verification::cyclonedx::{VALIDATOR_VERSION, VALIDATOR_SOURCE}` and `verification::sigstore::VERIFIER_VERSION`. Most of these change with a reviewed bump. Changing a value keeps the `&str` signature and compiles for every caller, so it is not an incompatible change under Cargo's rules; it is a behavioral change that needs the maintainer's judgment. The decision for the owner is what the values promise: exported as "the current reviewed pin", they may move in any release; a caller must not treat one as fixed. `RUNTIME_VERSION` and the document identifiers are different: their values are already governed by the runtime rule and ADR 0012.
 - **Test-only items behind a feature.** `catalog::{reviewed, WORKFLOW_COMMIT, WORKFLOW_COMMIT_TEST_WIDE}` exist for migration tests (ADR 0012 rule 3). The dev-dependency `armorer = { path = ".", features = ["test-predecessor"] }` turns the feature on for `cargo test` only. A downstream user who enables `test-predecessor` gets a surface the docs call test-only, so the feature name itself is exposed.
 - **The `fuzzing` feature.** `armorer::fuzzing` is `#[doc(hidden)]` and compiled only with `--features fuzzing`; its 7 functions (`ci_policy`, `config_toml`, `http_response`, `lock_toml`, `sigstore_bundle`, `trust_json`, `verification_json`) exist for `fuzz/`. `doc(hidden)` does not remove them from Cargo's compatibility rules. The `fuzz/` crate depends on the feature; no one else should.
 - **Internal file names and contract identifiers.** `init::{CONFIG_PATH, POLICY_DRAFT_PATH, CONTRACT, SCHEMA_VERSION}`, `manifest::{CONTRACT, MAX_MANIFEST}`, `inventory::{INVENTORY_NAME, INVENTORY_BUNDLE_NAME}`, `context::FEATURE_CONTEXT_NAME`, `native::MAX_NATIVE_MEMBER`, `config::{VERSION, MAX_CODE_OWNERS, TARGETS}`. The `.armorer/` state, journal and ownership paths are `pub(crate)` and not exported.

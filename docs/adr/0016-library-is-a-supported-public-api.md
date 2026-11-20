@@ -19,8 +19,10 @@ type alias), with 118 public methods, 548 public fields on 93 structs and 167 en
 variants beneath them. Features add 10 more items. Only 66 items are named by the
 binary and 71 by tests alone; 80 are named by neither. No enum and no struct is
 `#[non_exhaustive]`, and `Error` is an exhaustive 11-variant enum. Several
-constants pin third-party tool versions and digests that change with every
-reviewed bump.
+constants pin third-party tool versions and digests whose values move with a
+reviewed bump. A changed value still compiles for every caller, so it is a
+behavioral change for the maintainer to judge, not an incompatible change under
+Cargo's rules.
 
 There is no tagged release, no known external caller and no check that notices a
 change to the surface. Cargo treats a removed or changed public item as an
@@ -55,7 +57,12 @@ incompatible change, so each export is a promise once 0.1.0 is tagged.
 No option is implemented by this ADR. Each needs a decision from the owner.
 
 - **(a) `cargo-semver-checks` in CI against a baseline revision.** It detects
-  signature, field, variant and trait changes, not only names. Cost: a third-party
+  removed and renamed items, added fields and variants, and many signature and
+  trait changes, not only names. It does not detect every incompatible change:
+  its documentation has listed a changed parameter type or field type as not
+  yet covered, so changing a public parameter from `u32` to `u64` can pass.
+  A passing check is therefore not evidence that such a change is safe; review
+  stays required, and the limits must be read for the pinned version. Cost: a third-party
   tool joins a supply chain this project is strict about. Every tool is pinned by
   version, URL and SHA-256 in `catalogs/bootstrap-tools-v1.json`, authenticated
   through `catalog::TOOLS_SHA256` in `src/catalog.rs`, and reviewed on a window.
@@ -63,7 +70,10 @@ No option is implemented by this ADR. Each needs a decision from the owner.
   reliance on rustdoc JSON ties it to a toolchain version, which must be checked
   against the pinned 1.95.0 (`rust-toolchain.toml`); that has not been verified.
   Needs from the owner: approval of the tool as a pinned dependency, and the
-  baseline (the 0.1.0 tag; before it there is nothing to compare with).
+  baseline. Before 0.1.0 there is nothing to compare with. After it, each
+  release is checked against a previously released version that the owner
+  selects, normally the latest; a baseline fixed at 0.1.0 would miss an export
+  added in one later release and removed in the next.
 - **(b) A committed, generated snapshot of the surface that a test compares
   against.** Cheap to run and reviewable in a diff. A complete snapshot needs
   rustdoc JSON, which needs a nightly toolchain (`-Z unstable-options`) and whose
@@ -81,9 +91,10 @@ No option is implemented by this ADR. Each needs a decision from the owner.
 
 **Recommendation.** Use (c) and the inventory until the tag, because the surface
 is being reduced on purpose and a baseline would only record churn. Adopt (a) at
-the tag, with the 0.1.0 tag as the baseline and the tool pinned in the catalog
-like the others. Prefer (a) over (b): it checks signatures and needs no committed
-snapshot to keep in step. If the owner will not add a tool, take (b) with a
+the tag, with the 0.1.0 tag as the first baseline, the previous release as the
+baseline from then on, and the tool pinned in the catalog like the others.
+Prefer (a) over (b): it checks more than names and needs no committed snapshot
+to keep in step. Keep review beside it for the changes it does not detect. If the owner will not add a tool, take (b) with a
 pinned nightly. This recommendation depends on the unverified toolchain
 compatibility above.
 
