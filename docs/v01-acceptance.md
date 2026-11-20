@@ -8,8 +8,10 @@ also preserve the original goal's scope amendments. No SLSA level is claimed.
 
 **Owner decision, 2026-11-19.** The first release, 0.1.0, is Linux-only. Apple
 signing, notarization and Apple parity are deferred to a later release and no
-longer gate 0.1.0. Apple support stays in the code and stays tested. The rows
-below are unchanged; read any Apple requirement in them as deferred.
+longer gate 0.1.0. Apple support stays in the code and stays tested. The
+evidence in the rows below is as it was recorded. One gate statement, in the
+#10 C5 row, was reworded to say Apple parity is deferred; read any other Apple
+requirement in the rows as deferred too.
 
 ## Human-accepted integrations
 

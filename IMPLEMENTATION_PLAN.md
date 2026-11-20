@@ -23,7 +23,7 @@ These local maps do not replace live tracker acceptance.
 
 **Future-version backlog:** L3 assessment and gap closure are deferred and unscheduled, following the user's scope decision on 2026-09-30. They are not part of v0.1, do not block its release, and require no current effort reservation. The previous 3–7 day assessment estimate is historical planning context only; re-estimate assessment and actual gap closure if a future version selects this work. Extra OCI/crates.io/Windows/distribution adapters and deeper hardening also get scoped follow-ups.
 
-The recommended initial targets are native Linux x86_64/ARM64 and macOS ARM64. Windows/musl, containers, deployments, arbitrary custom shell hooks, automatic GitHub administration, arbitrary source hosting and general package-manager installers are beyond v0.1. Library package validation and GitHub-attested .crate archives are included; native crates.io publication is a separate OIDC adapter. CI-only adoption is explicitly useful for unsupported private repositories but does not satisfy secure-release acceptance.
+The targets Armorer supports for adopters are native Linux x86_64/ARM64 and macOS ARM64. Armorer's own 0.1.0 release ships the two Linux targets only, by the owner decision above; macOS ARM64 follows in a later release. Windows/musl, containers, deployments, arbitrary custom shell hooks, automatic GitHub administration, arbitrary source hosting and general package-manager installers are beyond v0.1. Library package validation and GitHub-attested .crate archives are included; native crates.io publication is a separate OIDC adapter. CI-only adoption is explicitly useful for unsupported private repositories but does not satisfy secure-release acceptance.
 
 ## Reviewable slices and ownership
 
