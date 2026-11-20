@@ -84,6 +84,46 @@ contents read. Neither exposes shell, inputs, custom provenance, OIDC, signing
 credentials, environments or inherited secrets. Existing custom workflows/jobs
 stay separate; this renderer does not write or adopt files.
 
+Both callers key their concurrency group by `github.ref` for pull requests and by
+`github.sha` for every other event. GitHub keeps at most one pending run per group
+and cancels the older pending run when a newer one queues, even with
+`cancel-in-progress: false`; a per-ref group therefore dropped queued push runs
+during bursts of merges. With one group per commit, a queued run for one commit is
+never replaced by another commit's run. Pull requests keep one group per ref and
+cancel superseded runs. The build caller also keeps `cancel-in-progress: false`.
+
+## Changing a template
+
+Before 0.1.0 a template is changed in place (ADR 0012). The change alters the bytes
+every consumer would get, so the golden digests in `src/catalog.rs` and the committed
+example packets must move with it (see `CONTRIBUTING.md`).
+
+The ownership state records the exact caller bytes it wrote, and it must equal what the
+catalog renders. After a template change, a repository that already has bootstrap
+state no longer loads. Re-provision it once through the tool:
+
+1. Save a copy of the state file and of every owned file, including the policy file,
+   outside the repository. Compare the SHA-256 of each owned file with the `sha256`
+   the state records for it. If any differs, stop: the file has a local edit that
+   re-provisioning would discard, and it needs its own review first. Keep the copies
+   until step 6 passes.
+2. Build Armorer from the branch with the changed template.
+3. Remove the state file and every owned file from the working tree. Do this before
+   planning: a file that already exists with identical bytes would stay unowned.
+4. Run `armorer bootstrap plan` with the saved policy copy and write the plan outside
+   the repository. Read it. It must create exactly the files that were owned, change
+   nothing else, and report no conflict and no release.
+5. Run `armorer bootstrap apply` with that plan and its digest passed separately.
+6. Check that the non-caller owned files match their saved copies, that the new
+   state lists the same managed paths, that only the callers and `last_plan_sha256`
+   differ from the saved state, and that `armorer check` exits 0. If a check fails,
+   restore the saved copies and investigate before trying again.
+
+Never edit the state file by hand.
+
+After 0.1.0 a template change arrives only as a new catalog, applied with
+`armorer upgrade`.
+
 ## Managed file set
 
 Each compiled catalog entry declares its own managed file set as one ordered table

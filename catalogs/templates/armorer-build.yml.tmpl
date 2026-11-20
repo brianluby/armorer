@@ -7,7 +7,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: armorer-build-${{ github.workflow }}-${{ github.ref }}
+  group: armorer-build-${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
   cancel-in-progress: false
 
 jobs:
