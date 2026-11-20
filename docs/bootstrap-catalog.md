@@ -102,18 +102,22 @@ The ownership state records the exact caller bytes it wrote, and it must equal w
 catalog renders. After a template change, a repository that already has bootstrap
 state no longer loads. Re-provision it once through the tool:
 
-1. Record the SHA-256 of every owned file that is not a caller, and save a copy of the
-   state file and of the policy file outside the repository.
+1. Save a copy of the state file and of every owned file, including the policy file,
+   outside the repository. Compare the SHA-256 of each owned file with the `sha256`
+   the state records for it. If any differs, stop: the file has a local edit that
+   re-provisioning would discard, and it needs its own review first. Keep the copies
+   until step 6 passes.
 2. Build Armorer from the branch with the changed template.
-3. Remove the state file and every owned file from the working tree. Do this first: a
-   file that already exists with identical bytes would stay unowned.
+3. Remove the state file and every owned file from the working tree. Do this before
+   planning: a file that already exists with identical bytes would stay unowned.
 4. Run `armorer bootstrap plan` with the saved policy copy and write the plan outside
    the repository. Read it. It must create exactly the files that were owned, change
    nothing else, and report no conflict and no release.
 5. Run `armorer bootstrap apply` with that plan and its digest passed separately.
-6. Check that the non-caller owned files have their recorded digests, that the new
+6. Check that the non-caller owned files match their saved copies, that the new
    state lists the same managed paths, that only the callers and `last_plan_sha256`
-   differ from the saved state, and that `armorer check` exits 0.
+   differ from the saved state, and that `armorer check` exits 0. If a check fails,
+   restore the saved copies and investigate before trying again.
 
 Never edit the state file by hand.
 
