@@ -116,6 +116,32 @@ while you keep a hand-written file, or remove that file through your own reviewe
 change before switching it on. The content is fixed: there is no template input,
 and `dependabot.yml` cannot carry extra ecosystems. Customizations conflict.
 
+To adopt a path where you already keep a hand-written file: move your file aside
+in your own reviewed commit, turn the switch on, review and apply the plan, then
+merge anything you still need from your old file back in a second reviewed
+commit. Armorer never imports or merges these files (ADR 0015); the conflict is
+the fail-closed boundary, and the two-commit dance is the supported path.
+
+## Recommended lint defaults (owner-applied)
+
+Cargo has no include mechanism for `[lints]`; the table must live inline in the
+consuming `Cargo.toml`, and Armorer never edits that file. Paste this block once
+into your workspace root (and `lints.workspace = true` in each member) as your
+own reviewed change — the same defaults Armorer enforces on itself:
+
+```toml
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = "warn"
+```
+
+Then run `cargo clippy --all-targets --all-features -- -D warnings` in CI; the
+provisioned Armorer CI callers already run clippy with `-D warnings`, so these
+defaults turn every clippy lint into a gate. Armorer does not manage, check or
+drift-detect this block; it is yours.
+
 Turning a switch off after Armorer owns the file releases it. The plan lists the
 path in `released`, and the text view says the file is kept and no longer
 managed. `check` and `bootstrap check` exit 2 with `release:<path>` until you
