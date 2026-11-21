@@ -16,8 +16,11 @@ This is guidance for continued development, not a release qualification.
   bootstrap and upgrade still each own their journal format, validation, and
   commit and cleanup error handling, so it is not yet one engine). F2 (PRs #66
   and #67, ADR 0015: optional `SECURITY.md`, `CODEOWNERS` and
-  `dependabot.yml`, released when switched off; `[lints]` defaults are not
-  built, and an existing hand-written file cannot be imported). F4 (the drift
+  `dependabot.yml`, released when switched off. Owner decisions 2026-11-19
+  close the remainder: `[lints]` ships as an owner-applied snippet in
+  bootstrap-v2.md (Cargo has no lints include; Armorer never edits the
+  consuming Cargo.toml), and hand-written files stay non-importable — the
+  documented move-aside/adopt/re-merge path is the supported answer). F4 (the drift
   check runs in Armorer's own CI; adopters get no scheduled check, and the
   reusable CI workflow accepts no `schedule` trigger).
 - **Not started:** A5, F3, F6, F7, F8, and the Go and Python adapters.
