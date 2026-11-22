@@ -638,13 +638,23 @@ impl NativeGithub {
     }
     /// Issue only compiled create/upload/publish operations, after the controller's private approval/gate boundary.
     fn write(&self, method: &str, endpoint: String, body: &[u8], binary: bool) -> Result<Vec<u8>> {
+        let mut input = tempfile::NamedTempFile::new_in(self.workspace.path())?;
+        input.write_all(body)?;
+        input.as_file().sync_all()?;
+        self.write_input(method, endpoint, input, binary)
+    }
+    /// Send one already-staged private input file; the body never passes through memory twice.
+    fn write_input(
+        &self,
+        method: &str,
+        endpoint: String,
+        input: tempfile::NamedTempFile,
+        binary: bool,
+    ) -> Result<Vec<u8>> {
         require(
             self.token.is_some() && self.owner_home.is_none(),
             "read-only-publication-client",
         )?;
-        let mut input = tempfile::NamedTempFile::new_in(self.workspace.path())?;
-        input.write_all(body)?;
-        input.as_file().sync_all()?;
         let args = vec![
             "api".into(),
             endpoint,
@@ -726,19 +736,23 @@ impl Backend for NativeGithub {
     /// Upload a frozen file through the fixed upload authority; never use clobber, provider URLs or deletion.
     fn upload(&mut self, id: u64, name: &str, path: &Path) -> Result<RemoteAsset> {
         require(asset_name(name) && id > 0, "publication-upload-route")?;
-        let bytes = io::read_bounded(path, 1024 * 1024 * 1024)?;
-        let result = self.write(
+        // Stream the frozen file into the private CLI input while hashing it once;
+        // peak memory stays at the copy block size, never the asset size.
+        let mut input = tempfile::NamedTempFile::new_in(self.workspace.path())?;
+        let identity = io::stream_into(path, 1024 * 1024 * 1024, input.as_file_mut())?;
+        input.as_file().sync_all()?;
+        let result = self.write_input(
             "POST",
             format!(
                 "https://uploads.github.com/repos/{}/releases/{id}/assets?name={name}",
                 self.repository
             ),
-            &bytes,
+            input,
             true,
         )?;
         let asset = parse_asset(&io::parse::<Value>(&result)?)?;
         require(
-            asset.name == name && asset.bytes == ByteIdentity::from_bytes(&bytes),
+            asset.name == name && asset.bytes == identity,
             "publication-upload-result-substitution",
         )?;
         Ok(asset)
@@ -1246,6 +1260,24 @@ mod tests {
             update_payload(&mut value);
             assert!(check(&value, &frozen, &served).is_err());
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    /// The streamed upload identity equals the whole-buffer identity it replaced,
+    /// and the size gate still refuses an oversized asset before any upload.
+    fn streamed_upload_identity_matches_buffered_identity_and_size_gate() {
+        let work = private_workspace("armorer-upload-stream-").unwrap();
+        let asset = work.path().join("asset.bin");
+        let bytes: Vec<u8> = (0..3_145_728_u32).map(|i| (i % 251) as u8).collect();
+        fs::write(&asset, &bytes).unwrap();
+        let mut input = tempfile::NamedTempFile::new_in(work.path()).unwrap();
+        let identity = io::stream_into(&asset, 1024 * 1024 * 1024, input.as_file_mut()).unwrap();
+        input.as_file().sync_all().unwrap();
+        assert_eq!(identity, ByteIdentity::from_bytes(&bytes));
+        assert_eq!(fs::read(input.path()).unwrap(), bytes);
+        // The bound is enforced by the shared streaming loop, not a second read.
+        assert!(io::stream_into(&asset, 1024, input.as_file_mut()).is_err());
     }
     #[test]
     /// Exit status or an unsigned lookalike statement cannot substitute for verified result, SAN and timestamps.
