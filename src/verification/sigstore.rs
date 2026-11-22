@@ -677,10 +677,19 @@ impl Default for Limits {
 }
 struct Running(Child);
 impl Running {
-    /// Kill and reap the verifier process after a timeout, failure or cleanup.
+    /// Kill and reap the verifier without ever blocking on an unkillable child.
+    /// A D-state process cannot be reaped until the kernel releases it; the
+    /// deadline must hold regardless, so reaping is polled, never a blocking wait.
     fn stop(&mut self) {
         let _ = self.0.kill();
-        let _ = self.0.wait();
+        let deadline = Instant::now() + Duration::from_millis(200);
+        loop {
+            match self.0.try_wait() {
+                Ok(Some(_)) | Err(_) => return,
+                Ok(None) if Instant::now() >= deadline => return,
+                Ok(None) => std::thread::sleep(Duration::from_millis(5)),
+            }
+        }
     }
 }
 impl Drop for Running {
@@ -709,13 +718,17 @@ pub(super) fn run_process_status(mut command: Command, limits: Limits) -> Result
     let stderr = running.0.stderr.take().ok_or(Error::Json)?;
     let (sender, receiver) = mpsc::channel();
     let stdout_sender = sender.clone();
-    std::thread::scope(|scope| {
-        scope.spawn(move || {
-            let _ = stdout_sender.send((true, capture(stdout, limits.stdout)));
-        });
-        scope.spawn(move || {
-            let _ = sender.send((false, capture(stderr, limits.stderr)));
-        });
+    // Detached readers: a grandchild can inherit the pipe write-ends and keep a
+    // reader blocked long after the direct child died. Scoped threads would join
+    // them past the deadline; detached readers are abandoned instead. Their pipes
+    // close when this function's locals drop, and any late send is ignored.
+    std::thread::spawn(move || {
+        let _ = stdout_sender.send((true, capture(stdout, limits.stdout)));
+    });
+    std::thread::spawn(move || {
+        let _ = sender.send((false, capture(stderr, limits.stderr)));
+    });
+    {
         let started = Instant::now();
         let mut out = None;
         let mut err = None;
@@ -757,7 +770,7 @@ pub(super) fn run_process_status(mut command: Command, limits: Limits) -> Result
             running.stop();
         }
         outcome
-    })
+    }
 }
 /// Read only the limit plus one byte and fail when a child stream exceeds its cap.
 fn capture(mut stream: impl Read, limit: usize) -> Result<Vec<u8>> {
@@ -1111,10 +1124,14 @@ mod tests {
             "while :; do :; done",
             "while :; do printf '0123456789'; done",
             "while :; do printf '0123456789' >&2; done",
+            // The direct child exits immediately but a background grandchild keeps the
+            // inherited pipe write-ends open; the deadline must still hold.
+            "( while :; do :; done ) & exit 0",
+            "( while :; do printf '0123456789'; done ) & exit 0",
         ] {
             let started = Instant::now();
             assert!(run_process(command(script), limits).is_err());
-            assert!(started.elapsed() < Duration::from_secs(3));
+            assert!(started.elapsed() < Duration::from_secs(3), "{script}");
         }
     }
 }

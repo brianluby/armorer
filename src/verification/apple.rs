@@ -128,7 +128,13 @@ impl VerifiedAppleRelease {
             let workspace = crate::filesystem::private_tempdir("armorer-apple-native-", None)?;
             let path = workspace.path().join("payload.macho");
             io::write_readonly(&path, &binary)?;
-            let timestamp = native(&path, &binary, team, &assertions.certificate_sha256)?;
+            let timestamp = native(
+                &path,
+                &binary,
+                team,
+                &assertions.certificate_sha256,
+                started + Duration::from_secs(20 * 60),
+            )?;
             require(
                 sign.started_at <= timestamp
                     && timestamp <= sign.finished_at
@@ -425,7 +431,13 @@ fn signature<'a>(binary: &'a [u8], expected_team: &str) -> Result<Signature<'a>>
 
 #[cfg(not(target_os = "macos"))]
 /// A required native check cannot be simulated on Linux or replaced by producer assertions.
-fn native(_path: &Path, _binary: &[u8], _team: &str, _certificate: &str) -> Result<u64> {
+fn native(
+    _path: &Path,
+    _binary: &[u8],
+    _team: &str,
+    _certificate: &str,
+    _deadline: Instant,
+) -> Result<u64> {
     Err(invalid("native-apple-verification-unsupported-platform"))
 }
 
@@ -468,7 +480,13 @@ fn check_online_notarization(path: &Path, requirement: &str) -> Result<()> {
 
 #[cfg(target_os = "macos")]
 /// Validate the frozen file through Apple APIs, then bind authenticated CMS timestamp and leaf identity.
-fn native(path: &Path, binary: &[u8], team: &str, certificate: &str) -> Result<u64> {
+fn native(
+    path: &Path,
+    binary: &[u8],
+    team: &str,
+    certificate: &str,
+    deadline: Instant,
+) -> Result<u64> {
     use core_foundation::url::CFURL;
     use security_framework::{
         cms::CMSDecoder,
@@ -493,6 +511,9 @@ fn native(path: &Path, binary: &[u8], team: &str, certificate: &str) -> Result<u
     // kSecCSAllowNetworkAccess is the documented SDK bit 16; the pinned binding omits its name.
     let flags =
         Flags::STRICT_VALIDATE | Flags::CHECK_ALL_ARCHITECTURES | Flags::from_bits_retain(1 << 16);
+    // In-process Security.framework calls cannot be interrupted; refuse to start
+    // one when the stage budget is already spent, and bound the wait after each.
+    require(Instant::now() < deadline, "apple-native-stage-expired")?;
     code.check_validity(flags, &requirement)
         .map_err(|_| invalid("apple-developer-id-signature-invalid"))?;
     let signature = signature(binary, team)?;
@@ -541,11 +562,13 @@ fn native(path: &Path, binary: &[u8], team: &str, certificate: &str) -> Result<u
     let notarized_requirement = expected + " and notarized";
     // The requirement interpreter consults the local ticket store. The documented codesign
     // option first requests an online lookup; its success alone never grants this proof.
+    require(Instant::now() < deadline, "apple-native-stage-expired")?;
     ByteIdentity::from_bytes(binary).matches(&io::read_bounded(path, MAX_BINARY as u64)?)?;
     check_online_notarization(path, &notarized_requirement)?;
     ByteIdentity::from_bytes(binary).matches(&io::read_bounded(path, MAX_BINARY as u64)?)?;
     let notarized = SecRequirement::from_str(&notarized_requirement)
         .map_err(|_| invalid("apple-notarization-requirement-unsupported"))?;
+    require(Instant::now() < deadline, "apple-native-stage-expired")?;
     code.check_validity(flags, &notarized)
         .map_err(|_| invalid("apple-notarization-ticket-missing-or-invalid"))?;
     ByteIdentity::from_bytes(binary).matches(&io::read_bounded(path, MAX_BINARY as u64)?)?;
@@ -848,12 +871,33 @@ mod tests {
         assert!(String::from_utf8_lossy(&metadata.stderr).contains("adhoc,runtime"));
         assert!(check_online_notarization(&path, "notarized").is_err());
         let bytes = io::read_bounded(&path, MAX_BINARY as u64).unwrap();
-        let error = native(&path, &bytes, "FIXTURE123", &"0".repeat(64)).unwrap_err();
+        let error = native(
+            &path,
+            &bytes,
+            "FIXTURE123",
+            &"0".repeat(64),
+            Instant::now() + Duration::from_secs(60),
+        )
+        .unwrap_err();
         assert_eq!(
             error.to_string(),
             invalid("apple-developer-id-signature-invalid").to_string()
         );
         assert_eq!(io::read_bounded(&path, MAX_BINARY as u64).unwrap(), bytes);
+        // An already-spent stage budget refuses before any Security.framework call,
+        // so a network stall inside check_validity cannot extend the 20-minute budget.
+        let error = native(
+            &path,
+            &bytes,
+            "FIXTURE123",
+            &"0".repeat(64),
+            Instant::now() - Duration::from_secs(1),
+        )
+        .unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            invalid("apple-native-stage-expired").to_string()
+        );
         // The compiled fixture is never executed; '-' uses no Developer ID certificate or keychain secret.
     }
 
@@ -878,19 +922,38 @@ mod tests {
         io::write_readonly(&path, &bytes).unwrap();
         let certificate = "912d20cb0e38fc959b701cbbbfc4aced91d04c4d78c67dd4ac1ef1fcc80f7952";
         assert_eq!(
-            native(&path, &bytes, "DVH6X33J83", certificate).unwrap(),
+            native(
+                &path,
+                &bytes,
+                "DVH6X33J83",
+                certificate,
+                Instant::now() + Duration::from_secs(60)
+            )
+            .unwrap(),
             1_790_809_791
         );
         assert_eq!(
-            native(&path, &bytes, "FIXTURE123", certificate)
-                .unwrap_err()
-                .to_string(),
+            native(
+                &path,
+                &bytes,
+                "FIXTURE123",
+                certificate,
+                Instant::now() + Duration::from_secs(60)
+            )
+            .unwrap_err()
+            .to_string(),
             invalid("apple-developer-id-signature-invalid").to_string()
         );
         assert_eq!(
-            native(&path, &bytes, "DVH6X33J83", &"0".repeat(64))
-                .unwrap_err()
-                .to_string(),
+            native(
+                &path,
+                &bytes,
+                "DVH6X33J83",
+                &"0".repeat(64),
+                Instant::now() + Duration::from_secs(60)
+            )
+            .unwrap_err()
+            .to_string(),
             invalid("apple-cms-leaf-certificate-mismatch").to_string()
         );
         let mut tampered = bytes.clone();
@@ -898,9 +961,15 @@ mod tests {
         let changed = directory.path().join("tampered.macho");
         io::write_readonly(&changed, &tampered).unwrap();
         assert_eq!(
-            native(&changed, &tampered, "DVH6X33J83", certificate)
-                .unwrap_err()
-                .to_string(),
+            native(
+                &changed,
+                &tampered,
+                "DVH6X33J83",
+                certificate,
+                Instant::now() + Duration::from_secs(60)
+            )
+            .unwrap_err()
+            .to_string(),
             invalid("apple-developer-id-signature-invalid").to_string()
         );
         assert_eq!(io::read_bounded(&path, MAX_BINARY as u64).unwrap(), bytes);

@@ -189,6 +189,12 @@ pub(crate) fn identity(path: &Path, max: u64) -> Result<ByteIdentity> {
     stream_hash(path, max, None)
 }
 
+/// Stream the bounded file into an already-open private destination while hashing it once.
+/// The caller owns the destination's lifetime and durability; no partial identity is returned.
+pub(crate) fn stream_into(path: &Path, max: u64, writer: &mut File) -> Result<ByteIdentity> {
+    stream_hash(path, max, Some(writer))
+}
+
 /// One size-gated streaming SHA-256 loop shared by snapshot and identity, so the
 /// security gate cannot diverge between the two copies.
 fn stream_hash(path: &Path, max: u64, mut writer: Option<&mut File>) -> Result<ByteIdentity> {
